@@ -22,6 +22,7 @@ extern void cross(double* cross, const double* v0, const double* v1);
 extern void normal2(const double* points, int i0, int i1, int i2);
 extern void normal3(const double* points, int i0, int i1, int i2, int i3);
 extern void normal4(const double* points, int i0, int i1, int i2, int i3, int i4);
+extern void init_selection();
 
 double* DK_map_noise_at_index(int x, int y, int z, int k) {
     return &map_noise[((k * 3 + z) * 3 + y) * (DK_map_size + 1) + x];
@@ -31,6 +32,19 @@ double DK_get_noise(double x, double y, double z, int k) {
     int i = (int) round((x * 2) / DK_BLOCK_SIZE),
             j = (int) round((y * 2) / DK_BLOCK_SIZE),
             l = (int) round((z * 2) / DK_BLOCK_HEIGHT);
+    // Wrap for off-the-grid terrain (rocks outside actual map)
+    while (i < 0) {
+        i += DK_map_size;
+    }
+    while (i > DK_map_size * 2 + 1) {
+        i -= DK_map_size * 2;
+    }
+    while (j < 0) {
+        j += DK_map_size;
+    }
+    while (j > DK_map_size * 2 + 1) {
+        j -= DK_map_size * 2;
+    }
     return *DK_map_noise_at_index(i, j, l, k);
 }
 
@@ -50,6 +64,8 @@ void DK_init_map(unsigned int size) {
             }
         }
     }
+
+    init_selection();
 
 #if DK_D_CACHE_NOISE
     free(map_noise);
@@ -198,7 +214,7 @@ void DK_get_vertex(double* v, const double* points, int point) {
     const double* p = &points[point * 3];
 #if DK_D_TERRAIN_NOISE
     double offset[2] = {0, 0};
-#if DK_D_FACTOR_NOISE
+#if DK_D_USE_NOISE_OFFSET
     const double factor = DK_noise_factor(offset, p[0] / DK_BLOCK_SIZE, p[1] / DK_BLOCK_SIZE);
 #else
     const double factor = 1.0;
@@ -226,10 +242,6 @@ void DK_get_vertex(double* v, const double* points, int point) {
     v[1] = p[1];
     v[2] = p[2];
 #endif
-}
-
-unsigned int DK_variation(double x, double y, double z) {
-    return (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
 }
 
 void DK_set_point(const double* points, int point) {
@@ -263,7 +275,8 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
     int ni = 0;
 #endif
 
-    const GLuint tex = DK_opengl_texture(texture, DK_variation(points[0], points[1], points[2]));
+    const unsigned int variation = (unsigned int) ((snoise2(points[0], points[1] + points[2]) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
+    const GLuint tex = DK_opengl_texture(texture, variation);
     glBindTexture(GL_TEXTURE_2D, tex);
     glBegin(GL_QUAD_STRIP);
     {
@@ -443,18 +456,6 @@ void DK_render_map() {
     int y_begin = (int) (DK_camera_position()[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA / 2 + DK_RENDER_OFFSET;
     int x_end = x_begin + DK_RENDER_AREA;
     int y_end = y_begin + DK_RENDER_AREA;
-    if (x_begin < 0) {
-        x_begin = 0;
-    }
-    if (y_begin < 0) {
-        y_begin = 0;
-    }
-    if (x_end > DK_map_size) {
-        x_end = DK_map_size;
-    }
-    if (y_end > DK_map_size) {
-        y_end = DK_map_size;
-    }
     int x, y;
     for (x = x_begin; x < x_end; ++x) {
         float x_coord = x * (DK_BLOCK_SIZE);
@@ -462,51 +463,73 @@ void DK_render_map() {
         for (y = y_begin; y < y_end; ++y) {
             float y_coord = y * (DK_BLOCK_SIZE);
 
-            const DK_Block* block = &map[x + y * DK_map_size];
+            // Reset tint color.
+            glColor3f(1.0f, 1.0f, 1.0f);
 
             DK_Texture texture_top, texture_side, texture_top_wall = 0, texture_top_owner = 0;
             int top;
-            if (block->type == DK_BLOCK_NONE) {
-                // Render floor.
-                top = 0;
-                if (block->owner == DK_PLAYER_NONE) {
+            if (x < 0 || y < 0 || x >= DK_map_size || y >= DK_map_size) {
+
+                // Invalidate this in select mode.
+                glLoadName(0);
+
+                // Solid rock when out of bounds.
+                top = DK_BLOCK_HEIGHT;
+                texture_top = DK_TEX_ROCK_TOP;
+                texture_side = DK_TEX_ROCK_SIDE;
+            } else {
+                const DK_Block* block = &map[x + y * DK_map_size];
+
+                // Mark for select mode, push pointer to that block.
+                glLoadName((GLuint) block);
+
+                // Selected by the local player?
+                if (DK_block_selected(DK_PLAYER_RED, x, y)) {
+                    glColor3f(0.8f, 0.8f, 1.0f);
+                }
+
+                if (block->type == DK_BLOCK_NONE) {
+                    // Render floor.
+                    top = 0;
+                    if (block->owner == DK_PLAYER_NONE) {
+                        texture_top = DK_TEX_DIRT_FLOOR;
+                    } else {
+                        texture_top = DK_TEX_FLOOR;
+                        texture_top_owner = DK_TEX_OWNER_RED;
+                    }
+                } else if (block->type == DK_BLOCK_WATER ||
+                        block->type == DK_BLOCK_LAVA) {
+                    top = -DK_WATER_LEVEL;
                     texture_top = DK_TEX_DIRT_FLOOR;
                 } else {
-                    texture_top = DK_TEX_FLOOR;
-                    texture_top_owner = DK_TEX_OWNER_RED;
-                }
-            } else if (block->type == DK_BLOCK_WATER ||
-                    block->type == DK_BLOCK_LAVA) {
-                top = -DK_WATER_LEVEL;
-                texture_top = DK_TEX_DIRT_FLOOR;
-            } else {
-                // Render block top.
-                top = DK_BLOCK_HEIGHT;
-                switch (block->type) {
-                    case DK_BLOCK_DIRT:
-                        if (block->owner == DK_PLAYER_NONE) {
-                            // Normal dirt block.
-                            texture_top = DK_TEX_DIRT_TOP;
-                            texture_side = DK_TEX_DIRT_SIDE;
-                        } else {
-                            // It's a wall.
-                            texture_top = DK_TEX_DIRT_TOP;
-                            texture_top_wall = DK_TEX_WALL_TOP_NESW;
-                            texture_top_owner = DK_TEX_OWNER_RED;
-                            texture_side = DK_TEX_DIRT_SIDE;
-                        }
-                        break;
-                    case DK_BLOCK_GOLD:
-                        continue;
-                        break;
-                    case DK_BLOCK_GEM:
-                        continue;
-                        break;
-                    case DK_BLOCK_ROCK:
-                        // Solid rock, cannot be owned.
-                        texture_top = DK_TEX_ROCK_TOP;
-                        texture_side = DK_TEX_ROCK_SIDE;
-                        break;
+                    // Render block top.
+                    top = DK_BLOCK_HEIGHT;
+                    switch (block->type) {
+                        case DK_BLOCK_DIRT:
+                            if (block->owner == DK_PLAYER_NONE) {
+                                // Normal dirt block.
+                                texture_top = DK_TEX_DIRT_TOP;
+                                texture_side = DK_TEX_DIRT_SIDE;
+                            } else {
+                                // It's a wall.
+                                texture_top = DK_TEX_DIRT_TOP;
+                                texture_top_wall = DK_TEX_WALL_TOP_NESW;
+                                texture_top_owner = DK_TEX_OWNER_RED;
+                                texture_side = DK_TEX_DIRT_SIDE;
+                            }
+                            break;
+                        case DK_BLOCK_GOLD:
+                            continue;
+                            break;
+                        case DK_BLOCK_GEM:
+                            continue;
+                            break;
+                        case DK_BLOCK_ROCK:
+                            // Solid rock, cannot be owned.
+                            texture_top = DK_TEX_ROCK_TOP;
+                            texture_side = DK_TEX_ROCK_SIDE;
+                            break;
+                    }
                 }
             }
 
@@ -674,4 +697,17 @@ void DK_render_map() {
             }
         }
     }
+}
+
+DK_Block* DK_as_block(void* ptr, int* x, int* y) {
+    if (ptr >= (void*) map && ptr < (void*) (map + DK_map_size * DK_map_size)) {
+        unsigned int offset = ptr - (void*) map;
+        if (offset % sizeof (DK_Block) == 0) {
+            offset = (DK_Block*) ptr - map;
+            *x = offset % DK_map_size;
+            *y = offset / DK_map_size;
+        }
+        return (DK_Block*) ptr;
+    }
+    return NULL;
 }

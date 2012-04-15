@@ -90,25 +90,26 @@
 // Debugging
 ///////////////////////////////////////////////////////////////////////////////
 
+/** Draw surface normals */
 #define DK_D_DRAW_NORMALS 0
+
+/** Use test texture instead of actual textures */
 #define DK_D_DRAW_TEST_TEXTURE 0
+
+/** Actually do compute surface normals */
 #define DK_D_COMPUTE_NORMALS 1
+
+/** Use terrain noise */
 #define DK_D_TERRAIN_NOISE 1
-#define DK_D_FACTOR_NOISE 1
+
+/** Factor in surroundings for terrain noise (empty blocks, owned blocks) */
+#define DK_D_USE_NOISE_OFFSET 1
+
+/** Highlight vertices that use offsetting due to nearby blocks */
 #define DK_D_DRAW_NOISE_FACTOR 0
-#define DK_D_CACHE_NOISE 0
 
-#define DK_LIGHT_AMBIENT_TOP 0.9f
-#define DK_LIGHT_AMBIENT_NORTH 1.0f
-#define DK_LIGHT_AMBIENT_SOUTH 0.2f
-#define DK_LIGHT_AMBIENT_EAST 0.4f
-#define DK_LIGHT_AMBIENT_WEST 0.7f
-
-const GLfloat DK_global_ambient_top[4];
-const GLfloat DK_global_ambient_north[4];
-const GLfloat DK_global_ambient_south[4];
-const GLfloat DK_global_ambient_east[4];
-const GLfloat DK_global_ambient_west[4];
+/** Cache the global noise instead of recomputing it on the fly */
+#define DK_D_CACHE_NOISE 1
 
 #endif	/* CONFIG_H */
 

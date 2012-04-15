@@ -58,6 +58,8 @@ int main(int argc, char** argv) {
         DK_events();
         DK_update();
         DK_render();
+
+        SDL_GL_SwapBuffers();
     }
 
     return EXIT_SUCCESS;
@@ -76,6 +78,10 @@ void DK_init() {
     atexit(SDL_Quit);
 
     // Set up OpenGL related settings.
+    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 5);
+    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 5);
+    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 5);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     if (DK_USE_ANTIALIASING) {
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
@@ -120,7 +126,7 @@ void DK_init() {
 
 void DK_init_gl() {
     // Clear to black.
-    glClearColor(0, 0.3f, 0.5f, 0);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClearDepth(1.0f);
 
     // Define our viewport as the size of our window.
@@ -129,7 +135,7 @@ void DK_init_gl() {
     // Set our projection matrix to match our viewport.
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(80.0, DK_ASPECT_RATIO, 1.0, 1000.0);
+    gluPerspective(80.0, DK_ASPECT_RATIO, 0.1, 1000.0);
 
     // Initialize the model/view matrix.
     glMatrixMode(GL_MODELVIEW);
@@ -150,22 +156,92 @@ void DK_init_gl() {
     glShadeModel(GL_SMOOTH);
 
     // Create light components
-    GLfloat ambientLight[] = {0.2f, 0.1f, 0.1f, 1.0f};
-    GLfloat diffuseLight[] = {0.8f, 0.6f, 0.4f, 1.0f};
+    GLfloat ambientLight[] = {0.2f, 0.2f, 0.2f, 1.0f};
+    GLfloat diffuseLight[] = {1.0f, 0.9f, 0.8f, 1.0f};
     GLfloat specularLight[] = {0.0f, 0.0f, 0.0f, 1.0f};
 
     // Assign created components to GL_LIGHT0
-    glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight);
+    //glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight);
     glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseLight);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
+    //glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
 
     glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.0f);
     glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.0025f);
 
     glEnable(GL_LIGHT0);
 
+    //Add directed light
+    GLfloat lightColor1[] = {0.4f, 0.2f, 0.2f, 1.0f};
+    GLfloat lightPos1[] = {-1.0f, 0.5f, 0.5f, 0.0f};
+    glLightfv(GL_LIGHT1, GL_DIFFUSE, lightColor1);
+    glLightfv(GL_LIGHT1, GL_POSITION, lightPos1);
+    glEnable(GL_LIGHT1);
+
+    GLfloat fog_color[] = {0.0f, 0.0f, 0.0f, 1.0f};
+    glFogi(GL_FOG_MODE, GL_LINEAR);
+    glFogfv(GL_FOG_COLOR, fog_color);
+    glFogf(GL_FOG_DENSITY, 0.1f);
+    glHint(GL_FOG_HINT, GL_DONT_CARE);
+    glFogf(GL_FOG_START, DK_CAMERA_HEIGHT);
+    glFogf(GL_FOG_END, DK_CAMERA_HEIGHT + DK_BLOCK_SIZE * 4);
+    glEnable(GL_FOG);
+
     // Load all textures we may need.
     DK_opengl_textures();
+}
+
+GLuint DK_pick(int x, int y) {
+    GLuint buffer[64] = {0};
+
+    glSelectBuffer(sizeof (buffer), buffer);
+    glRenderMode(GL_SELECT);
+    glInitNames();
+    glPushName(0);
+
+    // Now modify the viewing volume, restricting selection area around the cursor
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+
+    // Restrict the draw to an area around the cursor.
+    {
+        GLint view[4];
+        glGetIntegerv(GL_VIEWPORT, view);
+        gluPickMatrix(x, y, 1.0, 1.0, view);
+        gluPerspective(80.0, DK_ASPECT_RATIO, 0.1, 1000.0);
+
+        DK_render();
+    }
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+
+    GLint hits = glRenderMode(GL_RENDER);
+
+    GLuint closest = 0;
+    unsigned int hit, depth = UINT32_MAX;
+    for (hit = 0; hit < hits; ++hit) {
+        if (buffer[hit * 4 + 3] && buffer[hit * 4 + 2] < depth) {
+            closest = buffer[hit * 4 + 3];
+            depth = buffer[hit * 4 + 1];
+        }
+    }
+    return closest;
+}
+
+void DK_click(int x, int y) {
+    // Find the world object we clicked on.
+    const GLuint object = DK_pick(x, DK_RESOLUTION_Y - y);
+    
+    if (object) {
+        // See if it's a block.
+        unsigned int block_x, block_y;
+        DK_Block* block = DK_as_block((void*)object, &block_x, &block_y);
+        if (block) {
+            // Yes, if it's a non-empty one, toggle selection.
+            DK_block_select(DK_PLAYER_RED, block_x, block_y);
+            return;
+        }
+    }
 }
 
 void DK_events() {
@@ -215,6 +291,9 @@ void DK_events() {
                     case SDL_BUTTON_WHEELDOWN:
                         DK_camera_zoom_out();
                         break;
+                    case SDL_BUTTON_LEFT:
+                        DK_click(event.button.x, event.button.y);
+                        break;
                 }
         }
     }
@@ -224,7 +303,7 @@ void DK_update() {
     DK_update_camera();
 
     // Wait to get a constant frame rate.
-    SDL_Delay(16);
+    SDL_Delay(10);
 }
 
 void DK_render() {
@@ -239,11 +318,8 @@ void DK_render() {
             DK_camera_position()[0], DK_camera_position()[1] + DK_CAMERA_TARGET_DISTANCE, 0,
             0, 0, 1);
 
-    GLfloat light_position[] = { 160 - 24, 160 - 24, 20, 1};
+    GLfloat light_position[] = {160 - 24, 160 - 24, 20, 1};
     glLightfv(GL_LIGHT0, GL_POSITION, light_position);
 
     DK_render_map();
-
-    // Display what we painted.
-    SDL_GL_SwapBuffers();
 }

@@ -15,7 +15,9 @@ typedef enum {
     DK_PLAYER_BLUE,
     DK_PLAYER_GREEN,
     DK_PLAYER_YELLOW,
-    DK_PLAYER_WHITE
+    DK_PLAYER_WHITE,
+
+    DK_PLAYER_COUNT //< Number of possible values, used for array init.
 } DK_Player;
 
 #endif	/* PLAYERS_H */
