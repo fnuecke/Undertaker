@@ -77,7 +77,7 @@ void DK_block_select(DK_Player player, unsigned int x, unsigned int y);
 void DK_block_deselect(DK_Player player, unsigned int x, unsigned int y);
 
 /** Checks if the specified block is selected by the specified player */
-int DK_block_selected(DK_Player player, unsigned int x, unsigned int y);
+int DK_block_is_selected(DK_Player player, unsigned int x, unsigned int y);
 
 #ifdef	__cplusplus
 }

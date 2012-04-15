@@ -202,7 +202,7 @@ static double noise_factor(double* offset, double x, double y) {
 #undef DK_NLT
 
 /** Get the actual vertex for a "clean" world coordinate (point) */
-static void DK_get_vertex(double* v, const double* points, int point) {
+static void get_vertex(double* v, const double* points, int point) {
     const double* p = &points[point * 3];
 #if DK_D_TERRAIN_NOISE
     double offset[2] = {0, 0};
@@ -237,8 +237,8 @@ static void DK_get_vertex(double* v, const double* points, int point) {
 }
 
 /** Set a vertex in opengl */
-inline static void gl_set_vertex(const double* points, int point) {
-    DK_get_vertex(last_vertex, points, point);
+inline static void set_vertex(const double* points, int point) {
+    get_vertex(last_vertex, points, point);
     glVertex3dv(last_vertex);
 }
 
@@ -252,9 +252,9 @@ inline static void cross(double* cross, const double* v0, const double* v1) {
 /** Gets normal for a vertex (two neighboring vertices) */
 static void normal2(const double* points, int i0, int i1, int i2) {
     double p0[3], p1[3], p2[3];
-    DK_get_vertex(p0, points, i0);
-    DK_get_vertex(p1, points, i1);
-    DK_get_vertex(p2, points, i2);
+    get_vertex(p0, points, i0);
+    get_vertex(p1, points, i1);
+    get_vertex(p2, points, i2);
     const double a[] = {
         p1[0] - p0[0],
         p1[1] - p0[1],
@@ -280,10 +280,10 @@ static void normal2(const double* points, int i0, int i1, int i2) {
 /** Gets normal for a vertex (three neighboring vertices) */
 static void normal3(const double* points, int i0, int i1, int i2, int i3) {
     double p0[3], p1[3], p2[3], p3[3];
-    DK_get_vertex(p0, points, i0);
-    DK_get_vertex(p1, points, i1);
-    DK_get_vertex(p2, points, i2);
-    DK_get_vertex(p3, points, i3);
+    get_vertex(p0, points, i0);
+    get_vertex(p1, points, i1);
+    get_vertex(p2, points, i2);
+    get_vertex(p3, points, i3);
     const double a[] = {
         p1[0] - p0[0],
         p1[1] - p0[1],
@@ -319,11 +319,11 @@ static void normal3(const double* points, int i0, int i1, int i2, int i3) {
 /** Gets normal for a vertex (four neighboring vertices) */
 static void normal4(const double* points, int i0, int i1, int i2, int i3, int i4) {
     double p0[3], p1[3], p2[3], p3[3], p4[3];
-    DK_get_vertex(p0, points, i0);
-    DK_get_vertex(p1, points, i1);
-    DK_get_vertex(p2, points, i2);
-    DK_get_vertex(p3, points, i3);
-    DK_get_vertex(p4, points, i4);
+    get_vertex(p0, points, i0);
+    get_vertex(p1, points, i1);
+    get_vertex(p2, points, i2);
+    get_vertex(p3, points, i3);
+    get_vertex(p4, points, i4);
     const double a[] = {
         p1[0] - p0[0],
         p1[1] - p0[1],
@@ -398,7 +398,7 @@ static void DK_draw_4quad(DK_Texture texture, double* points) {
         normal2(points, 0, 3, 1);
 #endif
         glTexCoord2d(0, 0);
-        gl_set_vertex(points, 0);
+        set_vertex(points, 0);
 
         DK_D_SAVE_NORMALS();
 
@@ -406,7 +406,7 @@ static void DK_draw_4quad(DK_Texture texture, double* points) {
         normal3(points, 3, 4, 1, 0);
 #endif
         glTexCoord2d(0, 0.5);
-        gl_set_vertex(points, 3);
+        set_vertex(points, 3);
 
         DK_D_SAVE_NORMALS();
 
@@ -414,7 +414,7 @@ static void DK_draw_4quad(DK_Texture texture, double* points) {
         normal4(points, 1, 0, 3, 4, 2);
 #endif
         glTexCoord2d(0.5, 0);
-        gl_set_vertex(points, 1);
+        set_vertex(points, 1);
 
         DK_D_SAVE_NORMALS();
 
@@ -422,7 +422,7 @@ static void DK_draw_4quad(DK_Texture texture, double* points) {
         normal4(points, 4, 5, 2, 1, 3);
 #endif
         glTexCoord2d(0.5, 0.5);
-        gl_set_vertex(points, 4);
+        set_vertex(points, 4);
 
         DK_D_SAVE_NORMALS();
 
@@ -430,7 +430,7 @@ static void DK_draw_4quad(DK_Texture texture, double* points) {
         normal3(points, 2, 1, 4, 5);
 #endif
         glTexCoord2d(1, 0);
-        gl_set_vertex(points, 2);
+        set_vertex(points, 2);
 
         DK_D_SAVE_NORMALS();
 
@@ -438,7 +438,7 @@ static void DK_draw_4quad(DK_Texture texture, double* points) {
         normal2(points, 5, 2, 4);
 #endif
         glTexCoord2d(1, 0.5);
-        gl_set_vertex(points, 5);
+        set_vertex(points, 5);
 
         DK_D_SAVE_NORMALS();
     }
@@ -477,7 +477,7 @@ static void DK_draw_4quad(DK_Texture texture, double* points) {
         normal2(points, 3, 6, 4);
 #endif
         glTexCoord2d(0, 0.5);
-        gl_set_vertex(points, 3);
+        set_vertex(points, 3);
 
         DK_D_SAVE_NORMALS();
 
@@ -485,7 +485,7 @@ static void DK_draw_4quad(DK_Texture texture, double* points) {
         normal3(points, 6, 7, 4, 3);
 #endif
         glTexCoord2d(0, 1);
-        gl_set_vertex(points, 6);
+        set_vertex(points, 6);
 
         DK_D_SAVE_NORMALS();
 
@@ -493,7 +493,7 @@ static void DK_draw_4quad(DK_Texture texture, double* points) {
         normal4(points, 4, 3, 6, 7, 5);
 #endif
         glTexCoord2d(0.5, 0.5);
-        gl_set_vertex(points, 4);
+        set_vertex(points, 4);
 
         DK_D_SAVE_NORMALS();
 
@@ -501,7 +501,7 @@ static void DK_draw_4quad(DK_Texture texture, double* points) {
         normal4(points, 7, 8, 5, 4, 6);
 #endif
         glTexCoord2d(0.5, 1);
-        gl_set_vertex(points, 7);
+        set_vertex(points, 7);
 
         DK_D_SAVE_NORMALS();
 
@@ -509,7 +509,7 @@ static void DK_draw_4quad(DK_Texture texture, double* points) {
         normal3(points, 5, 4, 7, 8);
 #endif
         glTexCoord2d(1, 0.5);
-        gl_set_vertex(points, 5);
+        set_vertex(points, 5);
 
         DK_D_SAVE_NORMALS();
 
@@ -517,7 +517,7 @@ static void DK_draw_4quad(DK_Texture texture, double* points) {
         normal2(points, 8, 5, 7);
 #endif
         glTexCoord2d(1, 1);
-        gl_set_vertex(points, 8);
+        set_vertex(points, 8);
 
         DK_D_SAVE_NORMALS();
     }
@@ -642,7 +642,7 @@ void DK_render_map() {
                 glLoadName((GLuint) block);
 
                 // Selected by the local player?
-                if (DK_block_selected(DK_PLAYER_RED, x, y)) {
+                if (DK_block_is_selected(DK_PLAYER_RED, x, y)) {
                     glColor3f(0.8f, 0.8f, 1.0f);
                 }
 
@@ -714,7 +714,6 @@ void DK_render_map() {
 
             if (texture_top_wall || texture_top_owner) {
                 glEnable(GL_BLEND);
-                //glDisable(GL_DEPTH_TEST);
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
                 if (texture_top_wall) {
@@ -725,7 +724,6 @@ void DK_render_map() {
                 }
 
                 glDisable(GL_BLEND);
-                //glEnable(GL_DEPTH_TEST);
             }
 
             // Check if we need to render walls.
@@ -885,7 +883,7 @@ void DK_block_deselect(DK_Player player, unsigned int x, unsigned int y) {
     selection[player][idx >> 3] &= ~(1 << (idx & 7));
 }
 
-int DK_block_selected(DK_Player player, unsigned int x, unsigned int y) {
+int DK_block_is_selected(DK_Player player, unsigned int x, unsigned int y) {
     const unsigned int idx = y * DK_map_size + x;
     return (selection[player][idx >> 3] & (1 << (idx & 7))) != 0;
 }
