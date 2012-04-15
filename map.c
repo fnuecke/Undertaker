@@ -12,26 +12,44 @@
 #include "textures.h"
 #include "camera.h"
 
-double last_normal[3] = {0, 0, 0};
-double last_vertex[3] = {0, 0, 0};
+///////////////////////////////////////////////////////////////////////////////
+// Internal variables
+///////////////////////////////////////////////////////////////////////////////
 
-DK_Block* map = 0;
-double* map_noise = 0;
+/** Last normal that was set */
+static double last_normal[3] = {0, 0, 0};
 
-extern void cross(double* cross, const double* v0, const double* v1);
-extern void normal2(const double* points, int i0, int i1, int i2);
-extern void normal3(const double* points, int i0, int i1, int i2, int i3);
-extern void normal4(const double* points, int i0, int i1, int i2, int i3, int i4);
-extern void init_selection();
+/** Last vertex that was set */
+static double last_vertex[3] = {0, 0, 0};
 
-double* DK_map_noise_at_index(int x, int y, int z, int k) {
+/** The current map */
+static DK_Block* map = 0;
+
+/** Cache of map noise */
+static double* map_noise = 0;
+
+/**
+ * Selected blocks, per player.
+ * -1 because NONE cannot select (white can!).
+ * This is a bitset, where each bit represents a block in the map.
+ */
+static char* selection[DK_PLAYER_COUNT - 1] = {0};
+
+///////////////////////////////////////////////////////////////////////////////
+// Internal rendering stuff
+///////////////////////////////////////////////////////////////////////////////
+
+/** Get cached noise for the specified offset */
+static inline double* noise_at_index(int x, int y, int z, int k) {
     return &map_noise[((k * 3 + z) * 3 + y) * (DK_map_size + 1) + x];
 }
 
-double DK_get_noise(double x, double y, double z, int k) {
+/** Noise at the specified world coordinates (same args as for snoise4) */
+static double noise_at(double x, double y, double z, int k) {
     int i = (int) round((x * 2) / DK_BLOCK_SIZE),
             j = (int) round((y * 2) / DK_BLOCK_SIZE),
             l = (int) round((z * 2) / DK_BLOCK_HEIGHT);
+
     // Wrap for off-the-grid terrain (rocks outside actual map)
     while (i < 0) {
         i += DK_map_size;
@@ -45,50 +63,20 @@ double DK_get_noise(double x, double y, double z, int k) {
     while (j > DK_map_size * 2 + 1) {
         j -= DK_map_size * 2;
     }
-    return *DK_map_noise_at_index(i, j, l, k);
+
+    // Lookup noise.
+    return *noise_at_index(i, j, l, k);
 }
 
-void DK_init_map(unsigned int size) {
-    DK_map_size = size;
-
-    free(map);
-    map = calloc(size * size, sizeof (DK_Block));
-
-    int i, j, k, l;
-    for (i = 0; i < size; ++i) {
-        for (j = 0; j < size; ++j) {
-            if (i == 0 || j == 0 || i == size - 1 || j == size - 1) {
-                map[i + j * size].type = DK_BLOCK_ROCK;
-            } else {
-                map[i + j * size].type = DK_BLOCK_DIRT;
-            }
-        }
-    }
-
-    init_selection();
-
-#if DK_D_CACHE_NOISE
-    free(map_noise);
-    map_noise = calloc((size * 2 + 1) * (size * 2 + 1) * 3 * 3, sizeof (double));
-    for (i = 0; i < size * 2 + 1; ++i) {
-        for (j = 0; j < size * 2 + 1; ++j) {
-            for (k = 0; k < 3; ++k) {
-                for (l = 0; l < 3; ++l) {
-                    *DK_map_noise_at_index(i, j, k, l) = snoise4(i * DK_BLOCK_SIZE / 2.0, j * DK_BLOCK_SIZE / 2.0, k / 2.0 * DK_BLOCK_HEIGHT, l);
-                }
-            }
-        }
-    }
-#endif
-}
-
+/** Used to differentiate how blocks effect offsetting */
 typedef enum {
     OFFSET_NONE,
     OFFSET_INCREASE,
     OFFSET_DECREASE
 } DK_Offset;
 
-double DK_noise_factor_block(DK_Offset* offset, const DK_Block* block) {
+/** Get influence of a specific block on noise */
+static double noise_factor_block(DK_Offset* offset, const DK_Block* block) {
     *offset = OFFSET_NONE;
     if (DK_block_is_passable(block) && block->owner == DK_PLAYER_NONE) {
         *offset = OFFSET_INCREASE;
@@ -108,7 +96,7 @@ double DK_noise_factor_block(DK_Offset* offset, const DK_Block* block) {
  * Also gets a directed offset based on where the neighboring block are (away
  * from empty blocks).
  */
-double DK_noise_factor(double* offset, double x, double y) {
+static double noise_factor(double* offset, double x, double y) {
     DK_Offset offset_type;
     double offset_reduction[2] = {1, 1};
 
@@ -174,7 +162,7 @@ double DK_noise_factor(double* offset, double x, double y) {
     int k, l;
     for (k = x_begin; k <= x_end; ++k) {
         for (l = y_begin; l <= y_end; ++l) {
-            factor += DK_noise_factor_block(&offset_type, &map[k + l * DK_map_size]);
+            factor += noise_factor_block(&offset_type, &map[k + l * DK_map_size]);
             if (offset_type == OFFSET_INCREASE) {
                 if (!DK_NEQ(k, x)) {
                     if (DK_NLT(k, x)) {
@@ -210,12 +198,16 @@ double DK_noise_factor(double* offset, double x, double y) {
     return factor / normalizer;
 }
 
-void DK_get_vertex(double* v, const double* points, int point) {
+#undef DK_NEQ
+#undef DK_NLT
+
+/** Get the actual vertex for a "clean" world coordinate (point) */
+static void DK_get_vertex(double* v, const double* points, int point) {
     const double* p = &points[point * 3];
 #if DK_D_TERRAIN_NOISE
     double offset[2] = {0, 0};
 #if DK_D_USE_NOISE_OFFSET
-    const double factor = DK_noise_factor(offset, p[0] / DK_BLOCK_SIZE, p[1] / DK_BLOCK_SIZE);
+    const double factor = noise_factor(offset, p[0] / DK_BLOCK_SIZE, p[1] / DK_BLOCK_SIZE);
 #else
     const double factor = 1.0;
 #endif
@@ -229,9 +221,9 @@ void DK_get_vertex(double* v, const double* points, int point) {
     offset[0] *= DK_BLOCK_MAX_NOISE_OFFSET;
     offset[1] *= DK_BLOCK_MAX_NOISE_OFFSET;
 #if DK_D_CACHE_NOISE
-    v[0] = p[0] + factor * DK_get_noise(p[0], p[1], p[2], 0) + offset[0];
-    v[1] = p[1] + factor * DK_get_noise(p[0], p[1], p[2], 1) + offset[1];
-    v[2] = p[2] + DK_get_noise(p[0], p[1], p[2], 2);
+    v[0] = p[0] + factor * noise_at(p[0], p[1], p[2], 0) + offset[0];
+    v[1] = p[1] + factor * noise_at(p[0], p[1], p[2], 1) + offset[1];
+    v[2] = p[2] + noise_at(p[0], p[1], p[2], 2);
 #else
     v[0] = p[0] + factor * snoise4(p[0], p[1], p[2], 0) + offset[0];
     v[1] = p[1] + factor * snoise4(p[0], p[1], p[2], 1) + offset[1];
@@ -244,11 +236,133 @@ void DK_get_vertex(double* v, const double* points, int point) {
 #endif
 }
 
-void DK_set_point(const double* points, int point) {
+/** Set a vertex in opengl */
+inline static void gl_set_vertex(const double* points, int point) {
     DK_get_vertex(last_vertex, points, point);
     glVertex3dv(last_vertex);
 }
 
+/** Computes the cross product of two 3d vectors */
+inline static void cross(double* cross, const double* v0, const double* v1) {
+    cross[0] = v0[1] * v1[2] - v0[2] * v1[1];
+    cross[1] = v0[2] * v1[0] - v0[0] * v1[2];
+    cross[2] = v0[0] * v1[1] - v0[1] * v1[0];
+}
+
+/** Gets normal for a vertex (two neighboring vertices) */
+static void normal2(const double* points, int i0, int i1, int i2) {
+    double p0[3], p1[3], p2[3];
+    DK_get_vertex(p0, points, i0);
+    DK_get_vertex(p1, points, i1);
+    DK_get_vertex(p2, points, i2);
+    const double a[] = {
+        p1[0] - p0[0],
+        p1[1] - p0[1],
+        p1[2] - p0[2]
+    };
+    const double b[] = {
+        p2[0] - p0[0],
+        p2[1] - p0[1],
+        p2[2] - p0[2]
+    };
+
+    double* n = last_normal;
+    cross(n, a, b);
+
+    const double len = sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+    n[0] /= len;
+    n[1] /= len;
+    n[2] /= len;
+
+    glNormal3dv(n);
+}
+
+/** Gets normal for a vertex (three neighboring vertices) */
+static void normal3(const double* points, int i0, int i1, int i2, int i3) {
+    double p0[3], p1[3], p2[3], p3[3];
+    DK_get_vertex(p0, points, i0);
+    DK_get_vertex(p1, points, i1);
+    DK_get_vertex(p2, points, i2);
+    DK_get_vertex(p3, points, i3);
+    const double a[] = {
+        p1[0] - p0[0],
+        p1[1] - p0[1],
+        p1[2] - p0[2]
+    };
+    const double b[] = {
+        p2[0] - p0[0],
+        p2[1] - p0[1],
+        p2[2] - p0[2]
+    };
+    const double c[] = {
+        p3[0] - p0[0],
+        p3[1] - p0[1],
+        p3[2] - p0[2]
+    };
+
+    double* n = last_normal;
+    double t[3];
+    cross(t, a, b);
+    cross(n, b, c);
+    n[0] = (n[0] + t[0]) / 2.0;
+    n[1] = (n[1] + t[1]) / 2.0;
+    n[2] = (n[2] + t[2]) / 2.0;
+
+    const double len = sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+    n[0] /= len;
+    n[1] /= len;
+    n[2] /= len;
+
+    glNormal3dv(n);
+}
+
+/** Gets normal for a vertex (four neighboring vertices) */
+static void normal4(const double* points, int i0, int i1, int i2, int i3, int i4) {
+    double p0[3], p1[3], p2[3], p3[3], p4[3];
+    DK_get_vertex(p0, points, i0);
+    DK_get_vertex(p1, points, i1);
+    DK_get_vertex(p2, points, i2);
+    DK_get_vertex(p3, points, i3);
+    DK_get_vertex(p4, points, i4);
+    const double a[] = {
+        p1[0] - p0[0],
+        p1[1] - p0[1],
+        p1[2] - p0[2]
+    };
+    const double b[] = {
+        p2[0] - p0[0],
+        p2[1] - p0[1],
+        p2[2] - p0[2]
+    };
+    const double c[] = {
+        p3[0] - p0[0],
+        p3[1] - p0[1],
+        p3[2] - p0[2]
+    };
+    const double d[] = {
+        p4[0] - p0[0],
+        p4[1] - p0[1],
+        p4[2] - p0[2]
+    };
+
+    double* n = last_normal;
+    double t0[3], t1[3];
+    cross(t0, a, b);
+    cross(t1, b, c);
+    cross(n, c, d);
+    n[0] = (n[0] + t0[0] + t1[0]) / 3.0;
+    n[1] = (n[1] + t0[1] + t1[0]) / 3.0;
+    n[2] = (n[2] + t0[2] + t1[0]) / 3.0;
+
+    const double len = sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+    n[0] /= len;
+    n[1] /= len;
+    n[2] /= len;
+
+    glNormal3dv(n);
+}
+
+/** Nesting glBegin() is not possible, so we need to store the normals to draw them */
 #if DK_D_DRAW_NORMALS
 #define DK_D_SAVE_NORMALS()\
         memcpy(&v[3 * ni], last_vertex, sizeof (last_vertex));\
@@ -269,7 +383,7 @@ void DK_set_point(const double* points, int point) {
  * Where the points argument must contain these 3d positions in the specified
  * order.
  */
-void DK_draw_4quad(DK_Texture texture, double* points) {
+static void DK_draw_4quad(DK_Texture texture, double* points) {
 #ifdef DK_D_DRAW_NORMALS
     double v[3 * 6], n[3 * 6];
     int ni = 0;
@@ -284,7 +398,7 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
         normal2(points, 0, 3, 1);
 #endif
         glTexCoord2d(0, 0);
-        DK_set_point(points, 0);
+        gl_set_vertex(points, 0);
 
         DK_D_SAVE_NORMALS();
 
@@ -292,7 +406,7 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
         normal3(points, 3, 4, 1, 0);
 #endif
         glTexCoord2d(0, 0.5);
-        DK_set_point(points, 3);
+        gl_set_vertex(points, 3);
 
         DK_D_SAVE_NORMALS();
 
@@ -300,7 +414,7 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
         normal4(points, 1, 0, 3, 4, 2);
 #endif
         glTexCoord2d(0.5, 0);
-        DK_set_point(points, 1);
+        gl_set_vertex(points, 1);
 
         DK_D_SAVE_NORMALS();
 
@@ -308,7 +422,7 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
         normal4(points, 4, 5, 2, 1, 3);
 #endif
         glTexCoord2d(0.5, 0.5);
-        DK_set_point(points, 4);
+        gl_set_vertex(points, 4);
 
         DK_D_SAVE_NORMALS();
 
@@ -316,7 +430,7 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
         normal3(points, 2, 1, 4, 5);
 #endif
         glTexCoord2d(1, 0);
-        DK_set_point(points, 2);
+        gl_set_vertex(points, 2);
 
         DK_D_SAVE_NORMALS();
 
@@ -324,7 +438,7 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
         normal2(points, 5, 2, 4);
 #endif
         glTexCoord2d(1, 0.5);
-        DK_set_point(points, 5);
+        gl_set_vertex(points, 5);
 
         DK_D_SAVE_NORMALS();
     }
@@ -363,7 +477,7 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
         normal2(points, 3, 6, 4);
 #endif
         glTexCoord2d(0, 0.5);
-        DK_set_point(points, 3);
+        gl_set_vertex(points, 3);
 
         DK_D_SAVE_NORMALS();
 
@@ -371,7 +485,7 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
         normal3(points, 6, 7, 4, 3);
 #endif
         glTexCoord2d(0, 1);
-        DK_set_point(points, 6);
+        gl_set_vertex(points, 6);
 
         DK_D_SAVE_NORMALS();
 
@@ -379,7 +493,7 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
         normal4(points, 4, 3, 6, 7, 5);
 #endif
         glTexCoord2d(0.5, 0.5);
-        DK_set_point(points, 4);
+        gl_set_vertex(points, 4);
 
         DK_D_SAVE_NORMALS();
 
@@ -387,7 +501,7 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
         normal4(points, 7, 8, 5, 4, 6);
 #endif
         glTexCoord2d(0.5, 1);
-        DK_set_point(points, 7);
+        gl_set_vertex(points, 7);
 
         DK_D_SAVE_NORMALS();
 
@@ -395,7 +509,7 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
         normal3(points, 5, 4, 7, 8);
 #endif
         glTexCoord2d(1, 0.5);
-        DK_set_point(points, 5);
+        gl_set_vertex(points, 5);
 
         DK_D_SAVE_NORMALS();
 
@@ -403,7 +517,7 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
         normal2(points, 8, 5, 7);
 #endif
         glTexCoord2d(1, 1);
-        DK_set_point(points, 8);
+        gl_set_vertex(points, 8);
 
         DK_D_SAVE_NORMALS();
     }
@@ -433,10 +547,54 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
 #endif
 }
 
-void DK_set_points(double* points, int point, double x, double y, double z) {
+#undef DK_D_SAVE_NORMALS
+
+/** Set a point in a point list to the specified values */
+inline static void set_points(double* points, int point, double x, double y, double z) {
     points[point * 3] = x;
     points[point * 3 + 1] = y;
     points[point * 3 + 2] = z;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Header implementation
+///////////////////////////////////////////////////////////////////////////////
+
+void DK_init_map(unsigned int size) {
+    DK_map_size = size;
+
+    free(map);
+    map = calloc(size * size, sizeof (DK_Block));
+
+    int i, j, k, l;
+    for (i = 0; i < size; ++i) {
+        for (j = 0; j < size; ++j) {
+            if (i == 0 || j == 0 || i == size - 1 || j == size - 1) {
+                map[i + j * size].type = DK_BLOCK_ROCK;
+            } else {
+                map[i + j * size].type = DK_BLOCK_DIRT;
+            }
+        }
+    }
+
+    for (i = 0; i < DK_PLAYER_COUNT - 1; ++i) {
+        free(selection[i]);
+        selection[i] = calloc((DK_map_size * DK_map_size) / 8 + 1, sizeof (char));
+    }
+
+#if DK_D_CACHE_NOISE
+    free(map_noise);
+    map_noise = calloc((size * 2 + 1) * (size * 2 + 1) * 3 * 3, sizeof (double));
+    for (i = 0; i < size * 2 + 1; ++i) {
+        for (j = 0; j < size * 2 + 1; ++j) {
+            for (k = 0; k < 3; ++k) {
+                for (l = 0; l < 3; ++l) {
+                    *noise_at_index(i, j, k, l) = snoise4(i * DK_BLOCK_SIZE / 2.0, j * DK_BLOCK_SIZE / 2.0, k / 2.0 * DK_BLOCK_HEIGHT, l);
+                }
+            }
+        }
+    }
+#endif
 }
 
 DK_Block* DK_block_at(unsigned int x, unsigned int y) {
@@ -542,15 +700,15 @@ void DK_render_map() {
              */
             double points[3 * 9];
 
-            DK_set_points(points, 0, x_coord, y_coord + DK_BLOCK_SIZE, top);
-            DK_set_points(points, 1, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, top);
-            DK_set_points(points, 2, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, top);
-            DK_set_points(points, 3, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, top);
-            DK_set_points(points, 4, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE / 2.0, top);
-            DK_set_points(points, 5, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, top);
-            DK_set_points(points, 6, x_coord, y_coord, top);
-            DK_set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, top);
-            DK_set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord, top);
+            set_points(points, 0, x_coord, y_coord + DK_BLOCK_SIZE, top);
+            set_points(points, 1, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, top);
+            set_points(points, 2, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, top);
+            set_points(points, 3, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, top);
+            set_points(points, 4, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE / 2.0, top);
+            set_points(points, 5, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, top);
+            set_points(points, 6, x_coord, y_coord, top);
+            set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, top);
+            set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord, top);
 
             DK_draw_4quad(texture_top, points);
 
@@ -574,60 +732,60 @@ void DK_render_map() {
             if (top > 0) {
                 // North wall.
                 if (y + 1 < DK_map_size && DK_block_is_passable(&map[x + (y + 1) * DK_map_size])) {
-                    DK_set_points(points, 0, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT);
-                    DK_set_points(points, 1, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT);
-                    DK_set_points(points, 2, x_coord, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT);
-                    DK_set_points(points, 3, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT / 2.0);
-                    DK_set_points(points, 4, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT / 2.0);
-                    DK_set_points(points, 5, x_coord, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT / 2.0);
-                    DK_set_points(points, 6, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, 0);
-                    DK_set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, 0);
-                    DK_set_points(points, 8, x_coord, y_coord + DK_BLOCK_SIZE, 0);
+                    set_points(points, 0, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT);
+                    set_points(points, 1, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT);
+                    set_points(points, 2, x_coord, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT);
+                    set_points(points, 3, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT / 2.0);
+                    set_points(points, 4, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT / 2.0);
+                    set_points(points, 5, x_coord, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT / 2.0);
+                    set_points(points, 6, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, 0);
+                    set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, 0);
+                    set_points(points, 8, x_coord, y_coord + DK_BLOCK_SIZE, 0);
 
                     DK_draw_4quad(texture_side, points);
                 }
 
                 // South wall.
                 if (y > 0 && DK_block_is_passable(&map[x + (y - 1) * DK_map_size])) {
-                    DK_set_points(points, 0, x_coord, y_coord, DK_BLOCK_HEIGHT);
-                    DK_set_points(points, 1, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, DK_BLOCK_HEIGHT);
-                    DK_set_points(points, 2, x_coord + DK_BLOCK_SIZE, y_coord, DK_BLOCK_HEIGHT);
-                    DK_set_points(points, 3, x_coord, y_coord, DK_BLOCK_HEIGHT / 2.0);
-                    DK_set_points(points, 4, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, DK_BLOCK_HEIGHT / 2.0);
-                    DK_set_points(points, 5, x_coord + DK_BLOCK_SIZE, y_coord, DK_BLOCK_HEIGHT / 2.0);
-                    DK_set_points(points, 6, x_coord, y_coord, 0);
-                    DK_set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, 0);
-                    DK_set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord, 0);
+                    set_points(points, 0, x_coord, y_coord, DK_BLOCK_HEIGHT);
+                    set_points(points, 1, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, DK_BLOCK_HEIGHT);
+                    set_points(points, 2, x_coord + DK_BLOCK_SIZE, y_coord, DK_BLOCK_HEIGHT);
+                    set_points(points, 3, x_coord, y_coord, DK_BLOCK_HEIGHT / 2.0);
+                    set_points(points, 4, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, DK_BLOCK_HEIGHT / 2.0);
+                    set_points(points, 5, x_coord + DK_BLOCK_SIZE, y_coord, DK_BLOCK_HEIGHT / 2.0);
+                    set_points(points, 6, x_coord, y_coord, 0);
+                    set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, 0);
+                    set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord, 0);
 
                     DK_draw_4quad(texture_side, points);
                 }
 
                 // East wall.
                 if (x + 1 < DK_map_size && DK_block_is_passable(&map[(x + 1) + y * DK_map_size])) {
-                    DK_set_points(points, 0, x_coord + DK_BLOCK_SIZE, y_coord, DK_BLOCK_HEIGHT);
-                    DK_set_points(points, 1, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, DK_BLOCK_HEIGHT);
-                    DK_set_points(points, 2, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT);
-                    DK_set_points(points, 3, x_coord + DK_BLOCK_SIZE, y_coord, DK_BLOCK_HEIGHT / 2.0);
-                    DK_set_points(points, 4, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, DK_BLOCK_HEIGHT / 2.0);
-                    DK_set_points(points, 5, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT / 2.0);
-                    DK_set_points(points, 6, x_coord + DK_BLOCK_SIZE, y_coord, 0);
-                    DK_set_points(points, 7, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, 0);
-                    DK_set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, 0);
+                    set_points(points, 0, x_coord + DK_BLOCK_SIZE, y_coord, DK_BLOCK_HEIGHT);
+                    set_points(points, 1, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, DK_BLOCK_HEIGHT);
+                    set_points(points, 2, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT);
+                    set_points(points, 3, x_coord + DK_BLOCK_SIZE, y_coord, DK_BLOCK_HEIGHT / 2.0);
+                    set_points(points, 4, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, DK_BLOCK_HEIGHT / 2.0);
+                    set_points(points, 5, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT / 2.0);
+                    set_points(points, 6, x_coord + DK_BLOCK_SIZE, y_coord, 0);
+                    set_points(points, 7, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, 0);
+                    set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, 0);
 
                     DK_draw_4quad(texture_side, points);
                 }
 
                 // West wall.
                 if (x > 0 && DK_block_is_passable(&map[(x - 1) + y * DK_map_size])) {
-                    DK_set_points(points, 0, x_coord, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT);
-                    DK_set_points(points, 1, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, DK_BLOCK_HEIGHT);
-                    DK_set_points(points, 2, x_coord, y_coord, DK_BLOCK_HEIGHT);
-                    DK_set_points(points, 3, x_coord, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT / 2.0);
-                    DK_set_points(points, 4, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, DK_BLOCK_HEIGHT / 2.0);
-                    DK_set_points(points, 5, x_coord, y_coord, DK_BLOCK_HEIGHT / 2.0);
-                    DK_set_points(points, 6, x_coord, y_coord + DK_BLOCK_SIZE, 0);
-                    DK_set_points(points, 7, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, 0);
-                    DK_set_points(points, 8, x_coord, y_coord, 0);
+                    set_points(points, 0, x_coord, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT);
+                    set_points(points, 1, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, DK_BLOCK_HEIGHT);
+                    set_points(points, 2, x_coord, y_coord, DK_BLOCK_HEIGHT);
+                    set_points(points, 3, x_coord, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT / 2.0);
+                    set_points(points, 4, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, DK_BLOCK_HEIGHT / 2.0);
+                    set_points(points, 5, x_coord, y_coord, DK_BLOCK_HEIGHT / 2.0);
+                    set_points(points, 6, x_coord, y_coord + DK_BLOCK_SIZE, 0);
+                    set_points(points, 7, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, 0);
+                    set_points(points, 8, x_coord, y_coord, 0);
 
                     DK_draw_4quad(texture_side, points);
                 }
@@ -637,60 +795,60 @@ void DK_render_map() {
             if (top < 0) {
                 // North wall.
                 if (y + 1 < DK_map_size && !DK_block_is_fluid(&map[x + (y + 1) * DK_map_size])) {
-                    DK_set_points(points, 0, x_coord, y_coord + DK_BLOCK_SIZE, 0);
-                    DK_set_points(points, 1, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, 0);
-                    DK_set_points(points, 2, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, 0);
-                    DK_set_points(points, 3, x_coord, y_coord + DK_BLOCK_SIZE, top / 2.0);
-                    DK_set_points(points, 4, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, top / 2.0);
-                    DK_set_points(points, 5, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, top / 2.0);
-                    DK_set_points(points, 6, x_coord, y_coord + DK_BLOCK_SIZE, top);
-                    DK_set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, top);
-                    DK_set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, top);
+                    set_points(points, 0, x_coord, y_coord + DK_BLOCK_SIZE, 0);
+                    set_points(points, 1, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, 0);
+                    set_points(points, 2, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, 0);
+                    set_points(points, 3, x_coord, y_coord + DK_BLOCK_SIZE, top / 2.0);
+                    set_points(points, 4, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, top / 2.0);
+                    set_points(points, 5, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, top / 2.0);
+                    set_points(points, 6, x_coord, y_coord + DK_BLOCK_SIZE, top);
+                    set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, top);
+                    set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, top);
 
                     DK_draw_4quad(DK_TEX_FLUID_SIDE, points);
                 }
 
                 // South wall.
                 if (y > 0 && !DK_block_is_fluid(&map[x + (y - 1) * DK_map_size])) {
-                    DK_set_points(points, 0, x_coord + DK_BLOCK_SIZE, y_coord, 0);
-                    DK_set_points(points, 1, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, 0);
-                    DK_set_points(points, 2, x_coord, y_coord, 0);
-                    DK_set_points(points, 3, x_coord + DK_BLOCK_SIZE, y_coord, top / 2.0);
-                    DK_set_points(points, 4, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, top / 2.0);
-                    DK_set_points(points, 5, x_coord, y_coord, top / 2.0);
-                    DK_set_points(points, 6, x_coord + DK_BLOCK_SIZE, y_coord, top);
-                    DK_set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, top);
-                    DK_set_points(points, 8, x_coord, y_coord, top);
+                    set_points(points, 0, x_coord + DK_BLOCK_SIZE, y_coord, 0);
+                    set_points(points, 1, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, 0);
+                    set_points(points, 2, x_coord, y_coord, 0);
+                    set_points(points, 3, x_coord + DK_BLOCK_SIZE, y_coord, top / 2.0);
+                    set_points(points, 4, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, top / 2.0);
+                    set_points(points, 5, x_coord, y_coord, top / 2.0);
+                    set_points(points, 6, x_coord + DK_BLOCK_SIZE, y_coord, top);
+                    set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, top);
+                    set_points(points, 8, x_coord, y_coord, top);
 
                     DK_draw_4quad(DK_TEX_FLUID_SIDE, points);
                 }
 
                 // East wall.
                 if (x + 1 < DK_map_size && !DK_block_is_fluid(&map[(x + 1) + y * DK_map_size])) {
-                    DK_set_points(points, 0, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, 0);
-                    DK_set_points(points, 1, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, 0);
-                    DK_set_points(points, 2, x_coord + DK_BLOCK_SIZE, y_coord, 0);
-                    DK_set_points(points, 3, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, top / 2.0);
-                    DK_set_points(points, 4, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, top / 2.0);
-                    DK_set_points(points, 5, x_coord + DK_BLOCK_SIZE, y_coord, top / 2.0);
-                    DK_set_points(points, 6, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, top);
-                    DK_set_points(points, 7, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, top);
-                    DK_set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord, top);
+                    set_points(points, 0, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, 0);
+                    set_points(points, 1, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, 0);
+                    set_points(points, 2, x_coord + DK_BLOCK_SIZE, y_coord, 0);
+                    set_points(points, 3, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, top / 2.0);
+                    set_points(points, 4, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, top / 2.0);
+                    set_points(points, 5, x_coord + DK_BLOCK_SIZE, y_coord, top / 2.0);
+                    set_points(points, 6, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, top);
+                    set_points(points, 7, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, top);
+                    set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord, top);
 
                     DK_draw_4quad(DK_TEX_FLUID_SIDE, points);
                 }
 
                 // West wall.
                 if (x > 0 && !DK_block_is_fluid(&map[(x - 1) + y * DK_map_size])) {
-                    DK_set_points(points, 0, x_coord, y_coord, 0);
-                    DK_set_points(points, 1, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, 0);
-                    DK_set_points(points, 2, x_coord, y_coord + DK_BLOCK_SIZE, 0);
-                    DK_set_points(points, 3, x_coord, y_coord, top / 2.0);
-                    DK_set_points(points, 4, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, top / 2.0);
-                    DK_set_points(points, 5, x_coord, y_coord + DK_BLOCK_SIZE, top / 2.0);
-                    DK_set_points(points, 6, x_coord, y_coord, top);
-                    DK_set_points(points, 7, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, top);
-                    DK_set_points(points, 8, x_coord, y_coord + DK_BLOCK_SIZE, top);
+                    set_points(points, 0, x_coord, y_coord, 0);
+                    set_points(points, 1, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, 0);
+                    set_points(points, 2, x_coord, y_coord + DK_BLOCK_SIZE, 0);
+                    set_points(points, 3, x_coord, y_coord, top / 2.0);
+                    set_points(points, 4, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, top / 2.0);
+                    set_points(points, 5, x_coord, y_coord + DK_BLOCK_SIZE, top / 2.0);
+                    set_points(points, 6, x_coord, y_coord, top);
+                    set_points(points, 7, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, top);
+                    set_points(points, 8, x_coord, y_coord + DK_BLOCK_SIZE, top);
 
                     DK_draw_4quad(DK_TEX_FLUID_SIDE, points);
                 }
@@ -710,4 +868,24 @@ DK_Block* DK_as_block(void* ptr, int* x, int* y) {
         return (DK_Block*) ptr;
     }
     return NULL;
+}
+
+void DK_block_select(DK_Player player, unsigned int x, unsigned int y) {
+    const DK_Block* block = DK_block_at(x, y);
+    if (block->type != DK_BLOCK_DIRT ||
+            (block->owner != player && block->owner != DK_PLAYER_NONE)) {
+        return;
+    }
+    const unsigned int idx = y * DK_map_size + x;
+    selection[player][idx >> 3] |= (1 << (idx & 7));
+}
+
+void DK_block_deselect(DK_Player player, unsigned int x, unsigned int y) {
+    const unsigned int idx = y * DK_map_size + x;
+    selection[player][idx >> 3] &= ~(1 << (idx & 7));
+}
+
+int DK_block_selected(DK_Player player, unsigned int x, unsigned int y) {
+    const unsigned int idx = y * DK_map_size + x;
+    return (selection[player][idx >> 3] & (1 << (idx & 7))) != 0;
 }

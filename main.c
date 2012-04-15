@@ -182,7 +182,7 @@ void DK_init_gl() {
     glFogfv(GL_FOG_COLOR, fog_color);
     glFogf(GL_FOG_DENSITY, 0.1f);
     glHint(GL_FOG_HINT, GL_DONT_CARE);
-    glFogf(GL_FOG_START, DK_CAMERA_HEIGHT);
+    glFogf(GL_FOG_START, DK_CAMERA_HEIGHT + DK_BLOCK_SIZE);
     glFogf(GL_FOG_END, DK_CAMERA_HEIGHT + DK_BLOCK_SIZE * 4);
     glEnable(GL_FOG);
 
