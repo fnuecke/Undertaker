@@ -160,7 +160,7 @@ void DK_init_gl() {
     glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
 
     glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.0f);
-    glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.0025f / (DK_UNIT_SCALING * DK_UNIT_SCALING));
+    glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.0025f);
 
     glEnable(GL_LIGHT0);
 
@@ -236,10 +236,10 @@ void DK_render() {
     glLoadIdentity();
 
     gluLookAt(DK_camera_position()[0], DK_camera_position()[1], DK_CAMERA_HEIGHT - DK_camera_zoom(),
-            DK_camera_position()[0], DK_camera_position()[1] + DK_CAMERA_DISTANCE, 0,
+            DK_camera_position()[0], DK_camera_position()[1] + DK_CAMERA_TARGET_DISTANCE, 0,
             0, 0, 1);
 
-    GLfloat light_position[] = {DK_UNIT_SCALING * (160 - 24), DK_UNIT_SCALING * (160 - 24), DK_UNIT_SCALING * 20, 1};
+    GLfloat light_position[] = { 160 - 24, 160 - 24, 20, 1};
     glLightfv(GL_LIGHT0, GL_POSITION, light_position);
 
     DK_render_map();
