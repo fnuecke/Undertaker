@@ -19,9 +19,10 @@
 
 #define DK_D_DRAW_NORMALS 0
 #define DK_D_DRAW_TEST_TEXTURE 0
-#define DK_D_COMPUTE_NORMALS 0
+#define DK_D_COMPUTE_NORMALS 1
 #define DK_D_TERRAIN_NOISE 1
-#define DK_D_FACTOR_NOISE 0
+#define DK_D_FACTOR_NOISE 1
+#define DK_D_DRAW_NOISE_FACTOR 0
 #define DK_D_CACHE_NOISE 0
 
 /** Size of a block in openGL units */
@@ -33,7 +34,8 @@
 /** Depth of water */
 #define DK_WATER_LEVEL (DK_UNIT_SCALING * 4)
 
-#define DK_BLOCK_MAX_NOISE (DK_BLOCK_SIZE * 0.3)
+#define DK_BLOCK_MAX_NOISE_OFFSET (DK_BLOCK_SIZE * 0.5)
+#define DK_OWNED_NOISE_REDUCTION 0.8
 
 #define DK_CAMERA_FRICTION 0.8f
 #define DK_CAMERA_SPEED (DK_UNIT_SCALING * 4)

@@ -104,7 +104,7 @@ void DK_init() {
     int i, j;
     for (i = 0; i < 7; ++i) {
         for (j = 0; j < 7; ++j) {
-            if (i <= 1 || j <= 1 || i >= 5 || j >= 5) {
+            if (i <= 1 || j <= 1) {
                 DK_block_at(4 + i, 5 + j)->owner = DK_PLAYER_RED;
             }
             if (i > 0 && j > 0 && i < 6 && j < 6) {
@@ -115,6 +115,7 @@ void DK_init() {
 
     DK_block_at(7, 8)->type = DK_BLOCK_WATER;
     DK_block_at(8, 8)->type = DK_BLOCK_WATER;
+    //DK_block_at(9, 8)->owner = DK_PLAYER_RED;
 }
 
 void DK_init_gl() {
@@ -149,8 +150,8 @@ void DK_init_gl() {
     glShadeModel(GL_SMOOTH);
 
     // Create light components
-    GLfloat ambientLight[] = {0.2f, 0.2f, 0.2f, 1.0f};
-    GLfloat diffuseLight[] = {0.8f, 0.8f, 0.8f, 1.0f};
+    GLfloat ambientLight[] = {0.2f, 0.1f, 0.1f, 1.0f};
+    GLfloat diffuseLight[] = {0.8f, 0.6f, 0.4f, 1.0f};
     GLfloat specularLight[] = {0.0f, 0.0f, 0.0f, 1.0f};
 
     // Assign created components to GL_LIGHT0
@@ -159,7 +160,7 @@ void DK_init_gl() {
     glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
 
     glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.0f);
-    glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.005f / (DK_UNIT_SCALING * DK_UNIT_SCALING));
+    glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.0025f / (DK_UNIT_SCALING * DK_UNIT_SCALING));
 
     glEnable(GL_LIGHT0);
 

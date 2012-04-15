@@ -84,6 +84,9 @@ double DK_noise_factor_block(DK_Offset* offset, const DK_Block* block) {
     return 1;
 }
 
+#define DK_NEQ(a, b) (fabs(b - (a + 0.5)) < 0.01f)
+#define DK_NLT(a, b) (b - (a + 0.5) > 0)
+
 /**
  * Gets noise factor (amplitude) based on neighboring blocks.
  * Also gets a directed offset based on where the neighboring block are (away
@@ -91,138 +94,104 @@ double DK_noise_factor_block(DK_Offset* offset, const DK_Block* block) {
  */
 double DK_noise_factor(double* offset, double x, double y) {
     DK_Offset offset_type;
-    const int i = round(x), j = round(y);
-    double factor;
-    if (fabs(x - (int) x - 0.5f) < 0.01f) {
-        // Half way vertex, apply only the two adjacent blocks.
-        if (fabs(y - (int) y - 0.5f) < 0.01f) {
-            // Half way vertex, apply only the one adjacent block.
-            return DK_noise_factor_block(&offset_type, &map[i + j * DK_map_size]);
-        } else if (j > 0 && j < DK_map_size) {
-            factor = DK_noise_factor_block(&offset_type, &map[i + j * DK_map_size]);
-            if (offset_type == OFFSET_INCREASE) {
-                offset[1] -= DK_BLOCK_MAX_NOISE;
-                if ((i ^ j) & 1) {
-                    offset[0] -= 0.5 * DK_BLOCK_MAX_NOISE;
-                } else {
-                    offset[0] += 0.5 * DK_BLOCK_MAX_NOISE;
-                }
-            } else if (offset_type == OFFSET_DECREASE) {
-                offset[0] *= 0.5;
-                offset[1] *= 0.5;
-            }
+    double offset_reduction[2] = {1, 1};
 
-            factor += DK_noise_factor_block(&offset_type, &map[i + (j - 1) * DK_map_size]);
-            if (offset_type == OFFSET_INCREASE) {
-                offset[1] += DK_BLOCK_MAX_NOISE;
-                if ((i ^ j) & 1) {
-                    offset[0] += 0.5 * DK_BLOCK_MAX_NOISE;
-                } else {
-                    offset[0] -= 0.5 * DK_BLOCK_MAX_NOISE;
-                }
-            } else if (offset_type == OFFSET_DECREASE) {
-                offset[0] *= 0.5;
-                offset[1] *= 0.5;
-            }
+    // Get full coordinate for our doubles (which might be at half coordinates.
+    //const int i = ((int) (x * 2)) >> 1, j = ((int) (y * 2)) >> 1;
+    const int i = (int) (x + 0.1), j = (int) (y + 0.1);
 
-            if (offset[0] != 0 || offset[1] != 0) {
-                const float len = sqrt(offset[0] * offset[0] + offset[1] * offset[1]);
-                if (len > DK_BLOCK_MAX_NOISE) {
-                    offset[0] *= 0.5 * DK_BLOCK_MAX_NOISE / len;
-                    offset[1] *= 0.5 * DK_BLOCK_MAX_NOISE / len;
-                }
-            }
-
-            return factor / 2.0;
+    // Find out what kind of point this is, among the following:
+    // +---+---+---+
+    // | A | B | C |
+    // +---0-1-+---+
+    // | D 2 3E| F |
+    // +---+---+---+
+    // | G | H | I |
+    // +---+---+---+
+    // We always want to check neighbors in a 1.5 radius; e.g. for 0 we want to
+    // check A,B,D and E, for 1 A,B,C,D,E,F, for 2 A,B,D,E,G and H, for 3 we
+    // want all. Note that i,j for (1,2,3) will always equal (x,y) for 0.
+    int x_begin = i - 1, y_begin = j - 1;
+    int x_end, y_end;
+    double normalizer;
+    if (fabs(x - i - 0.5f) < 0.01f) {
+        // X is halfway, so we're at 1 or 3.
+        x_end = i + 1;
+        if (fabs(y - j - 0.5f) < 0.01f) {
+            // Y is halfway, so we're at 3, the most expensive case.
+            y_end = j + 1;
+            normalizer = 9.0;
+        } else {
+            // Y is full, so we're at 1.
+            y_end = j;
+            normalizer = 6.0;
         }
-    } else if (i > 0 && i < DK_map_size) {
-        // Inner vertex, apply normal rules.
-        if (fabs(y - (int) y - 0.5f) < 0.01f) {
-            // Half way vertex, apply only the two adjacent blocks.
-            factor = DK_noise_factor_block(&offset_type, &map[i + j * DK_map_size]);
-            if (offset_type == OFFSET_INCREASE) {
-                offset[0] -= DK_BLOCK_MAX_NOISE;
-                if ((i ^ j) & 1) {
-                    offset[1] += 0.5 * DK_BLOCK_MAX_NOISE;
-                } else {
-                    offset[1] -= 0.5 * DK_BLOCK_MAX_NOISE;
-                }
-            } else if (offset_type == OFFSET_DECREASE) {
-                offset[0] *= 0.5;
-                offset[1] *= 0.5;
-            }
-
-            factor += DK_noise_factor_block(&offset_type, &map[i - 1 + j * DK_map_size]);
-            if (offset_type == OFFSET_INCREASE) {
-                offset[0] += DK_BLOCK_MAX_NOISE;
-                if ((i ^ j) & 1) {
-                    offset[1] -= 0.5 * DK_BLOCK_MAX_NOISE;
-                } else {
-                    offset[1] += 0.5 * DK_BLOCK_MAX_NOISE;
-                }
-            } else if (offset_type == OFFSET_DECREASE) {
-                offset[0] *= 0.5;
-                offset[1] *= 0.5;
-            }
-
-            if (offset[0] != 0 || offset[1] != 0) {
-                const float len = sqrt(offset[0] * offset[0] + offset[1] * offset[1]);
-                if (len > DK_BLOCK_MAX_NOISE) {
-                    offset[0] *= DK_BLOCK_MAX_NOISE / len;
-                    offset[1] *= DK_BLOCK_MAX_NOISE / len;
-                }
-            }
-
-            return factor / 2.0;
-        } else if (j > 0 && j < DK_map_size) {
-            factor = DK_noise_factor_block(&offset_type, &map[i + j * DK_map_size]);
-            if (offset_type == OFFSET_INCREASE) {
-                offset[0] -= 1;
-                offset[1] -= 1;
-            } else if (offset_type == OFFSET_DECREASE) {
-                offset[0] *= 0.5;
-                offset[1] *= 0.5;
-            }
-
-            factor += DK_noise_factor_block(&offset_type, &map[i - 1 + j * DK_map_size]);
-            if (offset_type == OFFSET_INCREASE) {
-                offset[0] += 1;
-                offset[1] -= 1;
-            } else if (offset_type == OFFSET_DECREASE) {
-                offset[0] *= 0.5;
-                offset[1] *= 0.5;
-            }
-
-            factor += DK_noise_factor_block(&offset_type, &map[i + (j - 1) * DK_map_size]);
-            if (offset_type == OFFSET_INCREASE) {
-                offset[0] -= 1;
-                offset[1] += 1;
-            } else if (offset_type == OFFSET_DECREASE) {
-                offset[0] *= 0.5;
-                offset[1] *= 0.5;
-            }
-
-            factor += DK_noise_factor_block(&offset_type, &map[i - 1 + (j - 1) * DK_map_size]);
-            if (offset_type == OFFSET_INCREASE) {
-                offset[0] += 1;
-                offset[1] += 1;
-            } else if (offset_type == OFFSET_DECREASE) {
-                offset[0] *= 0.5;
-                offset[1] *= 0.5;
-            }
-
-            if (offset[0] != 0 || offset[1] != 0) {
-                const float len = sqrt(offset[0] * offset[0] + offset[1] * offset[1]);
-                if (len > DK_BLOCK_MAX_NOISE) {
-                    offset[0] *= DK_BLOCK_MAX_NOISE / len;
-                    offset[1] *= DK_BLOCK_MAX_NOISE / len;
-                }
-            }
-
-            return factor / 4.0;
+    } else {
+        // X is full, so we're at 0 or 2.
+        x_end = i;
+        if (fabs(y - j - 0.5f) < 0.01f) {
+            // Y is halfway, so we're at 2.
+            y_end = j + 1;
+            normalizer = 6.0;
+        } else {
+            // Y is full, so we're at 0.
+            y_end = j;
+            normalizer = 4.0;
         }
     }
-    return 0;
+
+    if (x_begin < 0) {
+        x_begin = 0;
+    }
+    if (x_end > DK_map_size - 1) {
+        x_end = DK_map_size - 1;
+    }
+    if (y_begin < 0) {
+        y_begin = 0;
+    }
+    if (y_end > DK_map_size - 1) {
+        y_end = DK_map_size - 1;
+    }
+
+    // Walk all the block necessary.
+    double factor = 0;
+    int k, l;
+    for (k = x_begin; k <= x_end; ++k) {
+        for (l = y_begin; l <= y_end; ++l) {
+            factor += DK_noise_factor_block(&offset_type, &map[k + l * DK_map_size]);
+            if (offset_type == OFFSET_INCREASE) {
+                if (!DK_NEQ(k, x)) {
+                    if (DK_NLT(k, x)) {
+                        offset[0] += 1;
+                    } else if (k >= i) {
+                        offset[0] -= 1;
+                    }
+                }
+                if (!DK_NEQ(l, y)) {
+                    if (DK_NLT(l, y)) {
+                        offset[1] += 1;
+                    } else if (l >= j) {
+                        offset[1] -= 1;
+                    }
+                }
+            } else if (offset_type == OFFSET_DECREASE) {
+                offset_reduction[0] *= DK_OWNED_NOISE_REDUCTION;
+                offset_reduction[1] *= DK_OWNED_NOISE_REDUCTION;
+            }
+        }
+    }
+
+    if (offset[0] != 0 || offset[1] != 0) {
+        offset[0] *= offset_reduction[0] / normalizer;
+        offset[1] *= offset_reduction[1] / normalizer;
+        const float len = sqrt(offset[0] * offset[0] + offset[1] * offset[1]);
+        if (len > 1) {
+            offset[0] /= len;
+            offset[1] *= len;
+        }
+    }
+
+    return factor / normalizer;
 }
 
 void DK_get_vertex(double* v, const double* points, int point) {
@@ -237,6 +206,12 @@ void DK_get_vertex(double* v, const double* points, int point) {
     const double offset_factor = 2 * (0.75 - fabs(p[2] / DK_BLOCK_HEIGHT - 0.5));
     offset[0] *= offset_factor;
     offset[1] *= offset_factor;
+#if DK_D_DRAW_NOISE_FACTOR
+    const double len = sqrt(offset[0] * offset[0] + offset[1] * offset[1]);
+    glColor3d(len, 0.25, 0.25);
+#endif
+    offset[0] *= DK_BLOCK_MAX_NOISE_OFFSET;
+    offset[1] *= DK_BLOCK_MAX_NOISE_OFFSET;
 #if DK_D_CACHE_NOISE
     v[0] = p[0] + factor * DK_get_noise(p[0], p[1], p[2], 0) + offset[0];
     v[1] = p[1] + factor * DK_get_noise(p[0], p[1], p[2], 1) + offset[1];
@@ -288,7 +263,8 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
     int ni = 0;
 #endif
 
-    glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, DK_variation(points[0], points[1], points[2])));
+    const GLuint tex = DK_opengl_texture(texture, DK_variation(points[0], points[1], points[2]));
+    glBindTexture(GL_TEXTURE_2D, tex);
     glBegin(GL_QUAD_STRIP);
     {
 #if DK_D_COMPUTE_NORMALS
@@ -342,9 +318,10 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
     glEnd();
 
 #if DK_D_DRAW_NORMALS
-    glDisable(GL_TEXTURE_2D);
+    const GLboolean lighting = glIsEnabled(GL_LIGHTING);
     glDisable(GL_LIGHTING);
 
+    glBindTexture(GL_TEXTURE_2D, 0);
     glBegin(GL_LINES);
     {
         glColor3f(1.0, 0.0, 0.0);
@@ -359,12 +336,14 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
     glColor3f(1.0, 1.0, 1.0);
     glEnd();
 
-    glEnable(GL_TEXTURE_2D);
-    glEnable(GL_LIGHTING);
+    if (lighting) {
+        glEnable(GL_LIGHTING);
+    }
 
     ni = 0;
 #endif
 
+    glBindTexture(GL_TEXTURE_2D, tex);
     glBegin(GL_QUAD_STRIP);
     {
 #if DK_D_COMPUTE_NORMALS
@@ -418,9 +397,9 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
     glEnd();
 
 #if DK_D_DRAW_NORMALS
-    glDisable(GL_TEXTURE_2D);
     glDisable(GL_LIGHTING);
 
+    glBindTexture(GL_TEXTURE_2D, 0);
     glBegin(GL_LINES);
     {
         glColor3f(1.0, 0.0, 0.0);
@@ -435,8 +414,9 @@ void DK_draw_4quad(DK_Texture texture, double* points) {
     glColor3f(1.0, 1.0, 1.0);
     glEnd();
 
-    glEnable(GL_TEXTURE_2D);
-    glEnable(GL_LIGHTING);
+    if (lighting) {
+        glEnable(GL_LIGHTING);
+    }
 #endif
 }
 
