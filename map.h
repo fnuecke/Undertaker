@@ -44,15 +44,18 @@ typedef struct {
     DK_RoomType room;
 } DK_Block;
 
-/** The currently active map */
-DK_Block* DK_map;
-
 /** Size (width and height) of the current map */
 unsigned short DK_map_size;
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
+
+/** Clears the current map and initializes a new one with the specified size */
+void DK_init_map(unsigned int size);
+
+/** Get the map block at the specified coordinate */
+DK_Block* DK_block_at(unsigned int x, unsigned int y);
 
 /** Utility method for checking if a block contains a fluid */
 int DK_block_is_fluid(const DK_Block* block);

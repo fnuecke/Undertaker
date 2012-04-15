@@ -12,6 +12,7 @@ const char* DK_texture_names[DK_TEX_COUNT] = {
     "dirt_floor",
     "dirt_side",
     "dirt_top",
+    "floor",
     "fluid_lava",
     "fluid_side",
     "fluid_water",

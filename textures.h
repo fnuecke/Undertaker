@@ -8,11 +8,14 @@
 #ifndef TEXTURES_H
 #define	TEXTURES_H
 
+#include <GL/gl.h>
+
 /** Textures used for rendering the map */
 typedef enum {
     DK_TEX_DIRT_FLOOR,
     DK_TEX_DIRT_SIDE,
     DK_TEX_DIRT_TOP,
+    DK_TEX_FLOOR,
     DK_TEX_FLUID_LAVA,
     DK_TEX_FLUID_SIDE,
     DK_TEX_FLUID_WATER,

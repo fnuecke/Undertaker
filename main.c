@@ -13,6 +13,7 @@
 
 #include "config.h"
 #include "map.h"
+#include "camera.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Global data
@@ -20,20 +21,6 @@
 
 /** Main screen we use */
 SDL_Surface* DK_screen;
-
-typedef enum {
-    DK_CAMD_NONE = 0,
-    DK_CAMD_NORTH = 1,
-    DK_CAMD_EAST = 2,
-    DK_CAMD_SOUTH = 4,
-    DK_CAMD_WEST = 8
-} DK_CameraDirection;
-DK_CameraDirection DK_camera_direction;
-float DK_camera_velocity[] = {0, 0};
-float DK_camera_friction = 0;
-float DK_camera_position[] = {0, 0};
-float DK_camera_zoom = 0;
-float DK_camera_zoom_target = 0;
 
 /** Whether the game is still running; if set to 0 the game will exit */
 int DK_running = 1;
@@ -112,28 +99,22 @@ void DK_init() {
     DK_init_gl();
 
     // Initialize a test map.
-    DK_map_size = 16;
-    DK_map = calloc(DK_map_size * DK_map_size, sizeof (DK_Block));
+    DK_init_map(32);
 
     int i, j;
-    for (i = 0; i < DK_map_size; ++i) {
-        for (j = 0; j < DK_map_size; ++j) {
-            if (i == 0 || j == 0 || i == DK_map_size - 1 || j == DK_map_size - 1) {
-                DK_map[i + j * DK_map_size].type = DK_BLOCK_ROCK;
-            } else {
-                DK_map[i + j * DK_map_size].type = DK_BLOCK_DIRT;
+    for (i = 0; i < 7; ++i) {
+        for (j = 0; j < 7; ++j) {
+            if (i <= 1 || j <= 1 || i >= 5 || j >= 5) {
+                DK_block_at(4 + i, 5 + j)->owner = DK_PLAYER_RED;
+            }
+            if (i > 0 && j > 0 && i < 6 && j < 6) {
+                DK_block_at(4 + i, 5 + j)->type = DK_BLOCK_NONE;
             }
         }
     }
 
-    for (i = 0; i < 5; ++i) {
-        for (j = 0; j < 5; ++j) {
-            DK_map[(4 + i) + (5 + j) * DK_map_size].type = DK_BLOCK_NONE;
-        }
-    }
-
-    DK_map[7 + 16 * 8].type = DK_BLOCK_WATER;
-    DK_map[8 + 16 * 8].type = DK_BLOCK_WATER;
+    DK_block_at(7, 8)->type = DK_BLOCK_WATER;
+    DK_block_at(8, 8)->type = DK_BLOCK_WATER;
 }
 
 void DK_init_gl() {
@@ -196,96 +177,46 @@ void DK_events() {
             case SDL_KEYDOWN:
                 switch (event.key.keysym.sym) {
                     case SDLK_UP:
-                        DK_camera_direction |= DK_CAMD_NORTH;
+                        DK_camera_set_direction(DK_CAMD_NORTH);
                         break;
                     case SDLK_DOWN:
-                        DK_camera_direction |= DK_CAMD_SOUTH;
+                        DK_camera_set_direction(DK_CAMD_SOUTH);
                         break;
                     case SDLK_LEFT:
-                        DK_camera_direction |= DK_CAMD_WEST;
+                        DK_camera_set_direction(DK_CAMD_WEST);
                         break;
                     case SDLK_RIGHT:
-                        DK_camera_direction |= DK_CAMD_EAST;
+                        DK_camera_set_direction(DK_CAMD_EAST);
                         break;
                 }
                 break;
             case SDL_KEYUP:
                 switch (event.key.keysym.sym) {
                     case SDLK_UP:
-                        DK_camera_direction &= ~DK_CAMD_NORTH;
+                        DK_camera_unset_direction(DK_CAMD_NORTH);
                         break;
                     case SDLK_DOWN:
-                        DK_camera_direction &= ~DK_CAMD_SOUTH;
+                        DK_camera_unset_direction(DK_CAMD_SOUTH);
                         break;
                     case SDLK_LEFT:
-                        DK_camera_direction &= ~DK_CAMD_WEST;
+                        DK_camera_unset_direction(DK_CAMD_WEST);
                         break;
                     case SDLK_RIGHT:
-                        DK_camera_direction &= ~DK_CAMD_EAST;
+                        DK_camera_unset_direction(DK_CAMD_EAST);
                         break;
                 }
                 break;
             case SDL_MOUSEBUTTONDOWN:
                 switch (event.button.button) {
                     case SDL_BUTTON_WHEELUP:
-                        DK_camera_zoom_target += DK_CAMERA_ZOOM_STEP;
-                        if (DK_camera_zoom_target > DK_CAMERA_MAX_ZOOM) {
-                            DK_camera_zoom_target = DK_CAMERA_MAX_ZOOM;
-                        }
+                        DK_camera_zoom_in();
                         break;
                     case SDL_BUTTON_WHEELDOWN:
-                        DK_camera_zoom_target -= DK_CAMERA_ZOOM_STEP;
-                        if (DK_camera_zoom_target < 0) {
-                            DK_camera_zoom_target = 0;
-                        }
+                        DK_camera_zoom_out();
                         break;
                 }
         }
     }
-}
-
-void DK_update_camera() {
-    if (DK_camera_direction & DK_CAMD_NORTH) {
-        DK_camera_velocity[1] = DK_CAMERA_SPEED;
-    }
-    if (DK_camera_direction & DK_CAMD_SOUTH) {
-        DK_camera_velocity[1] = -DK_CAMERA_SPEED;
-    }
-    if (DK_camera_direction & DK_CAMD_EAST) {
-        DK_camera_velocity[0] = DK_CAMERA_SPEED;
-    }
-    if (DK_camera_direction & DK_CAMD_WEST) {
-        DK_camera_velocity[0] = -DK_CAMERA_SPEED;
-    }
-
-    DK_camera_position[0] += DK_camera_velocity[0];
-    DK_camera_position[1] += DK_camera_velocity[1];
-
-    if (DK_camera_position[0] < 0) {
-        DK_camera_position[0] = 0;
-    }
-    if (DK_camera_position[0] > DK_map_size * DK_BLOCK_SIZE) {
-        DK_camera_position[0] = DK_map_size * DK_BLOCK_SIZE;
-    }
-
-    if (DK_camera_position[1] < 0) {
-        DK_camera_position[1] = 0;
-    }
-    if (DK_camera_position[1] > DK_map_size * DK_BLOCK_SIZE) {
-        DK_camera_position[1] = DK_map_size * DK_BLOCK_SIZE;
-    }
-
-    DK_camera_velocity[0] *= DK_CAMERA_FRICTION;
-    DK_camera_velocity[1] *= DK_CAMERA_FRICTION;
-
-    if (fabs(DK_camera_velocity[0]) < 0.0001f) {
-        DK_camera_velocity[0] = 0;
-    }
-    if (fabs(DK_camera_velocity[1]) < 0.0001f) {
-        DK_camera_velocity[1] = 0;
-    }
-
-    DK_camera_zoom += (DK_camera_zoom_target - DK_camera_zoom) / 2.0f;
 }
 
 void DK_update() {
@@ -303,8 +234,8 @@ void DK_render() {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    gluLookAt(DK_camera_position[0], DK_camera_position[1], DK_CAMERA_HEIGHT - DK_camera_zoom,
-            DK_camera_position[0], DK_camera_position[1] + DK_BLOCK_SIZE * 2, 0,
+    gluLookAt(DK_camera_position()[0], DK_camera_position()[1], DK_CAMERA_HEIGHT - DK_camera_zoom(),
+            DK_camera_position()[0], DK_camera_position()[1] + DK_CAMERA_DISTANCE, 0,
             0, 0, 1);
 
     GLfloat light_position[] = {DK_UNIT_SCALING * (160 - 24), DK_UNIT_SCALING * (160 - 24), DK_UNIT_SCALING * 20, 1};
