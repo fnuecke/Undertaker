@@ -443,8 +443,15 @@ void DK_init_map(unsigned int size) {
 #endif
 }
 
+inline static int block_index_valid(unsigned int x, unsigned int y) {
+    return x >= 0 && y >= 0 && x < DK_map_size && y < DK_map_size;
+}
+
 DK_Block* DK_block_at(unsigned int x, unsigned int y) {
-    return &map[y * DK_map_size + x];
+    if (block_index_valid(x, y)) {
+        return &map[y * DK_map_size + x];
+    }
+    return NULL;
 }
 
 int DK_block_is_fluid(const DK_Block* block) {
@@ -473,12 +480,12 @@ void DK_render_map() {
             glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
             glColor3f(1.0f, 1.0f, 1.0f);
 
+            // Mark for select mode, coordinates of that block.
+            glLoadName(y * DK_map_size + x);
+
             DK_Texture texture_top, texture_side, texture_top_wall = 0, texture_top_owner = 0;
             int top;
             if (x < 0 || y < 0 || x >= DK_map_size || y >= DK_map_size) {
-
-                // Invalidate this in select mode.
-                glLoadName(0);
 
                 // Solid rock when out of bounds.
                 top = DK_BLOCK_HEIGHT;
@@ -486,9 +493,6 @@ void DK_render_map() {
                 texture_side = DK_TEX_ROCK_SIDE;
             } else {
                 const DK_Block* block = &map[x + y * DK_map_size];
-
-                // Mark for select mode, push pointer to that block.
-                glLoadName((GLuint) block);
 
                 // Selected by the local player?
                 if (DK_block_is_selected(DK_PLAYER_RED, x, y)) {
@@ -705,32 +709,32 @@ void DK_render_map() {
     }
 }
 
-DK_Block* DK_as_block(void* ptr, int* x, int* y) {
-    if (ptr >= (void*) map && ptr < (void*) (map + DK_map_size * DK_map_size)) {
-        unsigned int offset = ptr - (void*) map;
-        if (offset % sizeof (DK_Block) == 0) {
-            offset = (DK_Block*) ptr - map;
-            *x = offset % DK_map_size;
-            *y = offset / DK_map_size;
-        }
-        return (DK_Block*) ptr;
-    }
-    return NULL;
+DK_Block* DK_as_block(GLuint selected_name, int* x, int* y) {
+    *x = selected_name % DK_map_size;
+    *y = selected_name / DK_map_size;
+    return DK_block_at(*x, *y);
+}
+
+int DK_block_is_selectable(DK_Player player, unsigned int x, unsigned int y) {
+    const DK_Block* block = DK_block_at(x, y);
+    return block != NULL &&
+            block->type != DK_BLOCK_ROCK &&
+            !DK_block_is_passable(block) &&
+            (block->owner == DK_PLAYER_NONE || block->owner == player);
 }
 
 void DK_block_select(DK_Player player, unsigned int x, unsigned int y) {
-    const DK_Block* block = DK_block_at(x, y);
-    if (block->type != DK_BLOCK_DIRT ||
-            (block->owner != player && block->owner != DK_PLAYER_NONE)) {
-        return;
+    if (DK_block_is_selectable(player, x, y)) {
+        const unsigned int idx = y * DK_map_size + x;
+        selection[player][idx >> 3] |= (1 << (idx & 7));
     }
-    const unsigned int idx = y * DK_map_size + x;
-    selection[player][idx >> 3] |= (1 << (idx & 7));
 }
 
 void DK_block_deselect(DK_Player player, unsigned int x, unsigned int y) {
-    const unsigned int idx = y * DK_map_size + x;
-    selection[player][idx >> 3] &= ~(1 << (idx & 7));
+    if (block_index_valid(x, y)) {
+        const unsigned int idx = y * DK_map_size + x;
+        selection[player][idx >> 3] &= ~(1 << (idx & 7));
+    }
 }
 
 int DK_block_is_selected(DK_Player player, unsigned int x, unsigned int y) {

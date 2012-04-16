@@ -67,8 +67,9 @@ int DK_block_is_passable(const DK_Block* block);
 void DK_render_map();
 
 /** Checks if a pointer is a pointer to a block in the current map, and if so
- * returns it as such, including its x and y coordinates. Otherwise returns 0. */
-DK_Block* DK_as_block(void* ptr, int* x, int* y);
+ * returns it as such, including its x and y coordinates. Otherwise returns 0;
+ * this will still fill in the coordinates the block would have, were it one. */
+DK_Block* DK_as_block(GLuint selected_name, int* x, int* y);
 
 /** Select a block at the given coordinates for the specified player */
 void DK_block_select(DK_Player player, unsigned int x, unsigned int y);

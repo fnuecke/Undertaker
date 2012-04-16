@@ -5,7 +5,6 @@
 
 #include <SDL.h>
 #include <GL/gl.h>
-
 #include <GL/glext.h>
 #include <GL/glu.h>
 
@@ -205,60 +204,6 @@ void DK_init_gl() {
     DK_opengl_textures();
 }
 
-GLuint DK_pick(int x, int y) {
-    GLuint buffer[64] = {0};
-
-    glSelectBuffer(sizeof (buffer), buffer);
-    glRenderMode(GL_SELECT);
-    glInitNames();
-    glPushName(0);
-
-    // Now modify the viewing volume, restricting selection area around the cursor
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-
-    // Restrict the draw to an area around the cursor.
-    {
-        GLint view[4];
-        glGetIntegerv(GL_VIEWPORT, view);
-        gluPickMatrix(x, y, 1.0, 1.0, view);
-        gluPerspective(80.0, DK_ASPECT_RATIO, 0.1, 1000.0);
-
-        DK_render();
-    }
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-
-    GLint hits = glRenderMode(GL_RENDER);
-
-    GLuint closest = 0;
-    unsigned int hit, depth = UINT32_MAX;
-    for (hit = 0; hit < hits; ++hit) {
-        if (buffer[hit * 4 + 3] && buffer[hit * 4 + 2] < depth) {
-            closest = buffer[hit * 4 + 3];
-            depth = buffer[hit * 4 + 1];
-        }
-    }
-    return closest;
-}
-
-void DK_click(int x, int y) {
-    // Find the world object we clicked on.
-    const GLuint object = DK_pick(x, DK_RESOLUTION_Y - y);
-
-    if (object) {
-        // See if it's a block.
-        unsigned int block_x, block_y;
-        DK_Block* block = DK_as_block((void*) object, &block_x, &block_y);
-        if (block) {
-            // Yes, if it's a non-empty one, toggle selection.
-            DK_block_select(DK_PLAYER_RED, block_x, block_y);
-            return;
-        }
-    }
-}
-
 void DK_events() {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -267,49 +212,17 @@ void DK_events() {
                 exit(EXIT_SUCCESS);
                 break;
             case SDL_KEYDOWN:
-                switch (event.key.keysym.sym) {
-                    case SDLK_UP:
-                        DK_camera_set_direction(DK_CAMD_NORTH);
-                        break;
-                    case SDLK_DOWN:
-                        DK_camera_set_direction(DK_CAMD_SOUTH);
-                        break;
-                    case SDLK_LEFT:
-                        DK_camera_set_direction(DK_CAMD_WEST);
-                        break;
-                    case SDLK_RIGHT:
-                        DK_camera_set_direction(DK_CAMD_EAST);
-                        break;
-                }
+                DK_key_down(&event);
                 break;
             case SDL_KEYUP:
-                switch (event.key.keysym.sym) {
-                    case SDLK_UP:
-                        DK_camera_unset_direction(DK_CAMD_NORTH);
-                        break;
-                    case SDLK_DOWN:
-                        DK_camera_unset_direction(DK_CAMD_SOUTH);
-                        break;
-                    case SDLK_LEFT:
-                        DK_camera_unset_direction(DK_CAMD_WEST);
-                        break;
-                    case SDLK_RIGHT:
-                        DK_camera_unset_direction(DK_CAMD_EAST);
-                        break;
-                }
+                DK_key_up(&event);
                 break;
             case SDL_MOUSEBUTTONDOWN:
-                switch (event.button.button) {
-                    case SDL_BUTTON_WHEELUP:
-                        DK_camera_zoom_in();
-                        break;
-                    case SDL_BUTTON_WHEELDOWN:
-                        DK_camera_zoom_out();
-                        break;
-                    case SDL_BUTTON_LEFT:
-                        DK_click(event.button.x, event.button.y);
-                        break;
-                }
+                DK_mouse_down(&event);
+                break;
+            case SDL_MOUSEBUTTONUP:
+                DK_mouse_up(&event);
+                break;
         }
     }
 }
