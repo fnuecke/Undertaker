@@ -24,7 +24,7 @@
 #define DK_ASPECT_RATIO ((float)DK_RESOLUTION_X / (float)DK_RESOLUTION_Y)
 
 /** Whether to use anti aliasing or not */
-#define DK_USE_ANTIALIASING 0
+#define DK_USE_ANTIALIASING 1
 
 ///////////////////////////////////////////////////////////////////////////////
 // Textures
@@ -90,14 +90,8 @@
 // Debugging
 ///////////////////////////////////////////////////////////////////////////////
 
-/** Draw surface normals */
-#define DK_D_DRAW_NORMALS 0
-
 /** Use test texture instead of actual textures */
 #define DK_D_DRAW_TEST_TEXTURE 0
-
-/** Actually do compute surface normals */
-#define DK_D_COMPUTE_NORMALS 1
 
 /** Use terrain noise */
 #define DK_D_TERRAIN_NOISE 1

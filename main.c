@@ -121,6 +121,10 @@ void DK_init() {
 
     DK_block_at(7, 8)->type = DK_BLOCK_WATER;
     DK_block_at(8, 8)->type = DK_BLOCK_WATER;
+
+    DK_block_at(10, 8)->type = DK_BLOCK_WATER;
+    DK_block_at(11, 8)->type = DK_BLOCK_WATER;
+    DK_block_at(11, 9)->type = DK_BLOCK_WATER;
     //DK_block_at(9, 8)->owner = DK_PLAYER_RED;
 }
 
@@ -137,33 +141,44 @@ void DK_init_gl() {
     glLoadIdentity();
     gluPerspective(80.0, DK_ASPECT_RATIO, 0.1, 1000.0);
 
+    // Anti-alias?
+    if (DK_USE_ANTIALIASING) {
+        glEnable(GL_MULTISAMPLE);
+    }
+
     // Initialize the model/view matrix.
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
+    // We do use textures, so enable that.
     glEnable(GL_TEXTURE_2D);
 
+    // Also enable depth testing to get stuff in the right order.
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
     glDepthMask(GL_TRUE);
 
+    // We'll make sure stuff is rotated correctly, so we can cull back-faces.
     glEnable(GL_CULL_FACE);
 
-    glEnable(GL_MULTISAMPLE);
-
     // Set up global ambient lighting.
-    //glEnable(GL_LIGHTING);
+    glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
+    glEnable(GL_LIGHTING);
     glShadeModel(GL_SMOOTH);
+    glEnable(GL_COLOR_MATERIAL);
+
+    GLfloat global_ambient[] = {0.0f, 0.0f, 0.0f, 1.0f};
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, global_ambient);
 
     // Create light components
-    GLfloat ambientLight[] = {0.2f, 0.2f, 0.2f, 1.0f};
+    GLfloat ambientLight[] = {0.0f, 0.0f, 0.0f, 1.0f};
     GLfloat diffuseLight[] = {1.0f, 0.9f, 0.8f, 1.0f};
     GLfloat specularLight[] = {0.0f, 0.0f, 0.0f, 1.0f};
 
     // Assign created components to GL_LIGHT0
-    //glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight);
     glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseLight);
-    //glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
 
     glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.0f);
     glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.0025f);
@@ -171,7 +186,7 @@ void DK_init_gl() {
     glEnable(GL_LIGHT0);
 
     //Add directed light
-    GLfloat lightColor1[] = {0.4f, 0.2f, 0.2f, 1.0f};
+    GLfloat lightColor1[] = {0.3f, 0.25f, 0.25f, 1.0f};
     GLfloat lightPos1[] = {-1.0f, 0.5f, 0.5f, 0.0f};
     glLightfv(GL_LIGHT1, GL_DIFFUSE, lightColor1);
     glLightfv(GL_LIGHT1, GL_POSITION, lightPos1);
@@ -231,11 +246,11 @@ GLuint DK_pick(int x, int y) {
 void DK_click(int x, int y) {
     // Find the world object we clicked on.
     const GLuint object = DK_pick(x, DK_RESOLUTION_Y - y);
-    
+
     if (object) {
         // See if it's a block.
         unsigned int block_x, block_y;
-        DK_Block* block = DK_as_block((void*)object, &block_x, &block_y);
+        DK_Block* block = DK_as_block((void*) object, &block_x, &block_y);
         if (block) {
             // Yes, if it's a non-empty one, toggle selection.
             DK_block_select(DK_PLAYER_RED, block_x, block_y);

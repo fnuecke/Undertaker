@@ -249,75 +249,8 @@ inline static void cross(double* cross, const double* v0, const double* v1) {
     cross[2] = v0[0] * v1[1] - v0[1] * v1[0];
 }
 
-/** Gets normal for a vertex (two neighboring vertices) */
-static void normal2(const double* points, int i0, int i1, int i2) {
-    double p0[3], p1[3], p2[3];
-    get_vertex(p0, points, i0);
-    get_vertex(p1, points, i1);
-    get_vertex(p2, points, i2);
-    const double a[] = {
-        p1[0] - p0[0],
-        p1[1] - p0[1],
-        p1[2] - p0[2]
-    };
-    const double b[] = {
-        p2[0] - p0[0],
-        p2[1] - p0[1],
-        p2[2] - p0[2]
-    };
-
-    double* n = last_normal;
-    cross(n, a, b);
-
-    const double len = sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
-    n[0] /= len;
-    n[1] /= len;
-    n[2] /= len;
-
-    glNormal3dv(n);
-}
-
-/** Gets normal for a vertex (three neighboring vertices) */
-static void normal3(const double* points, int i0, int i1, int i2, int i3) {
-    double p0[3], p1[3], p2[3], p3[3];
-    get_vertex(p0, points, i0);
-    get_vertex(p1, points, i1);
-    get_vertex(p2, points, i2);
-    get_vertex(p3, points, i3);
-    const double a[] = {
-        p1[0] - p0[0],
-        p1[1] - p0[1],
-        p1[2] - p0[2]
-    };
-    const double b[] = {
-        p2[0] - p0[0],
-        p2[1] - p0[1],
-        p2[2] - p0[2]
-    };
-    const double c[] = {
-        p3[0] - p0[0],
-        p3[1] - p0[1],
-        p3[2] - p0[2]
-    };
-
-    double* n = last_normal;
-    double t[3];
-    cross(t, a, b);
-    cross(n, b, c);
-    n[0] = (n[0] + t[0]) / 2.0;
-    n[1] = (n[1] + t[1]) / 2.0;
-    n[2] = (n[2] + t[2]) / 2.0;
-
-    const double len = sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
-    n[0] /= len;
-    n[1] /= len;
-    n[2] /= len;
-
-    glNormal3dv(n);
-}
-
-/** Gets normal for a vertex (four neighboring vertices) */
-static void normal4(const double* points, int i0, int i1, int i2, int i3, int i4) {
+/** Sets normal for a vertex (base don four neighboring vertices) */
+static void set_normal(const double* points, int i0, int i1, int i2, int i3, int i4, int snap) {
     double p0[3], p1[3], p2[3], p3[3], p4[3];
     get_vertex(p0, points, i0);
     get_vertex(p1, points, i1);
@@ -354,22 +287,31 @@ static void normal4(const double* points, int i0, int i1, int i2, int i3, int i4
     n[1] = (n[1] + t0[1] + t1[0]) / 3.0;
     n[2] = (n[2] + t0[2] + t1[0]) / 3.0;
 
-    const double len = sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
-    n[0] /= len;
-    n[1] /= len;
-    n[2] /= len;
+    if (snap) {
+        // Determine dominant axis.
+        if (fabs(n[0]) > fabs(n[1]) && fabs(n[0]) > fabs(n[2])) {
+            n[0] = n[0] > 0.0 ? 1.0 : -1.0;
+            n[1] = 0.0;
+            n[2] = 0.0;
+        } else if (fabs(n[1]) > fabs(n[2])) {
+            n[0] = 0.0;
+            n[1] = n[1] > 0.0 ? 1.0 : -1.0;
+            n[2] = 0.0;
+        } else {
+            n[0] = 0.0;
+            n[1] = 0.0;
+            n[2] = n[2] > 0.0 ? 1.0 : -1.0;
+        }
+    } else {
+        // Normalize it.
+        const double len = sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+        n[0] /= len;
+        n[1] /= len;
+        n[2] /= len;
+    }
 
     glNormal3dv(n);
 }
-
-/** Nesting glBegin() is not possible, so we need to store the normals to draw them */
-#if DK_D_DRAW_NORMALS
-#define DK_D_SAVE_NORMALS()\
-        memcpy(&v[3 * ni], last_vertex, sizeof (last_vertex));\
-        memcpy(&n[3 * ni++], last_normal, sizeof (last_normal))
-#else
-#define DK_D_SAVE_NORMALS()
-#endif
 
 /**
  * Draw a quad subdivided into 4 quads like so:
@@ -384,167 +326,71 @@ static void normal4(const double* points, int i0, int i1, int i2, int i3, int i4
  * order.
  */
 static void DK_draw_4quad(DK_Texture texture, double* points) {
-#ifdef DK_D_DRAW_NORMALS
-    double v[3 * 6], n[3 * 6];
-    int ni = 0;
-#endif
-
+    // Set surface texture.
     const unsigned int variation = (unsigned int) ((snoise2(points[0], points[1] + points[2]) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
-    const GLuint tex = DK_opengl_texture(texture, variation);
-    glBindTexture(GL_TEXTURE_2D, tex);
+    glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
+
+    // Top two quads (0 through 5).
     glBegin(GL_QUAD_STRIP);
     {
-#if DK_D_COMPUTE_NORMALS
-        normal2(points, 0, 3, 1);
-#endif
+        // Set normal to predominant axis.
+        set_normal(points, 4, 0, 6, 8, 2, 1);
+
         glTexCoord2d(0, 0);
         set_vertex(points, 0);
 
-        DK_D_SAVE_NORMALS();
-
-#if DK_D_COMPUTE_NORMALS
-        normal3(points, 3, 4, 1, 0);
-#endif
         glTexCoord2d(0, 0.5);
         set_vertex(points, 3);
 
-        DK_D_SAVE_NORMALS();
-
-#if DK_D_COMPUTE_NORMALS
-        normal4(points, 1, 0, 3, 4, 2);
-#endif
         glTexCoord2d(0.5, 0);
         set_vertex(points, 1);
 
-        DK_D_SAVE_NORMALS();
+        // Center vertex, set average normal.
+        set_normal(points, 4, 0, 6, 8, 2, 0);
 
-#if DK_D_COMPUTE_NORMALS
-        normal4(points, 4, 5, 2, 1, 3);
-#endif
         glTexCoord2d(0.5, 0.5);
         set_vertex(points, 4);
 
-        DK_D_SAVE_NORMALS();
+        // And back to predominant one.
+        set_normal(points, 4, 0, 6, 8, 2, 1);
 
-#if DK_D_COMPUTE_NORMALS
-        normal3(points, 2, 1, 4, 5);
-#endif
         glTexCoord2d(1, 0);
         set_vertex(points, 2);
 
-        DK_D_SAVE_NORMALS();
-
-#if DK_D_COMPUTE_NORMALS
-        normal2(points, 5, 2, 4);
-#endif
         glTexCoord2d(1, 0.5);
         set_vertex(points, 5);
 
-        DK_D_SAVE_NORMALS();
     }
     glEnd();
 
-#if DK_D_DRAW_NORMALS
-    const GLboolean lighting = glIsEnabled(GL_LIGHTING);
-    glDisable(GL_LIGHTING);
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glBegin(GL_LINES);
-    {
-        glColor3f(1.0, 0.0, 0.0);
-        for (ni--; ni >= 0; --ni) {
-            glVertex3f(
-                    v[3 * ni] + n[3 * ni] * 2,
-                    v[3 * ni + 1] + n[3 * ni + 1] * 2,
-                    v[3 * ni + 2] + n[3 * ni + 2] * 2);
-            glVertex3dv(&v[3 * ni]);
-        }
-    }
-    glColor3f(1.0, 1.0, 1.0);
-    glEnd();
-
-    if (lighting) {
-        glEnable(GL_LIGHTING);
-    }
-
-    ni = 0;
-#endif
-
-    glBindTexture(GL_TEXTURE_2D, tex);
+    // Bottom two quads (3 through 8).
     glBegin(GL_QUAD_STRIP);
     {
-#if DK_D_COMPUTE_NORMALS
-        normal2(points, 3, 6, 4);
-#endif
         glTexCoord2d(0, 0.5);
         set_vertex(points, 3);
 
-        DK_D_SAVE_NORMALS();
-
-#if DK_D_COMPUTE_NORMALS
-        normal3(points, 6, 7, 4, 3);
-#endif
         glTexCoord2d(0, 1);
         set_vertex(points, 6);
 
-        DK_D_SAVE_NORMALS();
+        // Center vertex, set average normal.
+        set_normal(points, 4, 0, 6, 8, 2, 0);
 
-#if DK_D_COMPUTE_NORMALS
-        normal4(points, 4, 3, 6, 7, 5);
-#endif
         glTexCoord2d(0.5, 0.5);
         set_vertex(points, 4);
 
-        DK_D_SAVE_NORMALS();
+        // And back to predominant one.
+        set_normal(points, 4, 0, 6, 8, 2, 1);
 
-#if DK_D_COMPUTE_NORMALS
-        normal4(points, 7, 8, 5, 4, 6);
-#endif
         glTexCoord2d(0.5, 1);
         set_vertex(points, 7);
 
-        DK_D_SAVE_NORMALS();
-
-#if DK_D_COMPUTE_NORMALS
-        normal3(points, 5, 4, 7, 8);
-#endif
         glTexCoord2d(1, 0.5);
         set_vertex(points, 5);
 
-        DK_D_SAVE_NORMALS();
-
-#if DK_D_COMPUTE_NORMALS
-        normal2(points, 8, 5, 7);
-#endif
         glTexCoord2d(1, 1);
         set_vertex(points, 8);
-
-        DK_D_SAVE_NORMALS();
     }
     glEnd();
-
-#if DK_D_DRAW_NORMALS
-    glDisable(GL_LIGHTING);
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glBegin(GL_LINES);
-    {
-        glColor3f(1.0, 0.0, 0.0);
-        for (ni--; ni >= 0; --ni) {
-            glVertex3f(
-                    v[3 * ni] + n[3 * ni] * 2,
-                    v[3 * ni + 1] + n[3 * ni + 1] * 2,
-                    v[3 * ni + 2] + n[3 * ni + 2] * 2);
-            glVertex3dv(&v[3 * ni]);
-        }
-    }
-    glColor3f(1.0, 1.0, 1.0);
-    glEnd();
-
-    if (lighting) {
-        glEnable(GL_LIGHTING);
-    }
-#endif
 }
 
 #undef DK_D_SAVE_NORMALS
@@ -622,6 +468,9 @@ void DK_render_map() {
             float y_coord = y * (DK_BLOCK_SIZE);
 
             // Reset tint color.
+            glColorMaterial(GL_FRONT, GL_EMISSION);
+            glColor3f(0.0f, 0.0f, 0.0f);
+            glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
             glColor3f(1.0f, 1.0f, 1.0f);
 
             DK_Texture texture_top, texture_side, texture_top_wall = 0, texture_top_owner = 0;
@@ -643,7 +492,8 @@ void DK_render_map() {
 
                 // Selected by the local player?
                 if (DK_block_is_selected(DK_PLAYER_RED, x, y)) {
-                    glColor3f(0.8f, 0.8f, 1.0f);
+                    glColorMaterial(GL_FRONT, GL_EMISSION);
+                    glColor3f(0.225f, 0.225f, 0.2f);
                 }
 
                 if (block->type == DK_BLOCK_NONE) {
