@@ -13,6 +13,7 @@
 #include "config.h"
 #include "map.h"
 #include "camera.h"
+#include "units.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Global data
@@ -105,6 +106,7 @@ void DK_init() {
 
     // Initialize a test map.
     DK_init_map(32);
+    DK_init_units();
 
     int i, j;
     for (i = 0; i < 7; ++i) {
@@ -125,6 +127,8 @@ void DK_init() {
     DK_block_at(11, 8)->type = DK_BLOCK_WATER;
     DK_block_at(11, 9)->type = DK_BLOCK_WATER;
     //DK_block_at(9, 8)->owner = DK_PLAYER_RED;
+    
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
 }
 
 void DK_init_gl() {
@@ -229,6 +233,7 @@ void DK_events() {
 
 void DK_update() {
     DK_update_camera();
+    DK_update_units();
 
     // Wait to get a constant frame rate.
     SDL_Delay(10);
@@ -250,4 +255,5 @@ void DK_render() {
     glLightfv(GL_LIGHT0, GL_POSITION, light_position);
 
     DK_render_map();
+    DK_render_units();
 }

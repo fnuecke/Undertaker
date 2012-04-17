@@ -6,6 +6,7 @@
 #include <string.h>
 #include <malloc.h>
 
+#include "bitset.h"
 #include "config.h"
 #include "map.h"
 #include "simplexnoise.h"
@@ -406,7 +407,7 @@ inline static void set_points(double* points, int point, double x, double y, dou
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_init_map(unsigned int size) {
+void DK_init_map(unsigned short size) {
     DK_map_size = size;
 
     free(map);
@@ -415,17 +416,13 @@ void DK_init_map(unsigned int size) {
     int i, j, k, l;
     for (i = 0; i < size; ++i) {
         for (j = 0; j < size; ++j) {
-            if (i == 0 || j == 0 || i == size - 1 || j == size - 1) {
-                map[i + j * size].type = DK_BLOCK_ROCK;
-            } else {
-                map[i + j * size].type = DK_BLOCK_DIRT;
-            }
+            map[i + j * size].type = DK_BLOCK_DIRT;
         }
     }
 
     for (i = 0; i < DK_PLAYER_COUNT - 1; ++i) {
-        free(selection[i]);
-        selection[i] = calloc((DK_map_size * DK_map_size) / 8 + 1, sizeof (char));
+        BS_free(selection[i]);
+        selection[i] = BS_alloc(DK_map_size * DK_map_size);
     }
 
 #if DK_D_CACHE_NOISE
@@ -443,11 +440,11 @@ void DK_init_map(unsigned int size) {
 #endif
 }
 
-inline static int block_index_valid(unsigned int x, unsigned int y) {
+inline static int block_index_valid(int x, int y) {
     return x >= 0 && y >= 0 && x < DK_map_size && y < DK_map_size;
 }
 
-DK_Block* DK_block_at(unsigned int x, unsigned int y) {
+DK_Block* DK_block_at(int x, int y) {
     if (block_index_valid(x, y)) {
         return &map[y * DK_map_size + x];
     }
@@ -455,11 +452,11 @@ DK_Block* DK_block_at(unsigned int x, unsigned int y) {
 }
 
 int DK_block_is_fluid(const DK_Block* block) {
-    return block->type == DK_BLOCK_LAVA || block->type == DK_BLOCK_WATER;
+    return block != NULL && block->type == DK_BLOCK_LAVA || block->type == DK_BLOCK_WATER;
 }
 
 int DK_block_is_passable(const DK_Block* block) {
-    return block->type == DK_BLOCK_NONE || DK_block_is_fluid(block);
+    return block != NULL && block->type == DK_BLOCK_NONE || DK_block_is_fluid(block);
 }
 
 void DK_render_map() {
@@ -715,7 +712,7 @@ DK_Block* DK_as_block(GLuint selected_name, int* x, int* y) {
     return DK_block_at(*x, *y);
 }
 
-int DK_block_is_selectable(DK_Player player, unsigned int x, unsigned int y) {
+int DK_block_is_selectable(DK_Player player, int x, int y) {
     const DK_Block* block = DK_block_at(x, y);
     return block != NULL &&
             block->type != DK_BLOCK_ROCK &&
@@ -723,21 +720,20 @@ int DK_block_is_selectable(DK_Player player, unsigned int x, unsigned int y) {
             (block->owner == DK_PLAYER_NONE || block->owner == player);
 }
 
-void DK_block_select(DK_Player player, unsigned int x, unsigned int y) {
+void DK_block_select(DK_Player player, unsigned short x, unsigned short y) {
     if (DK_block_is_selectable(player, x, y)) {
         const unsigned int idx = y * DK_map_size + x;
-        selection[player][idx >> 3] |= (1 << (idx & 7));
+        BS_set(selection[player], idx);
     }
 }
 
-void DK_block_deselect(DK_Player player, unsigned int x, unsigned int y) {
+void DK_block_deselect(DK_Player player, unsigned short x, unsigned short y) {
     if (block_index_valid(x, y)) {
         const unsigned int idx = y * DK_map_size + x;
-        selection[player][idx >> 3] &= ~(1 << (idx & 7));
+        BS_unset(selection[player], idx);
     }
 }
 
-int DK_block_is_selected(DK_Player player, unsigned int x, unsigned int y) {
-    const unsigned int idx = y * DK_map_size + x;
-    return (selection[player][idx >> 3] & (1 << (idx & 7))) != 0;
+int DK_block_is_selected(DK_Player player, unsigned short x, unsigned short y) {
+    return BS_test(selection[player], y * DK_map_size + x);
 }

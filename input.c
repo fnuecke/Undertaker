@@ -105,22 +105,20 @@ void DK_mouse_down(const SDL_Event* e) {
         case SDL_BUTTON_LEFT:
         {
             // Find the world object we clicked on.
-            GLuint name;
-            if (name = pick_block(e->button.x, DK_RESOLUTION_Y - e->button.y)) {
-                // See if it's a selectable block.
-                DK_as_block(name, &start_x, &start_y);
-                if (DK_block_is_selectable(DK_PLAYER_RED, start_x, start_y)) {
-                    // Yes, if it's a non-empty one, start selection.
-                    if (DK_block_is_selected(DK_PLAYER_RED, start_x, start_y)) {
-                        mode = MODE_DESELECT;
-                    } else {
-                        mode = MODE_SELECT;
-                    }
-                    // Don't test for other objects.
-                    return;
+            GLuint name = pick_block(e->button.x, DK_RESOLUTION_Y - e->button.y);
+            // See if it's a selectable block.
+            DK_as_block(name, &start_x, &start_y);
+            if (DK_block_is_selectable(DK_PLAYER_RED, start_x, start_y)) {
+                // Yes, if it's a non-empty one, start selection.
+                if (DK_block_is_selected(DK_PLAYER_RED, start_x, start_y)) {
+                    mode = MODE_DESELECT;
                 } else {
-                    mode = MODE_NONE;
+                    mode = MODE_SELECT;
                 }
+                // Don't test for other objects.
+                return;
+            } else {
+                mode = MODE_NONE;
             }
 
         }

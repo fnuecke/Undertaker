@@ -8,6 +8,8 @@
 #ifndef MAP_H
 #define	MAP_H
 
+#include <GL/gl.h>
+
 #include "players.h"
 
 /** Possible block types */
@@ -42,6 +44,9 @@ typedef struct {
 
     /** The room type, if any */
     DK_RoomType room;
+    
+    /** Multipurpose health of the block (hits to break down or convert ) */
+    unsigned int health;
 } DK_Block;
 
 /** Size (width and height) of the current map */
@@ -52,10 +57,10 @@ extern "C" {
 #endif
 
 /** Clears the current map and initializes a new one with the specified size */
-void DK_init_map(unsigned int size);
+void DK_init_map(unsigned short size);
 
 /** Get the map block at the specified coordinate */
-DK_Block* DK_block_at(unsigned int x, unsigned int y);
+DK_Block* DK_block_at(int x, int y);
 
 /** Utility method for checking if a block contains a fluid */
 int DK_block_is_fluid(const DK_Block* block);
@@ -71,14 +76,16 @@ void DK_render_map();
  * this will still fill in the coordinates the block would have, were it one. */
 DK_Block* DK_as_block(GLuint selected_name, int* x, int* y);
 
+int DK_block_is_selectable(DK_Player player, int x, int y);
+
 /** Select a block at the given coordinates for the specified player */
-void DK_block_select(DK_Player player, unsigned int x, unsigned int y);
+void DK_block_select(DK_Player player, unsigned short x, unsigned short y);
 
 /** Deselect a block at the given coordinates for the specified player */
-void DK_block_deselect(DK_Player player, unsigned int x, unsigned int y);
+void DK_block_deselect(DK_Player player, unsigned short x, unsigned short y);
 
 /** Checks if the specified block is selected by the specified player */
-int DK_block_is_selected(DK_Player player, unsigned int x, unsigned int y);
+int DK_block_is_selected(DK_Player player, unsigned short x, unsigned short y);
 
 #ifdef	__cplusplus
 }

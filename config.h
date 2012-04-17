@@ -27,6 +27,16 @@
 #define DK_USE_ANTIALIASING 1
 
 ///////////////////////////////////////////////////////////////////////////////
+// Units
+///////////////////////////////////////////////////////////////////////////////
+
+/** Maximum number of units a single player have at a time */
+#define DK_UNITS_MAX_PER_PLAYER 100
+
+/** How fine the overlayed block grid for A* is (higher = finer) */
+#define DK_ASTAR_GRANULARITY 3
+
+///////////////////////////////////////////////////////////////////////////////
 // Textures
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -104,6 +114,9 @@
 
 /** Cache the global noise instead of recomputing it on the fly */
 #define DK_D_CACHE_NOISE 1
+
+/** Render unit paths */
+#define DK_D_DRAW_PATHS 1
 
 #endif	/* CONFIG_H */
 
