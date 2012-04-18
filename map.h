@@ -74,18 +74,6 @@ void DK_render_map();
 /** Gets the block currently hovered by the mouse, and its coordinates */
 DK_Block* DK_block_under_cursor(int* block_x, int* block_y, int mouse_x, int mouse_y);
 
-/** Checks if the specified block is selectable by the specified player */
-int DK_block_is_selectable(DK_Player player, int x, int y);
-
-/** Select the block at the given coordinates for the specified player */
-void DK_block_select(DK_Player player, unsigned short x, unsigned short y);
-
-/** Deselect the block at the given coordinates for the specified player */
-void DK_block_deselect(DK_Player player, unsigned short x, unsigned short y);
-
-/** Checks if the specified block is selected by the specified player */
-int DK_block_is_selected(DK_Player player, unsigned short x, unsigned short y);
-
 #ifdef	__cplusplus
 }
 #endif

@@ -12,6 +12,8 @@
 
 #include "config.h"
 #include "map.h"
+#include "astar.h"
+#include "selection.h"
 #include "camera.h"
 #include "units.h"
 
@@ -106,6 +108,7 @@ void DK_init() {
 
     // Initialize a test map.
     DK_init_map(32);
+    DK_init_selection();
     DK_init_a_star();
     DK_init_units();
 
@@ -238,7 +241,7 @@ void DK_update() {
     DK_update_units();
 
     // Wait to get a constant frame rate.
-    SDL_Delay(10);
+    SDL_Delay(1000/60);
 }
 
 void DK_render() {

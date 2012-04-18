@@ -9,6 +9,7 @@
 #include "config.h"
 #include "units.h"
 #include "map.h"
+#include "jobs.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Constants
@@ -41,7 +42,7 @@ typedef enum {
     DK_AI_IMP_DIG,
 
     /** Imp is conquering a block */
-    DK_AI_IMP_CONQUER,
+    DK_AI_IMP_CONVERT,
 
     /** AI is working on something (training, research, crafting) */
     DK_AI_WORK
@@ -55,19 +56,17 @@ typedef struct {
     /** The path the unit currently follows (if moving) */
     AStar_Waypoint path[DK_AI_PATH_MAX];
 
-    /** The remaining length of the path */
-    unsigned int node_count;
+    /** The total depth of the path (number of nodes) */
+    unsigned int path_depth;
+
+    /** The current node of the path */
+    unsigned int path_index;
 } AIJob_Move;
 
 typedef struct {
-    /** Coordinate of the block an imp should dig up */
-    unsigned int x, y;
-} AIJob_Dig;
-
-typedef struct {
-    /** Coordinate of the block an imp should convert */
-    unsigned int x, y;
-} AIJob_Convert;
+    /** The block an imp should dig up or convert */
+    DK_Block* block;
+} AIJob_DigConvert;
 
 typedef struct {
     /** Enemy the unit currently attacks */
@@ -78,11 +77,10 @@ typedef struct {
 /** Get size of largest info struct */
 #define SIZE0 sizeof(AIJob_Idle)
 #define SIZE1 sizeof(AIJob_Move)
-#define SIZE2 sizeof(AIJob_Dig)
-#define SIZE3 sizeof(AIJob_Convert)
-#define SIZE4 sizeof(AIJob_Attack)
+#define SIZE2 sizeof(AIJob_DigConvert)
+#define SIZE3 sizeof(AIJob_Attack)
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
-#define MAX_JOB_SIZE MAX(MAX(MAX(MAX(SIZE0, SIZE1), SIZE2), SIZE3), SIZE4)
+#define MAX_JOB_SIZE MAX(MAX(MAX(SIZE0, SIZE1), SIZE2), SIZE3)
 
 typedef struct {
     /** The type of this AI entry */
@@ -121,18 +119,6 @@ typedef struct {
     AI_Node ai[DK_AI_JOB_STACK_MAX];
 } DK_Unit;
 
-/** A slot for imp work (digging, converting) */
-typedef struct {
-    /** Coordinates of the workplace in A* coordinates */
-    unsigned int x, y;
-
-    /** The AI job info needed to process this task */
-    AI_Node job;
-
-    /** The imp that wants to work here */
-    DK_Unit* worker;
-} AI_Work;
-
 ///////////////////////////////////////////////////////////////////////////////
 // Global variables
 ///////////////////////////////////////////////////////////////////////////////
@@ -149,16 +135,6 @@ static unsigned int total_unit_count = 0;
 /** Number of units per player */
 static unsigned int unit_count[DK_PLAYER_COUNT] = {0};
 
-/**
- * Possible work slots on a map, per player; possibility for two players to
- * have imps working on the same block at the same time, but whatever.
- */
-static AI_Work* workplaces[DK_PLAYER_COUNT] = {0};
-
-/** Capacity of the workplace lists, and actual load */
-static unsigned int workplace_capacity[DK_PLAYER_COUNT] = {64};
-static unsigned int workplace_count[DK_PLAYER_COUNT] = {0};
-
 ///////////////////////////////////////////////////////////////////////////////
 // Internal update methods
 ///////////////////////////////////////////////////////////////////////////////
@@ -168,7 +144,7 @@ static void update_position(DK_Unit* unit) {
     const float dx = unit->tx - unit->x;
     const float dy = unit->ty - unit->y;
     if (fabs(dx) > 0.001f || fabs(dy) > 0.001f) {
-        const float l0 = dx * dx + dy * dy;
+        const float l0 = sqrt(dx * dx + dy * dy);
 
         if (l0 <= unit->ms) {
             // This step will get us to our target position.
@@ -205,51 +181,67 @@ static void update_ai(DK_Unit* unit) {
                 --idle->delay;
                 break;
             }
+            idle->delay = DK_AI_IDLE_DELAY;
 
             // Find the unit something to do.
             if (unit->type == DK_UNIT_IMP) {
                 // Look for the closest workplace.
                 float best_length = FLT_MAX;
-                AI_Work* best_work = NULL;
+                DK_Job* best_job = NULL;
 
                 // Assuming we'll find work we'll want to add two jobs, one for
                 // the actual work task, one for getting there.
-                AI_Node* task = &unit->ai[unit->ai_count];
-                AIJob_Move* move = (AIJob_Move*) unit->ai[unit->ai_count + 1].info;
+                AI_Node* jobNode = &unit->ai[unit->ai_count];
+                AI_Node* moveNode = &unit->ai[unit->ai_count + 1];
+                AIJob_Move* move = (AIJob_Move*) moveNode->info;
+                moveNode->state = DK_AI_MOVE;
 
-                int i;
-                for (i = 0; i < workplace_count[unit->owner]; ++i) {
+                int job_count;
+                DK_Job* jobs = DK_jobs(unit->owner, &job_count);
+                for (; job_count > 0; --job_count) {
                     // Current workplace we're checking.
-                    AI_Work* work = &workplaces[unit->owner][i];
+                    DK_Job* job = &jobs[job_count - 1];
 
                     // Skip jobs that are being worked on for now.
                     // TODO: override if we're closer.
-                    if (work->worker) {
+                    if (job->worker) {
                         continue;
                     }
 
                     // Find a path to it. Use temporary output data to avoid
                     // overriding existing path that may be shorter.
-                    AStar_Waypoint path[sizeof (move->path)];
-                    unsigned int depth;
-                    float length;
-                    if (DK_a_star(unit->x / DK_BLOCK_SIZE, unit->y / DK_BLOCK_SIZE, work->x, work->y, path, &depth, &length)) {
+                    AStar_Waypoint path[DK_AI_PATH_MAX] = {0};
+                    unsigned int depth = DK_AI_PATH_MAX;
+                    float length = FLT_MAX;
+                    if (DK_a_star(unit->x / DK_BLOCK_SIZE, unit->y / DK_BLOCK_SIZE, job->x, job->y, path, &depth, &length)) {
                         // Got a path, check its length.
                         if (length < best_length) {
                             // Got a new best. Copy data.
                             best_length = length;
-                            best_work = work;
+                            best_job = job;
                             memcpy(move->path, path, depth * sizeof (AStar_Waypoint));
-                            move->node_count = depth;
-                            memcpy(task, &work->job, sizeof (AI_Node));
+                            move->path_depth = depth;
+                            switch (job->type) {
+                                case DK_JOB_DIG:
+                                    jobNode->state = DK_AI_IMP_DIG;
+                                    break;
+                                case DK_JOB_CONVERT:
+                                    jobNode->state = DK_AI_IMP_CONVERT;
+                                    break;
+                            }
+                            AIJob_DigConvert* aiJob = (AIJob_DigConvert*) jobNode->info;
+                            aiJob->block = job->block;
                         }
                     }
                 }
 
-                if (best_work) {
+                if (best_job) {
                     // We found work, reserve it for ourselves and active the
                     // two jobs (work + move).
-                    best_work->worker = unit;
+                    best_job->worker = unit;
+                    unit->tx = move->path[0].x * DK_BLOCK_SIZE;
+                    unit->ty = move->path[0].y * DK_BLOCK_SIZE;
+                    move->path_index = 1;
                     unit->ai_count += 2;
                 }
 
@@ -263,13 +255,14 @@ static void update_ai(DK_Unit* unit) {
                     fabs(unit->ty - unit->y) < 0.1f) {
                 // Reached local checkpoint, see if we're at our final goal.
                 AIJob_Move* info = (AIJob_Move*) ai->info;
-                if (--info->node_count < 1) {
+                if (info->path_index == info->path_depth) {
                     // Yes, we reached our goal, pop the state.
                     --unit->ai_count;
                 } else {
                     // Not yet, set the next waypoint.
-                    unit->tx = info->path[info->node_count - 1].x;
-                    unit->ty = info->path[info->node_count - 1].y;
+                    unit->tx = info->path[info->path_index].x * DK_BLOCK_SIZE;
+                    unit->ty = info->path[info->path_index].y * DK_BLOCK_SIZE;
+                    ++info->path_index;
                 }
             }
             break;
@@ -283,8 +276,7 @@ static void update_ai(DK_Unit* unit) {
 
 void DK_init_units() {
     int i;
-    for (i = 0; i < DK_PLAYER_COUNT - 1; ++i) {
-        workplace_count[i] = 0;
+    for (i = 0; i < DK_PLAYER_COUNT; ++i) {
         unit_count[i] = 0;
     }
     total_unit_count = 0;
@@ -323,34 +315,58 @@ void DK_render_units() {
         }
 
 #if DK_D_DRAW_PATHS
-        float tx = 11.5f;
-        float ty = 9.99f;
-        AStar_Waypoint path[DK_AI_PATH_MAX];
-        unsigned int depth = sizeof (path);
-        float length;
-
-        if (DK_a_star(unit->x / DK_BLOCK_SIZE, unit->y / DK_BLOCK_SIZE, tx, ty, path, &depth, &length)) {
+        if (unit->ai[unit->ai_count - 1].state == DK_AI_MOVE) {
             glColor3f(1.0f, 1.0f, 1.0f);
-            glLineWidth(3);
+            glLineWidth(2);
             glDisable(GL_LIGHTING);
             glBegin(GL_LINES);
 
             glVertex3f(unit->x, unit->y, DK_D_PATH_HEIGHT);
-            glVertex3f(path[0].x * DK_BLOCK_SIZE, path[0].y * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
+            glVertex3f(unit->tx, unit->ty, DK_D_PATH_HEIGHT);
 
+            AIJob_Move* info = (AIJob_Move*) unit->ai[unit->ai_count - 1].info;
             int j;
-            for (j = 0; j < depth - 1; ++j) {
-                glVertex3f(path[j].x * DK_BLOCK_SIZE, path[j].y * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
-                glVertex3f(path[j + 1].x * DK_BLOCK_SIZE, path[j + 1].y * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
+            for (j = info->path_index - 1; j < info->path_depth - 1; ++j) {
+                glVertex3f(info->path[j].x * DK_BLOCK_SIZE, info->path[j].y * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
+                glVertex3f(info->path[j + 1].x * DK_BLOCK_SIZE, info->path[j + 1].y * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
             }
-
-            glVertex3f(path[j].x * DK_BLOCK_SIZE, path[j].y * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
-            glVertex3f(tx * DK_BLOCK_SIZE, ty * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
 
             glEnd();
             glEnable(GL_LIGHTING);
         }
 #endif
+        /*
+
+        #if DK_D_DRAW_PATHS
+                float tx = 11.5f;
+                float ty = 9.99f;
+                AStar_Waypoint path[DK_AI_PATH_MAX];
+                unsigned int depth = DK_AI_PATH_MAX;
+                float length;
+
+                if (DK_a_star(unit->x / DK_BLOCK_SIZE, unit->y / DK_BLOCK_SIZE, tx, ty, path, &depth, &length)) {
+                    glColor3f(1.0f, 1.0f, 1.0f);
+                    glLineWidth(3);
+                    glDisable(GL_LIGHTING);
+                    glBegin(GL_LINES);
+
+                    glVertex3f(unit->x, unit->y, DK_D_PATH_HEIGHT);
+                    glVertex3f(path[0].x * DK_BLOCK_SIZE, path[0].y * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
+
+                    int j;
+                    for (j = 0; j < depth - 1; ++j) {
+                        glVertex3f(path[j].x * DK_BLOCK_SIZE, path[j].y * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
+                        glVertex3f(path[j + 1].x * DK_BLOCK_SIZE, path[j + 1].y * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
+                    }
+
+                    glVertex3f(path[j].x * DK_BLOCK_SIZE, path[j].y * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
+                    glVertex3f(tx * DK_BLOCK_SIZE, ty * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
+
+                    glEnd();
+                    glEnable(GL_LIGHTING);
+                }
+        #endif
+         */
     }
 }
 
@@ -368,6 +384,7 @@ unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, u
 
     DK_Unit* unit = &units[total_unit_count];
     unit->type = type;
+    unit->owner = player;
     unit->x = (x + 0.5f) * DK_BLOCK_SIZE;
     unit->y = (y + 0.5f) * DK_BLOCK_SIZE;
     unit->tx = unit->x;

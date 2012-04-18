@@ -29,13 +29,6 @@ static DK_Block* map = 0;
 /** Cache of map noise */
 static double* map_noise = 0;
 
-/**
- * Selected blocks, per player.
- * -1 because NONE cannot select (white can!).
- * This is a bitset, where each bit represents a block in the map.
- */
-static char* selection[DK_PLAYER_COUNT - 1] = {0};
-
 ///////////////////////////////////////////////////////////////////////////////
 // Internal rendering stuff
 ///////////////////////////////////////////////////////////////////////////////
@@ -468,11 +461,6 @@ void DK_init_map(unsigned short size) {
         }
     }
 
-    for (i = 0; i < DK_PLAYER_COUNT - 1; ++i) {
-        BS_free(selection[i]);
-        selection[i] = BS_alloc(DK_map_size * DK_map_size);
-    }
-
 #if DK_D_CACHE_NOISE
     free(map_noise);
     map_noise = calloc((size * 2 + 1) * (size * 2 + 1) * 3 * 3, sizeof (double));
@@ -799,30 +787,4 @@ void DK_render_map() {
             }
         }
     }
-}
-
-int DK_block_is_selectable(DK_Player player, int x, int y) {
-    const DK_Block* block = DK_block_at(x, y);
-    return block != NULL &&
-            block->type != DK_BLOCK_ROCK &&
-            !DK_block_is_passable(block) &&
-            (block->owner == DK_PLAYER_NONE || block->owner == player);
-}
-
-void DK_block_select(DK_Player player, unsigned short x, unsigned short y) {
-    if (DK_block_is_selectable(player, x, y)) {
-        const unsigned int idx = y * DK_map_size + x;
-        BS_set(selection[player], idx);
-    }
-}
-
-void DK_block_deselect(DK_Player player, unsigned short x, unsigned short y) {
-    if (block_index_valid(x, y)) {
-        const unsigned int idx = y * DK_map_size + x;
-        BS_unset(selection[player], idx);
-    }
-}
-
-int DK_block_is_selected(DK_Player player, unsigned short x, unsigned short y) {
-    return BS_test(selection[player], y * DK_map_size + x);
 }

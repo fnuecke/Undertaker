@@ -40,8 +40,8 @@ static unsigned int a_star_grid_size = 0;
 static char* a_star_closed_set = 0;
 
 /** Capacity of A* node sets; set to the initial capacities, will grow as necessary */
-static unsigned int capacity_open = 32;
-static unsigned int capacity_closed = 64;
+static unsigned int open_capacity = 32;
+static unsigned int closed_capacity = 64;
 
 /** Re-used waypoint sets for A* search */
 static AStar_Node* open = 0;
@@ -132,7 +132,7 @@ static int a_star_jump(int dx, int dy, int* sx, int* sy, int gx, int gy) {
 }
 
 /** Tests if we have reached our goal and writes out result data if yes */
-static int a_star_test_goal(const AStar_Node* n, int gx, int gy, AStar_Waypoint* path, unsigned int* depth, float* length) {
+static int a_star_test_goal(const AStar_Node* n, int gx, int gy, float tx, float ty, AStar_Waypoint* path, unsigned int* depth, float* length) {
     if (n->x == gx && n->y == gy) {
         // Done, follow the path back to the beginning to return the best
         // neighboring node.
@@ -153,8 +153,13 @@ static int a_star_test_goal(const AStar_Node* n, int gx, int gy, AStar_Waypoint*
         // make it forward work order).
         int i;
         for (i = *depth - 1; i >= 0; --i) {
-            path[i].x = a_star_to_global(n->x);
-            path[i].y = a_star_to_global(n->y);
+            if (path[i].x == gx && path[i].y == gy) {
+                path[i].x = tx;
+                path[i].y = ty;
+            } else {
+                path[i].x = a_star_to_global(n->x);
+                path[i].y = a_star_to_global(n->y);
+            }
 
             if (!n->came_from) {
                 break;
@@ -189,26 +194,26 @@ int DK_a_star(float sx, float sy, float tx, float ty, AStar_Waypoint* path, unsi
     }
 
     // Number of entries used in the open and closed set.
-    unsigned int num_open = 1, num_closed = 0;
+    unsigned int open_count = 1, closed_count = 0;
 
     // Allocate for the first time, if necessary.
     if (!open) {
-        open = calloc(capacity_open, sizeof (AStar_Node));
+        open = calloc(open_capacity, sizeof (AStar_Node));
     }
     if (!closed) {
-        closed = calloc(capacity_closed, sizeof (AStar_Node));
+        closed = calloc(closed_capacity, sizeof (AStar_Node));
     }
 
-    const unsigned int goal_x = (int) (tx * DK_ASTAR_GRANULARITY);
-    const unsigned int goal_y = (int) (ty * DK_ASTAR_GRANULARITY);
+    const unsigned int gx = (int) (tx * DK_ASTAR_GRANULARITY);
+    const unsigned int gy = (int) (ty * DK_ASTAR_GRANULARITY);
 
     // Initialize the first open node to the one we're starting from.
     {
         open[0].x = (int) (sx * DK_ASTAR_GRANULARITY);
         open[0].y = (int) (sy * DK_ASTAR_GRANULARITY);
         open[0].gscore = 0.0f;
-        const int dx = open[0].x - goal_x;
-        const int dy = open[0].y - goal_y;
+        const int dx = open[0].x - gx;
+        const int dy = open[0].y - gy;
         open[0].fscore = a_star_f(0, 0, dx, dy);
         open[0].came_from = 0;
         open[0].steps = 1;
@@ -217,29 +222,29 @@ int DK_a_star(float sx, float sy, float tx, float ty, AStar_Waypoint* path, unsi
     // Clear closed set bitset representation.
     BS_reset(a_star_closed_set, a_star_grid_size * a_star_grid_size);
 
-    while (num_open > 0) {
+    while (open_count > 0) {
         // Copy first (best) open entry to closed list, make sure we have the
         // space.
-        if (num_closed >= capacity_closed - 1) {
-            capacity_closed = capacity_closed * 2 + 1;
-            closed = realloc(closed, capacity_closed * sizeof (AStar_Node));
+        if (closed_count >= closed_capacity - 1) {
+            closed_capacity = closed_capacity * 2 + 1;
+            closed = realloc(closed, closed_capacity * sizeof (AStar_Node));
         }
-        closed[num_closed] = open[0];
+        closed[closed_count] = open[0];
 
         // Remember the current node.
-        const AStar_Node* current = &closed[num_closed];
+        const AStar_Node* current = &closed[closed_count];
 
         // Check if we're there yet.
-        if (a_star_test_goal(current, goal_x, goal_y, path, depth, length)) {
+        if (a_star_test_goal(current, gx, gy, tx, ty, path, depth, length)) {
             return 1;
         }
 
         // Remember there's one more entry in the closed list now.
-        ++num_closed;
+        ++closed_count;
 
         // Shift open list to the left to remove first entry.
-        if (--num_open > 0) {
-            memmove(&open[0], &open[1], num_open * sizeof (AStar_Node));
+        if (--open_count > 0) {
+            memmove(&open[0], &open[1], open_count * sizeof (AStar_Node));
         }
 
         // Mark as closed in our bitset.
@@ -271,28 +276,28 @@ int DK_a_star(float sx, float sy, float tx, float ty, AStar_Waypoint* path, unsi
             }
             for (ly = start_y; ly <= end_y; ++ly) {
 
-/*
-#if DK_D_DRAW_PATHS
-                glColor3f(0.0f, 0.0f, 1.0f);
-                glDisable(GL_LIGHTING);
-                glPushMatrix();
-                glTranslatef(a_star_to_global(lx), a_star_to_global(ly), DK_D_PATH_HEIGHT / 2.0f);
-                gluSphere(quadratic, 0.5f, 8, 8);
-                glPopMatrix();
-                glEnable(GL_LIGHTING);
-#endif
-*/
+                /*
+                #if DK_D_DRAW_PATHS
+                                glColor3f(0.0f, 0.0f, 1.0f);
+                                glDisable(GL_LIGHTING);
+                                glPushMatrix();
+                                glTranslatef(a_star_to_global(lx), a_star_to_global(ly), DK_D_PATH_HEIGHT / 2.0f);
+                                gluSphere(quadratic, 0.5f, 8, 8);
+                                glPopMatrix();
+                                glEnable(GL_LIGHTING);
+                #endif
+                 */
 
                 // Activate hyperdrive aaaaand... JUMP!
                 int x = lx, y = ly;
 #if DK_ASTAR_JPS
-                if (!a_star_jump(x - current->x, y - current->y, &x, &y, goal_x, goal_y)) {
+                if (!a_star_jump(x - current->x, y - current->y, &x, &y, gx, gy)) {
                     // Failed, try next neighbor.
                     continue;
                 }
 
                 // We might have jumped to the goal, check for that.
-                if (a_star_test_goal(current, goal_x, goal_y, path, depth, length)) {
+                if (a_star_test_goal(current, gx, gy, tx, ty, path, depth, length)) {
                     return 1;
                 }
 #else
@@ -322,7 +327,7 @@ int DK_a_star(float sx, float sy, float tx, float ty, AStar_Waypoint* path, unsi
                 // See if we can find that neighbor in the open set.
                 AStar_Node* neighbor = 0;
                 unsigned int i;
-                for (i = 0; i < num_open; ++i) {
+                for (i = 0; i < open_count; ++i) {
                     if (open[i].x == x && open[i].y == y) {
                         neighbor = &open[i];
                         break;
@@ -335,40 +340,40 @@ int DK_a_star(float sx, float sy, float tx, float ty, AStar_Waypoint* path, unsi
                 }
 
                 // Compute the heuristic cost for a path with this waypoint.
-                const float fscore = (gscore + a_star_f(x, y, goal_x, goal_y))
+                const float fscore = (gscore + a_star_f(x, y, gx, gy))
                         * 1.001f; // Tie breaking.
 
-/*
-#if DK_D_DRAW_PATHS
-                glColor3f(1.0f, 0.0f, 0.0f);
-                glDisable(GL_LIGHTING);
-                glPushMatrix();
-                glTranslatef(a_star_to_global(x), a_star_to_global(y), DK_D_PATH_HEIGHT);
-                gluSphere(quadratic, 0.5f, 8, 8);
-                glPopMatrix();
-                glEnable(GL_LIGHTING);
-#endif
-*/
+                /*
+                #if DK_D_DRAW_PATHS
+                                glColor3f(1.0f, 0.0f, 0.0f);
+                                glDisable(GL_LIGHTING);
+                                glPushMatrix();
+                                glTranslatef(a_star_to_global(x), a_star_to_global(y), DK_D_PATH_HEIGHT);
+                                gluSphere(quadratic, 0.5f, 8, 8);
+                                glPopMatrix();
+                                glEnable(GL_LIGHTING);
+                #endif
+                 */
 
                 if (neighbor) {
                     // Already in the list, remove and insert again to update
                     // its fscore based position in the list.
                     const unsigned int idx = neighbor - open;
-                    memmove(neighbor, neighbor + 1, (num_open - idx) * sizeof (AStar_Node));
+                    memmove(neighbor, neighbor + 1, (open_count - idx) * sizeof (AStar_Node));
 
                     // Remember we removed it.
-                    --num_open;
+                    --open_count;
                 }
 
                 // Create new entry.
-                if (num_open >= capacity_open - 1) {
-                    capacity_open = capacity_open * 2 + 1;
-                    open = realloc(open, capacity_open * sizeof (AStar_Node));
+                if (open_count >= open_capacity - 1) {
+                    open_capacity = open_capacity * 2 + 1;
+                    open = realloc(open, open_capacity * sizeof (AStar_Node));
                 }
 
                 // Find where to insert; we want to keep this list sorted,
                 // so that the entry with the lowest score is first.
-                unsigned int low = 0, high = num_open;
+                unsigned int low = 0, high = open_count;
                 while (high > low) {
                     unsigned mid = (low + high) / 2;
                     if (open[mid].fscore < fscore) {
@@ -379,8 +384,8 @@ int DK_a_star(float sx, float sy, float tx, float ty, AStar_Waypoint* path, unsi
                 }
 
                 // Move everything above one up, if necessary.
-                if (low < num_open) {
-                    memmove(&open[low + 1], &open[low], (num_open - low) * sizeof (AStar_Node));
+                if (low < open_count) {
+                    memmove(&open[low + 1], &open[low], (open_count - low) * sizeof (AStar_Node));
                 }
 
                 // Remember it.
@@ -389,10 +394,10 @@ int DK_a_star(float sx, float sy, float tx, float ty, AStar_Waypoint* path, unsi
                 neighbor->y = y;
 
                 // Remember there's one more now.
-                ++num_open;
+                ++open_count;
 
                 // Initialize or update neighbor.
-                neighbor->came_from = num_closed;
+                neighbor->came_from = closed_count;
                 neighbor->gscore = gscore;
                 neighbor->fscore = fscore;
                 neighbor->steps = current->steps + 1;
