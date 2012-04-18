@@ -1,6 +1,7 @@
 #include <malloc.h>
 #include <memory.h>
 #include <math.h>
+#include <float.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
 
@@ -12,7 +13,7 @@
 #include "map.h"
 
 ///////////////////////////////////////////////////////////////////////////////
-// Types and constants
+// Constants
 ///////////////////////////////////////////////////////////////////////////////
 
 /** Must be in same order as unit definitions in unit type enum */
@@ -20,6 +21,36 @@ static float unit_speeds[] = {
     0.2f,
     0.1f
 };
+
+///////////////////////////////////////////////////////////////////////////////
+// Pathfinding
+///////////////////////////////////////////////////////////////////////////////
+
+typedef struct {
+    float x, y;
+} AStar_Waypoint;
+
+/** Node used in A* search */
+typedef struct {
+    /** Coordinates of the node (used for searching neighbors) */
+    unsigned int x, y;
+
+    /** The cost to travel to this node from the start position */
+    float gscore;
+
+    /** The heuristic score of the total path to the goal including this node */
+    float fscore;
+
+    /** The path length, i.e. number of parent nodes */
+    unsigned int steps;
+
+    /** The node that came before this one in the path it is part of */
+    unsigned int came_from;
+} AStar_Node;
+
+///////////////////////////////////////////////////////////////////////////////
+// AI Stuff
+///////////////////////////////////////////////////////////////////////////////
 
 typedef enum {
     /** AI does nothing */
@@ -42,33 +73,52 @@ typedef enum {
 
     /** AI is working on something (training, research, crafting) */
     DK_AI_WORK
-} DK_AIState;
+} AI_Job;
 
 typedef struct {
-    float x, y;
-} waypoint;
+    unsigned int delay;
+} AIJob_Idle;
 
 typedef struct {
-    /** Current AI state */
-    DK_AIState state;
+    /** The path the unit currently follows (if moving) */
+    AStar_Waypoint path[DK_AI_PATH_MAX];
 
-    /** Current target position when moving (final coordinate) */
-    float tx, ty;
+    /** The remaining length of the path */
+    unsigned int node_count;
+} AIJob_Move;
 
+typedef struct {
+    /** Coordinate of the block an imp should dig up */
+    unsigned int x, y;
+} AIJob_Dig;
+
+typedef struct {
+    /** Coordinate of the block an imp should convert */
+    unsigned int x, y;
+} AIJob_Convert;
+
+typedef struct {
     /** Enemy the unit currently attacks */
     unsigned int enemy;
 
-    /** Coordinate of the block an imp digs or conquers */
-    int bx, by;
+} AIJob_Attack;
 
-    /** The path the unit currently follows (if moving) */
-    waypoint path[32];
+/** Get size of largest info struct */
+#define SIZE0 sizeof(AIJob_Idle)
+#define SIZE1 sizeof(AIJob_Move)
+#define SIZE2 sizeof(AIJob_Dig)
+#define SIZE3 sizeof(AIJob_Convert)
+#define SIZE4 sizeof(AIJob_Attack)
+#define MAX(A, B) ((A) > (B) ? (A) : (B))
+#define MAX_JOB_SIZE MAX(MAX(MAX(MAX(SIZE0, SIZE1), SIZE2), SIZE3), SIZE4)
 
-    /** The remaining length of the path */
-    unsigned int path_length;
+typedef struct {
+    /** The type of this AI entry */
+    AI_Job state;
 
-    //TODO: workplace
-} DK_AIInfo;
+    /** Statically allocated data for this AI entry */
+    char info[MAX_JOB_SIZE];
+} AI_Node;
 
 typedef struct {
     /** The player this unit belongs to */
@@ -89,27 +139,24 @@ typedef struct {
     /** The unit's attack speed (the cooldown between attacks) */
     float as;
 
-    /** AI info */
-    DK_AIInfo ai;
+    /** Level of the unit, as a float to account for "experience" */
+    float level;
+
+    /** Depth of the AI state stack */
+    unsigned int ai_count;
+
+    /** AI info stack */
+    AI_Node ai[DK_AI_JOB_STACK_MAX];
 } DK_Unit;
 
-/** Node used in A* search */
+/** A slot for imp work (digging, converting) */
 typedef struct {
-    /** Coordinates of the node (used for searching neighbors) */
+    /** Coordinates of the workplace in A* coordinates */
     unsigned int x, y;
 
-    /** The cost to travel to this node from the start position */
-    float gscore;
-
-    /** The heuristic score of the total path to the goal including this node */
-    float fscore;
-
-    /** The path length, i.e. number of parent nodes */
-    unsigned int steps;
-
-    /** The node that came before this one in the path it is part of */
-    unsigned int came_from;
-} node;
+    /** The imp that wants to work here */
+    DK_Unit* worker;
+} AI_Work;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Global variables
@@ -121,27 +168,35 @@ static GLUquadric* quadratic = 0;
 /** Units in the game, must be ensured to be non-sparse */
 static DK_Unit units[DK_PLAYER_COUNT * DK_UNITS_MAX_PER_PLAYER];
 
-/** Total number of active units */
-static unsigned int total_units = 0;
+/** Total number of units */
+static unsigned int total_unit_count = 0;
 
 /** Number of units per player */
-static unsigned int num_units[DK_PLAYER_COUNT] = {0};
-
-/** Slots on the map that are*/
-static char* work_occupied[DK_PLAYER_COUNT] = {0};
+static unsigned int unit_count[DK_PLAYER_COUNT] = {0};
 
 /** Number of cells in the grid used for our A* algorithm */
 static unsigned int a_star_grid_size = 0;
 
 /** Bitset for quick lookup of closed set in A* */
-static char* a_star_closed = 0;
+static char* a_star_closed_set = 0;
 
 /** Capacity of A* node sets; set to the initial capacities, will grow as necessary */
-static unsigned int capacity_open = 32, capacity_closed = 64;
+static unsigned int capacity_open = 32;
+static unsigned int capacity_closed = 64;
 
 /** Re-used waypoint sets for A* search */
-static node* open = 0;
-static node* closed = 0;
+static AStar_Node* open = 0;
+static AStar_Node* closed = 0;
+
+/**
+ * Possible work slots on a map, per player; possibility for two players to
+ * have imps working on the same block at the same time, but whatever.
+ */
+static AI_Work* workplaces[DK_PLAYER_COUNT] = {0};
+
+/** Capacity of the workplace lists, and actual load */
+static unsigned int workplace_capacity[DK_PLAYER_COUNT] = {64};
+static unsigned int workplace_count[DK_PLAYER_COUNT] = {0};
 
 ///////////////////////////////////////////////////////////////////////////////
 // Internal update methods
@@ -205,7 +260,7 @@ static int a_star_jump(int dx, int dy, int* sx, int* sy, int gx, int gy) {
     }
 
     // If we already handled this one, skip it.
-    if (BS_test(a_star_closed, *sy * a_star_grid_size + *sx)) {
+    if (BS_test(a_star_closed_set, *sy * a_star_grid_size + *sx)) {
         return 0;
     }
 
@@ -251,24 +306,27 @@ static int a_star_jump(int dx, int dy, int* sx, int* sy, int gx, int gy) {
     return a_star_jump(dx, dy, sx, sy, gx, gy);
 }
 
-static int a_star_test_goal(const node* n, int gx, int gy, waypoint* path, unsigned int max_length) {
+static int a_star_test_goal(const AStar_Node* n, int gx, int gy, AStar_Waypoint* path, unsigned int* depth, float* length) {
     if (n->x == gx && n->y == gy) {
         // Done, follow the path back to the beginning to return the best
         // neighboring node.
 
+        // Return the length of the returned array.
+        *length = n->gscore;
+
         // Follow the path until only as many nodes as we can fit into the
         // specified array remain.
-        while (n->steps > max_length && n->came_from) {
+        while (n->steps > *depth && n->came_from) {
             n = &closed[n->came_from - 1];
         }
 
         // In case we don't need the full capacity...
-        max_length = n->steps;
+        *depth = n->steps;
 
         // Push the remaining nodes' coordinates (in reverse walk order to
         // make it forward work order).
         int i;
-        for (i = max_length - 1; i >= 0; --i) {
+        for (i = *depth - 1; i >= 0; --i) {
             path[i].x = a_star_to_global(n->x);
             path[i].y = a_star_to_global(n->y);
 
@@ -279,13 +337,12 @@ static int a_star_test_goal(const node* n, int gx, int gy, waypoint* path, unsig
             }
         }
 
-        // Return the length of the returned array.
-        return max_length;
+        return 1;
     }
     return 0;
 }
 
-static int a_star(const DK_Unit* unit, float tx, float ty, waypoint* path, unsigned int max_length) {
+static int a_star(const DK_Unit* unit, float tx, float ty, AStar_Waypoint* path, unsigned int* depth, float* length) {
 
     // Check if the target position is valid (passable).
     if (!DK_block_is_passable(DK_block_at(
@@ -298,10 +355,10 @@ static int a_star(const DK_Unit* unit, float tx, float ty, waypoint* path, unsig
 
     // Allocate for the first time, if necessary.
     if (!open) {
-        open = calloc(capacity_open, sizeof (node));
+        open = calloc(capacity_open, sizeof (AStar_Node));
     }
     if (!closed) {
-        closed = calloc(capacity_closed, sizeof (node));
+        closed = calloc(capacity_closed, sizeof (AStar_Node));
     }
 
     const unsigned int goal_x = (int) (tx * DK_ASTAR_GRANULARITY / DK_BLOCK_SIZE);
@@ -320,24 +377,23 @@ static int a_star(const DK_Unit* unit, float tx, float ty, waypoint* path, unsig
     }
 
     // Clear closed set bitset representation.
-    BS_reset(a_star_closed, a_star_grid_size * a_star_grid_size);
+    BS_reset(a_star_closed_set, a_star_grid_size * a_star_grid_size);
 
     while (num_open > 0) {
         // Copy first (best) open entry to closed list, make sure we have the
         // space.
         if (num_closed >= capacity_closed - 1) {
             capacity_closed = capacity_closed * 2 + 1;
-            closed = realloc(closed, capacity_closed * sizeof (node));
+            closed = realloc(closed, capacity_closed * sizeof (AStar_Node));
         }
         closed[num_closed] = open[0];
 
         // Remember the current node.
-        const node* current = &closed[num_closed];
+        const AStar_Node* current = &closed[num_closed];
 
         // Check if we're there yet.
-        int result;
-        if (result = a_star_test_goal(current, goal_x, goal_y, path, max_length)) {
-            return result;
+        if (a_star_test_goal(current, goal_x, goal_y, path, depth, length)) {
+            return 1;
         }
 
         // Remember there's one more entry in the closed list now.
@@ -345,11 +401,11 @@ static int a_star(const DK_Unit* unit, float tx, float ty, waypoint* path, unsig
 
         // Shift open list to the left to remove first entry.
         if (--num_open > 0) {
-            memmove(&open[0], &open[1], num_open * sizeof (node));
+            memmove(&open[0], &open[1], num_open * sizeof (AStar_Node));
         }
 
         // Mark as closed in our bitset.
-        BS_set(a_star_closed, current->y * a_star_grid_size + current->x);
+        BS_set(a_star_closed_set, current->y * a_star_grid_size + current->x);
 
         // Build our start / end indexes.
         int start_x = current->x - 1, start_y = current->y - 1,
@@ -396,9 +452,8 @@ static int a_star(const DK_Unit* unit, float tx, float ty, waypoint* path, unsig
                 }
 
                 // We might have jumped to the goal, check for that.
-                int result;
-                if (result = a_star_test_goal(current, goal_x, goal_y, path, max_length)) {
-                    return result;
+                if (a_star_test_goal(current, goal_x, goal_y, path, depth, length)) {
+                    return 1;
                 }
 #else
                 // Don't go out of bounds.
@@ -407,7 +462,7 @@ static int a_star(const DK_Unit* unit, float tx, float ty, waypoint* path, unsig
                 }
 
                 // If we already handled this one, skip it.
-                if (BS_test(a_star_closed, y * a_star_grid_size + x)) {
+                if (BS_test(a_star_closed_set, y * a_star_grid_size + x)) {
                     continue;
                 }
 
@@ -425,7 +480,7 @@ static int a_star(const DK_Unit* unit, float tx, float ty, waypoint* path, unsig
                         a_star_h(x, y, current->x, current->y);
 
                 // See if we can find that neighbor in the open set.
-                node* neighbor = 0;
+                AStar_Node* neighbor = 0;
                 unsigned int i;
                 for (i = 0; i < num_open; ++i) {
                     if (open[i].x == x && open[i].y == y) {
@@ -457,7 +512,7 @@ static int a_star(const DK_Unit* unit, float tx, float ty, waypoint* path, unsig
                     // Already in the list, remove and insert again to update
                     // its fscore based position in the list.
                     const unsigned int idx = neighbor - open;
-                    memmove(neighbor, neighbor + 1, (num_open - idx) * sizeof (node));
+                    memmove(neighbor, neighbor + 1, (num_open - idx) * sizeof (AStar_Node));
 
                     // Remember we removed it.
                     --num_open;
@@ -466,7 +521,7 @@ static int a_star(const DK_Unit* unit, float tx, float ty, waypoint* path, unsig
                 // Create new entry.
                 if (num_open >= capacity_open - 1) {
                     capacity_open = capacity_open * 2 + 1;
-                    open = realloc(open, capacity_open * sizeof (node));
+                    open = realloc(open, capacity_open * sizeof (AStar_Node));
                 }
 
                 // Find where to insert; we want to keep this list sorted,
@@ -483,7 +538,7 @@ static int a_star(const DK_Unit* unit, float tx, float ty, waypoint* path, unsig
 
                 // Move everything above one up, if necessary.
                 if (low < num_open) {
-                    memmove(&open[low + 1], &open[low], (num_open - low) * sizeof (node));
+                    memmove(&open[low + 1], &open[low], (num_open - low) * sizeof (AStar_Node));
                 }
 
                 // Remember it.
@@ -507,53 +562,98 @@ static int a_star(const DK_Unit* unit, float tx, float ty, waypoint* path, unsig
 }
 
 static void update_ai(DK_Unit* unit) {
-    switch (unit->ai.state) {
+    if (unit->ai_count == 0) {
+        // Switch to idle state if there is none set.
+        unit->ai[0].state = DK_AI_IDLE;
+        ((AIJob_Idle*) unit->ai[0].info)->delay = DK_AI_IDLE_DELAY;
+        unit->ai_count = 1;
+    }
+    const AI_Node* ai = &unit->ai[unit->ai_count - 1];
+    switch (ai->state) {
         case DK_AI_IDLE:
+        {
+            AIJob_Idle* idle = (AIJob_Idle*) ai->info;
+            if (idle->delay > 0) {
+                // Still waiting, skip for now.
+                --idle->delay;
+                break;
+            }
+
             // Find the unit something to do.
             if (unit->type == DK_UNIT_IMP) {
-                // Look for work.
+                // Look for the closest workplace.
+                float best_length = FLT_MAX;
+                AI_Work* best_work = NULL;
 
+                // Assuming we'll find work we'll want to add two jobs, one for
+                // the actual work task, one for getting there.
+                void* task = unit->ai[unit->ai_count].info;
+                AIJob_Move* move = (AIJob_Move*) unit->ai[unit->ai_count + 1].info;
+
+                int i;
+                for (i = 0; i < workplace_count[unit->owner]; ++i) {
+                    // Current workplace we're checking.
+                    AI_Work* work = &workplaces[unit->owner][i];
+
+                    // Find a path to it. Use temporary output data to avoid
+                    // overriding existing path that may be shorter.
+                    AStar_Waypoint path[sizeof (move->path)];
+                    unsigned int depth;
+                    float length;
+                    if (a_star(unit, work->x, work->y, path, &depth, &length)) {
+                        // Got a path, check its length.
+                        if (length < best_length) {
+                            // Got a new best. Copy data.
+                            best_length = length;
+                            best_work = work;
+                            memcpy(move->path, path, depth * sizeof (AStar_Waypoint));
+                            move->node_count = depth;
+                        }
+                    }
+                }
             }
             break;
+        }
         case DK_AI_MOVE:
+        {
             // AI is moving, check if we're there yet.
             if (fabs(unit->tx - unit->x) < 0.1f &&
                     fabs(unit->ty - unit->y) < 0.1f) {
                 // Reached local checkpoint, see if we're at our final goal.
-                if (fabs(unit->ai.tx - unit->tx) < 0.1f &&
-                        fabs(unit->ai.ty - unit->ty) < 0.1f) {
-                    // This was the final checkpoint, switch back to idling.
-                    unit->ai.state = DK_AI_IDLE;
+                AIJob_Move* info = (AIJob_Move*) ai->info;
+                if (--info->node_count < 1) {
+                    // Yes, we reached our goal, pop the state.
+                    --unit->ai_count;
                 } else {
-                    // Not there yet, figure out best way to final position, set
-                    // next checkpoint.
-
+                    // Not yet, set the next waypoint.
+                    unit->tx = info->path[info->node_count - 1].x;
+                    unit->ty = info->path[info->node_count - 1].y;
                 }
             }
             break;
+        }
         default:
-            // Unknown / invalid state, switch to idle and stop.
-            unit->ai.state = DK_AI_IDLE;
-            unit->tx = unit->x;
-            unit->ty = unit->y;
+            // Unknown / invalid state, just pop it.
+            --unit->ai_count;
             break;
     }
 }
 
 void DK_init_units() {
-    BS_free(a_star_closed);
+    BS_free(a_star_closed_set);
     a_star_grid_size = DK_map_size * DK_ASTAR_GRANULARITY;
-    a_star_closed = BS_alloc(a_star_grid_size * a_star_grid_size);
+    a_star_closed_set = BS_alloc(a_star_grid_size * a_star_grid_size);
     int i;
     for (i = 0; i < DK_PLAYER_COUNT - 1; ++i) {
-        BS_free(work_occupied[i]);
-        work_occupied[i] = BS_alloc(a_star_grid_size * a_star_grid_size);
+        workplace_count[i] = 0;
+        unit_count[i] = 0;
     }
+    total_unit_count = 0;
 }
 
 void DK_update_units() {
     int i;
-    for (i = 0; i < total_units; ++i) {
+    for (i = 0; i < total_unit_count; ++i) {
         DK_Unit* unit = &units[i];
 
         update_position(unit);
@@ -569,7 +669,7 @@ void DK_render_units() {
     glBindTexture(GL_TEXTURE_2D, 0);
 
     int i;
-    for (i = 0; i < total_units; ++i) {
+    for (i = 0; i < total_unit_count; ++i) {
         const DK_Unit* unit = &units[i];
         switch (unit->type) {
             default:
@@ -586,10 +686,11 @@ void DK_render_units() {
 #if DK_D_DRAW_PATHS
         float tx = 11.5f * DK_BLOCK_SIZE;
         float ty = 9.99f * DK_BLOCK_SIZE;
-        waypoint path[64];
-        unsigned int length = a_star(unit, tx, ty, path, 64);
+        AStar_Waypoint path[DK_AI_PATH_MAX];
+        unsigned int depth = sizeof (path);
+        float length;
 
-        if (length > 0) {
+        if (a_star(unit, tx, ty, path, &depth, &length)) {
             glColor3f(1.0f, 1.0f, 1.0f);
             glLineWidth(3);
             glDisable(GL_LIGHTING);
@@ -598,12 +699,13 @@ void DK_render_units() {
             glVertex3f(unit->x, unit->y, DK_D_PATH_HEIGHT);
             glVertex3f(path[0].x, path[0].y, DK_D_PATH_HEIGHT);
 
-            for (i = 0; i < length - 1; ++i) {
-                glVertex3f(path[i].x, path[i].y, DK_D_PATH_HEIGHT);
-                glVertex3f(path[i + 1].x, path[i + 1].y, DK_D_PATH_HEIGHT);
+            int j;
+            for (j = 0; j < depth - 1; ++j) {
+                glVertex3f(path[j].x, path[j].y, DK_D_PATH_HEIGHT);
+                glVertex3f(path[j + 1].x, path[j + 1].y, DK_D_PATH_HEIGHT);
             }
 
-            glVertex3f(path[i].x, path[i].y, DK_D_PATH_HEIGHT);
+            glVertex3f(path[j].x, path[j].y, DK_D_PATH_HEIGHT);
             glVertex3f(tx, ty, DK_D_PATH_HEIGHT);
 
             glEnd();
@@ -614,7 +716,7 @@ void DK_render_units() {
 }
 
 unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, unsigned short y) {
-    if (total_units > DK_PLAYER_COUNT * DK_UNITS_MAX_PER_PLAYER) {
+    if (total_unit_count > DK_PLAYER_COUNT * DK_UNITS_MAX_PER_PLAYER) {
         // TODO
         return;
     }
@@ -625,12 +727,14 @@ unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, u
         return;
     }
 
-    DK_Unit* unit = &units[total_units++];
+    DK_Unit* unit = &units[total_unit_count];
     unit->type = type;
-    unit->ai.state = DK_AI_IDLE;
     unit->x = (x + 0.5f) * DK_BLOCK_SIZE;
     unit->y = (y + 0.5f) * DK_BLOCK_SIZE;
     unit->tx = unit->x;
     unit->ty = unit->y;
     unit->ms = unit_speeds[type];
+
+    ++total_unit_count;
+    ++unit_count[player];
 }

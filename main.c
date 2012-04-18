@@ -129,6 +129,7 @@ void DK_init() {
     //DK_block_at(9, 8)->owner = DK_PLAYER_RED;
     
     DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
 }
 
 void DK_init_gl() {
