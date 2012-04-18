@@ -106,6 +106,7 @@ void DK_init() {
 
     // Initialize a test map.
     DK_init_map(32);
+    DK_init_a_star();
     DK_init_units();
 
     int i, j;
