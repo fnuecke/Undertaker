@@ -15,6 +15,8 @@ typedef enum {
     DK_UNIT_WIZARD
 } DK_UnitType;
 
+struct DK_Unit;
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
@@ -30,6 +32,9 @@ void DK_render_units();
 
 /** Add a unit for a player at the specified block coordinates */
 unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, unsigned short y);
+
+/** Make a unit (imp) cancel it's current job */
+void DK_unit_cancel_job(struct DK_Unit* unit);
 
 #ifdef	__cplusplus
 }

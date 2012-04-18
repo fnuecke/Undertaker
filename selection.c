@@ -5,10 +5,9 @@
 
 /**
  * Selected blocks, per player.
- * -1 because NONE cannot select (white can!).
  * This is a bitset, where each bit represents a block in the map.
  */
-static char* selection[DK_PLAYER_COUNT - 1] = {0};
+static char* selection[DK_PLAYER_COUNT] = {0};
 
 inline static int block_index_valid(int x, int y) {
     return x >= 0 && y >= 0 && x < DK_map_size && y < DK_map_size;
@@ -16,7 +15,7 @@ inline static int block_index_valid(int x, int y) {
 
 void DK_init_selection() {
     int i;
-    for (i = 0; i < DK_PLAYER_COUNT - 1; ++i) {
+    for (i = 0; i < DK_PLAYER_COUNT; ++i) {
         BS_free(selection[i]);
         selection[i] = BS_alloc(DK_map_size * DK_map_size);
     }

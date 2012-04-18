@@ -261,4 +261,5 @@ void DK_render() {
 
     DK_render_map();
     DK_render_units();
+    DK_render_jobs();
 }

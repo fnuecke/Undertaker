@@ -12,6 +12,8 @@
 #include "simplexnoise.h"
 #include "textures.h"
 #include "camera.h"
+#include "selection.h"
+#include "jobs.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Internal variables
@@ -457,7 +459,13 @@ void DK_init_map(unsigned short size) {
     int i, j, k, l;
     for (i = 0; i < size; ++i) {
         for (j = 0; j < size; ++j) {
-            map[i + j * size].type = DK_BLOCK_DIRT;
+            DK_Block* block = &map[i + j * size];
+            block->type = DK_BLOCK_DIRT;
+            block->health = DK_BLOCK_DIRT_HEALTH;
+            for (k = 0; k < DK_PLAYER_COUNT; ++k) {
+                block->strength[k] = DK_BLOCK_DIRT_STRENGTH;
+            }
+            block->room = DK_ROOM_NONE;
         }
     }
 
@@ -487,6 +495,15 @@ DK_Block* DK_block_at(int x, int y) {
     return NULL;
 }
 
+int DK_block_coordinates(unsigned short* x, unsigned short* y, const DK_Block* block) {
+    if (!block) {
+        return 0;
+    }
+    unsigned int idx = block - map;
+    *x = idx % DK_map_size;
+    *y = idx / DK_map_size;
+}
+
 DK_Block* DK_block_under_cursor(int* block_x, int* block_y, int mouse_x, int mouse_y) {
     GLuint selected_name = pick_block(mouse_x, mouse_y);
     *block_x = selected_name % DK_map_size;
@@ -495,11 +512,11 @@ DK_Block* DK_block_under_cursor(int* block_x, int* block_y, int mouse_x, int mou
 }
 
 int DK_block_is_fluid(const DK_Block* block) {
-    return block != NULL && block->type == DK_BLOCK_LAVA || block->type == DK_BLOCK_WATER;
+    return block && (block->type == DK_BLOCK_LAVA || block->type == DK_BLOCK_WATER);
 }
 
 int DK_block_is_passable(const DK_Block* block) {
-    return block != NULL && block->type == DK_BLOCK_NONE || DK_block_is_fluid(block);
+    return block && (block->type == DK_BLOCK_NONE || DK_block_is_fluid(block));
 }
 
 void DK_render_map() {
@@ -787,4 +804,36 @@ void DK_render_map() {
             }
         }
     }
+}
+
+int DK_block_damage(DK_Block* block, unsigned int damage) {
+    // Already destroyed (nothing to do)?
+    if (block->health == 0) {
+        return 1;
+    }
+
+    // Check if this is the final blow.
+    if (block->health > damage) {
+        block->health -= damage;
+        return 0;
+    }
+
+    // Block is destroyed.
+    block->health = 0;
+    block->type = DK_BLOCK_NONE;
+    // TODO update jobs
+
+    unsigned short x, y;
+    DK_block_coordinates(&x, &y, block);
+
+    int i;
+    for (i = 0; i < DK_PLAYER_COUNT; ++i) {
+        DK_block_deselect(i, x, y);
+    }
+
+    return 1;
+}
+
+int DK_block_convert(DK_Block* block, unsigned int strength) {
+
 }

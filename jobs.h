@@ -9,6 +9,7 @@
 #define	JOBS_H
 
 #include "players.h"
+#include "units.h"
 #include "map.h"
 
 typedef enum {
@@ -28,12 +29,18 @@ typedef struct {
     DK_JobType type;
 
     /** The imp that wants to work here */
-    void* worker;
+    struct DK_Unit* worker;
 } DK_Job;
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
+
+/** (Re)Initialize data structures on map change */
+void DK_init_jobs();
+
+/** Display hints for job slots (e.g. debugging) */
+void DK_render_jobs();
 
 /**
  * Create job(s) for the block at the specified coordinates.
@@ -52,7 +59,7 @@ void DK_jobs_create(DK_Player player, unsigned short x, unsigned short y);
 void DK_jobs_destroy(DK_Player player, unsigned short x, unsigned short y);
 
 /** Get a list of all jobs for the specified player */
-DK_Job* DK_jobs(DK_Player player, unsigned int* count);
+DK_Job** DK_jobs(DK_Player player, unsigned int* count);
 
 #ifdef	__cplusplus
 }

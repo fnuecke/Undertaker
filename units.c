@@ -1,6 +1,7 @@
 #include <float.h>
 #include <math.h>
 #include <memory.h>
+#include <stdlib.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
 
@@ -12,13 +13,55 @@
 #include "jobs.h"
 
 ///////////////////////////////////////////////////////////////////////////////
+// Abilities
+///////////////////////////////////////////////////////////////////////////////
+
+/** Imp abilities */
+enum {
+    DK_ABILITY_IMP_ATTACK,
+    DK_ABILITY_IMP_CONVERT
+};
+
+/** Wizard abilities */
+enum {
+    DK_ABILITY_WIZARD_ATTACK,
+    DK_ABILITY_WIZARD_FIREBALL
+};
+
+///////////////////////////////////////////////////////////////////////////////
 // Constants
 ///////////////////////////////////////////////////////////////////////////////
 
 /** Must be in same order as unit definitions in unit type enum */
-static float unit_speeds[] = {
-    0.2f,
-    0.1f
+static float move_speeds[] = {
+    [DK_UNIT_IMP] = 0.9f,
+    [DK_UNIT_WIZARD] = 0.5f
+};
+
+/** Cooldowns for different abilities */
+static unsigned int cooldowns[][DK_UNITS_MAX_ABILITIES] = {
+    [DK_UNIT_IMP] =
+    {
+        [DK_ABILITY_IMP_ATTACK] = 8
+    },
+    [DK_UNIT_WIZARD] =
+    {
+        [DK_ABILITY_WIZARD_ATTACK] = 16,
+        [DK_ABILITY_WIZARD_FIREBALL] = 32
+    }
+};
+
+/** Damage of different abilities */
+static unsigned int damage[][DK_UNITS_MAX_ABILITIES] = {
+    [DK_UNIT_IMP] =
+    {
+        [DK_ABILITY_IMP_ATTACK] = 10
+    },
+    [DK_UNIT_WIZARD] =
+    {
+        [DK_ABILITY_WIZARD_ATTACK] = 20,
+        [DK_ABILITY_WIZARD_FIREBALL] = 30
+    }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -64,8 +107,8 @@ typedef struct {
 } AIJob_Move;
 
 typedef struct {
-    /** The block an imp should dig up or convert */
-    DK_Block* block;
+    /** The actual job this task represents */
+    DK_Job* job;
 } AIJob_DigConvert;
 
 typedef struct {
@@ -90,7 +133,7 @@ typedef struct {
     char info[MAX_JOB_SIZE];
 } AI_Node;
 
-typedef struct {
+typedef struct DK_Unit {
     /** The player this unit belongs to */
     DK_Player owner;
 
@@ -106,8 +149,8 @@ typedef struct {
     /** The unit's movement speed */
     float ms;
 
-    /** The unit's attack speed (the cooldown between attacks) */
-    float as;
+    /** Cooldowns for unit abilities */
+    unsigned int cooldowns[DK_UNITS_MAX_ABILITIES];
 
     /** Level of the unit, as a float to account for "experience" */
     float level;
@@ -168,7 +211,7 @@ static void update_ai(DK_Unit* unit) {
     if (unit->ai_count == 0) {
         // Switch to idle state if there is none set.
         unit->ai[0].state = DK_AI_IDLE;
-        ((AIJob_Idle*) unit->ai[0].info)->delay = DK_AI_IDLE_DELAY;
+        ((AIJob_Idle*) unit->ai[0].info)->delay = DK_AI_IDLE_DELAY / 2 + (rand() * DK_AI_IDLE_DELAY / 2 / RAND_MAX);
         unit->ai_count = 1;
     }
     const AI_Node* ai = &unit->ai[unit->ai_count - 1];
@@ -181,7 +224,7 @@ static void update_ai(DK_Unit* unit) {
                 --idle->delay;
                 break;
             }
-            idle->delay = DK_AI_IDLE_DELAY;
+            idle->delay = DK_AI_IDLE_DELAY / 2 + (rand() * DK_AI_IDLE_DELAY / 2 / RAND_MAX);
 
             // Find the unit something to do.
             if (unit->type == DK_UNIT_IMP) {
@@ -197,10 +240,10 @@ static void update_ai(DK_Unit* unit) {
                 moveNode->state = DK_AI_MOVE;
 
                 int job_count;
-                DK_Job* jobs = DK_jobs(unit->owner, &job_count);
+                DK_Job** jobs = DK_jobs(unit->owner, &job_count);
                 for (; job_count > 0; --job_count) {
                     // Current workplace we're checking.
-                    DK_Job* job = &jobs[job_count - 1];
+                    DK_Job* job = jobs[job_count - 1];
 
                     // Skip jobs that are being worked on for now.
                     // TODO: override if we're closer.
@@ -229,8 +272,8 @@ static void update_ai(DK_Unit* unit) {
                                     jobNode->state = DK_AI_IMP_CONVERT;
                                     break;
                             }
-                            AIJob_DigConvert* aiJob = (AIJob_DigConvert*) jobNode->info;
-                            aiJob->block = job->block;
+                            AIJob_DigConvert* info = (AIJob_DigConvert*) jobNode->info;
+                            info->job = job;
                         }
                     }
                 }
@@ -265,6 +308,33 @@ static void update_ai(DK_Unit* unit) {
                     ++info->path_index;
                 }
             }
+            break;
+        }
+        case DK_AI_IMP_DIG:
+        {
+            // Stop if the job got voided.
+            AIJob_DigConvert* info = (AIJob_DigConvert*) ai->info;
+            if (!info->job) {
+                --unit->ai_count;
+                break;
+            }
+
+            // Skip if on cooldown.
+            if (unit->cooldowns[DK_ABILITY_IMP_ATTACK]-- > 0) {
+                break;
+            }
+
+            // Else attack the dirt! Update cooldown and apply damage.
+            unit->cooldowns[DK_ABILITY_IMP_ATTACK] =
+                    cooldowns[DK_UNIT_IMP][DK_ABILITY_IMP_ATTACK];
+            if (DK_block_damage(info->job->block, damage[DK_UNIT_IMP][DK_ABILITY_IMP_ATTACK])) {
+                // Block was destroyed! Job done.
+                --unit->ai_count;
+            }
+            break;
+        }
+        case DK_AI_IMP_CONVERT:
+        {
             break;
         }
         default:
@@ -306,18 +376,30 @@ void DK_render_units() {
             default:
                 // Push name of the unit.
                 glLoadName(i);
-                glColor3f(0.8f, 0.8f, 1.0f);
+                glDisable(GL_LIGHTING);
+                switch (unit->ai[unit->ai_count - 1].state) {
+                    case DK_AI_MOVE:
+                        glColor3f(0.6f, 0.6f, 0.9f);
+                        break;
+                    case DK_AI_IMP_DIG:
+                        glColor3f(0.6f, 0.9f, 0.6f);
+                        break;
+                    default:
+                        glColor3f(0.6f, 0.6f, 0.6f);
+                        break;
+                }
                 glPushMatrix();
                 glTranslatef(unit->x, unit->y, 0);
                 gluSphere(quadratic, DK_BLOCK_SIZE / 6.0f, 8, 8);
                 glPopMatrix();
+                glEnable(GL_LIGHTING);
                 break;
         }
 
 #if DK_D_DRAW_PATHS
         if (unit->ai[unit->ai_count - 1].state == DK_AI_MOVE) {
-            glColor3f(1.0f, 1.0f, 1.0f);
-            glLineWidth(2);
+            glColor3f(0.8f, 0.8f, 0.9f);
+            glLineWidth(1.52f);
             glDisable(GL_LIGHTING);
             glBegin(GL_LINES);
 
@@ -335,38 +417,6 @@ void DK_render_units() {
             glEnable(GL_LIGHTING);
         }
 #endif
-        /*
-
-        #if DK_D_DRAW_PATHS
-                float tx = 11.5f;
-                float ty = 9.99f;
-                AStar_Waypoint path[DK_AI_PATH_MAX];
-                unsigned int depth = DK_AI_PATH_MAX;
-                float length;
-
-                if (DK_a_star(unit->x / DK_BLOCK_SIZE, unit->y / DK_BLOCK_SIZE, tx, ty, path, &depth, &length)) {
-                    glColor3f(1.0f, 1.0f, 1.0f);
-                    glLineWidth(3);
-                    glDisable(GL_LIGHTING);
-                    glBegin(GL_LINES);
-
-                    glVertex3f(unit->x, unit->y, DK_D_PATH_HEIGHT);
-                    glVertex3f(path[0].x * DK_BLOCK_SIZE, path[0].y * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
-
-                    int j;
-                    for (j = 0; j < depth - 1; ++j) {
-                        glVertex3f(path[j].x * DK_BLOCK_SIZE, path[j].y * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
-                        glVertex3f(path[j + 1].x * DK_BLOCK_SIZE, path[j + 1].y * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
-                    }
-
-                    glVertex3f(path[j].x * DK_BLOCK_SIZE, path[j].y * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
-                    glVertex3f(tx * DK_BLOCK_SIZE, ty * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
-
-                    glEnd();
-                    glEnable(GL_LIGHTING);
-                }
-        #endif
-         */
     }
 }
 
@@ -389,8 +439,29 @@ unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, u
     unit->y = (y + 0.5f) * DK_BLOCK_SIZE;
     unit->tx = unit->x;
     unit->ty = unit->y;
-    unit->ms = unit_speeds[type];
+    unit->ms = move_speeds[type];
 
     ++total_unit_count;
     ++unit_count[player];
+}
+
+void DK_unit_cancel_job(DK_Unit* unit) {
+    int backtrack = 1;
+    while (unit->ai_count > backtrack) {
+        AI_Node* ai = &unit->ai[unit->ai_count - backtrack];
+        if (ai->state == DK_AI_IMP_DIG || ai->state == DK_AI_IMP_CONVERT) {
+            unit->ai_count -= backtrack - 1;
+            // Found the job we want to cancel.
+            AIJob_DigConvert* info = (AIJob_DigConvert*) ai->info;
+            if (info->job) {
+                // It wasn't canceled yet.
+                info->job->worker = 0;
+                info->job = 0;
+                unit->tx = unit->x;
+                unit->ty = unit->y;
+            }
+            return;
+        }
+        ++backtrack;
+    }
 }

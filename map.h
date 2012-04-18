@@ -45,8 +45,11 @@ typedef struct {
     /** The room type, if any */
     DK_RoomType room;
     
-    /** Multipurpose health of the block (hits to break down or convert ) */
+    /** Health of the block (damage until break down) */
     unsigned int health;
+    
+    /** Strength of the block (damage until converted, per player) */
+    unsigned int strength[DK_PLAYER_COUNT];
 } DK_Block;
 
 /** Size (width and height) of the current map */
@@ -62,6 +65,9 @@ void DK_init_map(unsigned short size);
 /** Get the map block at the specified coordinate */
 DK_Block* DK_block_at(int x, int y);
 
+/** Get the coordinates of the specified block */
+int DK_block_coordinates(unsigned short* x, unsigned short* y, const DK_Block* block);
+
 /** Utility method for checking if a block contains a fluid */
 int DK_block_is_fluid(const DK_Block* block);
 
@@ -73,6 +79,12 @@ void DK_render_map();
 
 /** Gets the block currently hovered by the mouse, and its coordinates */
 DK_Block* DK_block_under_cursor(int* block_x, int* block_y, int mouse_x, int mouse_y);
+
+/** Apply damage to a block (dirt, gold or gem); return 1 if destroyed */
+int DK_block_damage(DK_Block* block, unsigned int damage);
+
+/** Apply conversion to a block (dirt, wall, empty); return 1 if successful */
+int DK_block_convert(DK_Block* block, unsigned int strength);
 
 #ifdef	__cplusplus
 }

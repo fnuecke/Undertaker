@@ -7,7 +7,7 @@
 #include "config.h"
 
 /** List of all current jobs, per player */
-static DK_Job* jobs[DK_PLAYER_COUNT] = {0};
+static DK_Job** jobs[DK_PLAYER_COUNT] = {0};
 
 /** Capacity of the workplace lists, and actual load */
 static unsigned int jobs_capacity[DK_PLAYER_COUNT] = {0};
@@ -16,13 +16,16 @@ static unsigned int jobs_count[DK_PLAYER_COUNT] = {0};
 static DK_Job* get_job(DK_Player player) {
     if (jobs_count[player] + 1 > jobs_capacity[player]) {
         jobs_capacity[player] = jobs_capacity[player] * 2 + 1;
-        jobs[player] = realloc(jobs[player], jobs_capacity[player] * sizeof (DK_Job));
+        jobs[player] = realloc(jobs[player], jobs_capacity[player] * sizeof (DK_Job*));
     }
-    return &jobs[player][jobs_count[player]++];
+    DK_Job* job = calloc(1, sizeof(DK_Job));
+    jobs[player][jobs_count[player]++] = job;
+    return job;
 }
 
 static void delete_job(DK_Player player, int idx) {
-    memmove(&jobs[player][idx], &jobs[player][idx + 1], (--jobs_count[player] - idx) * sizeof (DK_Job));
+    free(jobs[player][idx]);
+    memmove(&jobs[player][idx], &jobs[player][idx + 1], (--jobs_count[player] - idx) * sizeof (DK_Job*));
 }
 
 void DK_init_jobs() {
@@ -30,6 +33,33 @@ void DK_init_jobs() {
     for (i = 0; i < DK_PLAYER_COUNT; ++i) {
         jobs_count[i] = 0;
     }
+}
+
+void DK_render_jobs() {
+#if DK_D_DRAW_JOBS
+    int i;
+    for (i = 0; i < jobs_count[DK_PLAYER_RED]; ++i) {
+        const DK_Job* job = jobs[DK_PLAYER_RED][i];
+
+        if (job->worker) {
+            glColor3f(0.4f, 0.8f, 0.4f);
+        } else {
+            glColor3f(0.4f, 0.4f, 0.4f);
+        }
+        glDisable(GL_LIGHTING);
+
+        glBegin(GL_QUADS);
+        {
+            glVertex3f((job->x - 0.2f) * DK_BLOCK_SIZE, (job->y - 0.2f) * DK_BLOCK_SIZE, 0.75f);
+            glVertex3f((job->x + 0.2f) * DK_BLOCK_SIZE, (job->y - 0.2f) * DK_BLOCK_SIZE, 0.75f);
+            glVertex3f((job->x + 0.2f) * DK_BLOCK_SIZE, (job->y + 0.2f) * DK_BLOCK_SIZE, 0.75f);
+            glVertex3f((job->x - 0.2f) * DK_BLOCK_SIZE, (job->y + 0.2f) * DK_BLOCK_SIZE, 0.75f);
+        }
+        glEnd();
+
+        glEnable(GL_LIGHTING);
+    }
+#endif
 }
 
 static inline int owns_adjacent(DK_Player player, unsigned int x, unsigned int y) {
@@ -143,14 +173,20 @@ void DK_jobs_destroy(DK_Player player, unsigned short x, unsigned short y) {
     DK_Block* block = DK_block_at(x, y);
     int i;
     for (i = jobs_count[player]; i > 0; --i) {
-        if (jobs[player][i - 1].block == block) {
-            // Remove this one.
+        const DK_Job* job = jobs[player][i - 1];
+        if (job->block == block) {
+            // Remove this one. Notify worker that it's no longer needed.
+            if (job->worker) {
+                DK_unit_cancel_job(job->worker);
+            }
+
+            // Free memory.
             delete_job(player, i - 1);
         }
     }
 }
 
-DK_Job* DK_jobs(DK_Player player, unsigned int* count) {
+DK_Job** DK_jobs(DK_Player player, unsigned int* count) {
     *count = jobs_count[player];
     return jobs[player];
 }

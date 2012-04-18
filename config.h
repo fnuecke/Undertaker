@@ -33,6 +33,9 @@
 /** Maximum number of units a single player have at a time */
 #define DK_UNITS_MAX_PER_PLAYER 100
 
+/** Maximum number of abilities a unit may have (number of cooldowns) */
+#define DK_UNITS_MAX_ABILITIES 4
+
 /**
  * How fine the overlayed block grid for A* is (higher = finer); also sets how
  * many imps can work on one wall at a time */
@@ -56,6 +59,31 @@
 
 /** Maximum path length a unit can keep track of */
 #define DK_AI_PATH_MAX 32
+
+///////////////////////////////////////////////////////////////////////////////
+// Map
+///////////////////////////////////////////////////////////////////////////////
+
+/** Damage a normal dirt block can take before breaking */
+#define DK_BLOCK_DIRT_HEALTH 100
+
+/** Damage a gold block can take before breaking */
+#define DK_BLOCK_GOLD_HEALTH 100
+
+/** Damage a gem block can take before breaking; broke one?... well, good job */
+#define DK_BLOCK_GEM_HEALTH UINT32_MAX
+
+/** Amount of gold that drops per damage done to a gold or gem block */
+#define DK_BLOCK_GOLD_PER_HEALTH 10
+
+/** The base strength of a normal dirt block */
+#define DK_BLOCK_DIRT_STRENGTH 50
+
+/** The base strength of an empty block */
+#define DK_BLOCK_NONE_STRENGTH 20
+
+/** The base strength of an owned empty block */
+#define DK_BLOCK_OWNED_STRENGTH 100
 
 ///////////////////////////////////////////////////////////////////////////////
 // Textures
@@ -141,6 +169,9 @@
 
 /** Height at which to render paths */
 #define DK_D_PATH_HEIGHT 1
+
+/** Render job slots for player red */
+#define DK_D_DRAW_JOBS 1
 
 #endif	/* CONFIG_H */
 
