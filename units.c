@@ -176,18 +176,113 @@ static void update_position(DK_Unit* unit) {
 // A* search
 ///////////////////////////////////////////////////////////////////////////////
 
-static float a_star_h(unsigned int x0, unsigned int y0, unsigned int x1, unsigned int y1) {
+inline static float a_star_h(unsigned int x0, unsigned int y0, unsigned int x1, unsigned int y1) {
+    const int dx = x1 - x0;
+    const int dy = y1 - y0;
+    return sqrtf(dx * dx + dy * dy);
     return (x0 == x1 || y0 == y1) ? 1 : M_SQRT2;
 }
 
-static float a_star_f(unsigned int x0, unsigned int y0, unsigned int x1, unsigned int y1) {
+inline static float a_star_f(unsigned int x0, unsigned int y0, unsigned int x1, unsigned int y1) {
     const unsigned int dx = abs(x0 - x1);
     const unsigned int dy = abs(y0 - y1);
     return M_SQRT2 * (dx > dy ? dx : dy);
 }
 
-static float a_star_to_global(unsigned int coordinate) {
+inline static float a_star_to_global(unsigned int coordinate) {
     return (coordinate / (float) DK_ASTAR_GRANULARITY + (0.5f / DK_ASTAR_GRANULARITY)) * DK_BLOCK_SIZE;
+}
+
+inline static int a_star_is_passable(unsigned int x, unsigned int y) {
+    return DK_block_is_passable(DK_block_at(x / DK_ASTAR_GRANULARITY, y / DK_ASTAR_GRANULARITY));
+}
+
+static int a_star_jump(int dx, int dy, int* sx, int* sy, int gx, int gy) {
+    // Don't go out of bounds.
+    if (*sx < 0 || *sx >= a_star_grid_size ||
+            *sy < 0 || *sy >= a_star_grid_size) {
+        return 0;
+    }
+
+    // If we already handled this one, skip it.
+    if (BS_test(a_star_closed, *sy * a_star_grid_size + *sx)) {
+        return 0;
+    }
+
+    // Only if this block is passable and the two diagonal ones are.
+    if (!a_star_is_passable(*sx, *sy) ||
+            (!a_star_is_passable(*sx, *sy - dy) && !a_star_is_passable(*sx - dx, *sy))) {
+        return 0;
+    }
+
+    // Have we reached the goal?
+    if (*sx == gx && *sy == gy) {
+        return 1;
+    }
+
+    // Do we have to evaluate neighbors here and end our jump?
+    if ((dx &&
+            ((!a_star_is_passable(*sx, *sy - 1) && a_star_is_passable(*sx + dx, *sy - 1)) ||
+            (!a_star_is_passable(*sx, *sy + 1) && a_star_is_passable(*sx + dx, *sy + 1))) ||
+            (dy &&
+            ((!a_star_is_passable(*sx - 1, *sy) && a_star_is_passable(*sx - 1, *sy + dy)) ||
+            (!a_star_is_passable(*sx + 1, *sy) && a_star_is_passable(*sx + 1, *sy + dy)))))) {
+        // Yes, there's an obstacle somewhere.
+        return 1;
+    }
+
+    // Moving diagonally?
+    if (dx != 0 && dy != 0) {
+        // Yes, then try the straight ones first.
+        int tx = *sx + dx, ty = *sy;
+        if (a_star_jump(dx, 0, &tx, &ty, gx, gy)) {
+            return 1;
+        }
+        tx = *sx;
+        ty = *sy + dy;
+        if (a_star_jump(0, dy, &tx, &ty, gx, gy)) {
+            return 1;
+        }
+    }
+
+    // Not invalidated yet, move on ahead.
+    *sx += dx;
+    *sy += dy;
+    return a_star_jump(dx, dy, sx, sy, gx, gy);
+}
+
+static int a_star_test_goal(const node* n, int gx, int gy, waypoint* path, unsigned int max_length) {
+    if (n->x == gx && n->y == gy) {
+        // Done, follow the path back to the beginning to return the best
+        // neighboring node.
+
+        // Follow the path until only as many nodes as we can fit into the
+        // specified array remain.
+        while (n->steps > max_length && n->came_from) {
+            n = &closed[n->came_from - 1];
+        }
+
+        // In case we don't need the full capacity...
+        max_length = n->steps;
+
+        // Push the remaining nodes' coordinates (in reverse walk order to
+        // make it forward work order).
+        int i;
+        for (i = max_length - 1; i >= 0; --i) {
+            path[i].x = a_star_to_global(n->x);
+            path[i].y = a_star_to_global(n->y);
+
+            if (!n->came_from) {
+                break;
+            } else {
+                n = &closed[n->came_from - 1];
+            }
+        }
+
+        // Return the length of the returned array.
+        return max_length;
+    }
+    return 0;
 }
 
 static int a_star(const DK_Unit* unit, float tx, float ty, waypoint* path, unsigned int max_length) {
@@ -240,35 +335,9 @@ static int a_star(const DK_Unit* unit, float tx, float ty, waypoint* path, unsig
         const node* current = &closed[num_closed];
 
         // Check if we're there yet.
-        if (current->x == goal_x && current->y == goal_y) {
-            // Done, follow the path back to the beginning to return the best
-            // neighboring node.
-
-            // Follow the path until only as many nodes as we can fit into the
-            // specified array remain.
-            while (current->steps > max_length && current->came_from) {
-                current = &closed[current->came_from - 1];
-            }
-
-            // In case we don't need the full capacity...
-            max_length = current->steps;
-
-            // Push the remaining nodes' coordinates (in reverse walk order to
-            // make it forward work order).
-            int i;
-            for (i = max_length - 1; i >= 0; --i) {
-                path[i].x = a_star_to_global(current->x);
-                path[i].y = a_star_to_global(current->y);
-
-                if (!current->came_from) {
-                    break;
-                } else {
-                    current = &closed[current->came_from - 1];
-                }
-            }
-
-            // Return the length of the returned array.
-            return max_length;
+        int result;
+        if (result = a_star_test_goal(current, goal_x, goal_y, path, max_length)) {
+            return result;
         }
 
         // Remember there's one more entry in the closed list now.
@@ -282,14 +351,56 @@ static int a_star(const DK_Unit* unit, float tx, float ty, waypoint* path, unsig
         // Mark as closed in our bitset.
         BS_set(a_star_closed, current->y * a_star_grid_size + current->x);
 
-        // Find the neighbor with the best score.
-        int x, y;
-        for (x = current->x - 1; x <= current->x + 1; ++x) {
+        // Build our start / end indexes.
+        int start_x = current->x - 1, start_y = current->y - 1,
+                end_x = current->x + 1, end_y = current->y + 1;
+        // Check if we have a direction.
+        if (current->came_from) {
+            const int dx = current->x - closed[current->came_from - 1].x,
+                    dy = current->y - closed[current->came_from - 1].y;
+            if (dx >= 0 && a_star_is_passable(current->x - 1, current->y)) {
+                start_x = current->x;
+            } else if (dx <= 0 && a_star_is_passable(current->x + 1, current->y)) {
+                end_x = current->x;
+            }
+            if (dy >= 0 && a_star_is_passable(current->x, current->y - 1)) {
+                start_y = current->y;
+            } else if (dy <= 0 && a_star_is_passable(current->x, current->y + 1)) {
+                end_y = current->y;
+            }
+        }
+        int lx, ly;
+        for (lx = start_x; lx <= end_x; ++lx) {
             // Don't go out of bounds.
-            if (x < 0 || x >= a_star_grid_size) {
+            if (lx < 0 || lx >= a_star_grid_size) {
                 continue;
             }
-            for (y = current->y - 1; y <= current->y + 1; ++y) {
+            for (ly = start_y; ly <= end_y; ++ly) {
+
+#if DK_D_DRAW_PATHS
+                glColor3f(0.0f, 0.0f, 1.0f);
+                glDisable(GL_LIGHTING);
+                glPushMatrix();
+                glTranslatef(a_star_to_global(lx), a_star_to_global(ly), DK_D_PATH_HEIGHT / 2.0f);
+                gluSphere(quadratic, 0.5f, 8, 8);
+                glPopMatrix();
+                glEnable(GL_LIGHTING);
+#endif
+
+                // Activate hyperdrive aaaaand... JUMP!
+                int x = lx, y = ly;
+#if DK_ASTAR_JPS
+                if (!a_star_jump(x - current->x, y - current->y, &x, &y, goal_x, goal_y)) {
+                    // Failed, try next neighbor.
+                    continue;
+                }
+
+                // We might have jumped to the goal, check for that.
+                int result;
+                if (result = a_star_test_goal(current, goal_x, goal_y, path, max_length)) {
+                    return result;
+                }
+#else
                 // Don't go out of bounds.
                 if (y < 0 || y >= a_star_grid_size) {
                     continue;
@@ -300,10 +411,12 @@ static int a_star(const DK_Unit* unit, float tx, float ty, waypoint* path, unsig
                     continue;
                 }
 
-                // Only if this block is passable.
-                if (!DK_block_is_passable(DK_block_at(x / DK_ASTAR_GRANULARITY, y / DK_ASTAR_GRANULARITY))) {
+                // Only if this block is passable and the two diagonal ones are.
+                if (!a_star_is_passable(x, y) ||
+                        (!a_star_is_passable(x, current->y) && !a_star_is_passable(current->x, y))) {
                     continue;
                 }
+#endif
 
                 // Determine score - score to current plus that to neighbor.
                 // If the neighbor is on the same x/y field it's 1, else it's
@@ -399,7 +512,7 @@ static void update_ai(DK_Unit* unit) {
             // Find the unit something to do.
             if (unit->type == DK_UNIT_IMP) {
                 // Look for work.
-                
+
             }
             break;
         case DK_AI_MOVE:

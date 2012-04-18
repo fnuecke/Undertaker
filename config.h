@@ -38,6 +38,12 @@
  * many imps can work on one wall at a time */
 #define DK_ASTAR_GRANULARITY 3
 
+/**
+ * Use jumps point search, skipping distances where possible.
+ * D. Harabor and A. Grastien. Online Graph Pruning for Pathfinding on Grid Maps.
+ * In National Conference on Artificial Intelligence (AAAI), 2011. */
+#define DK_ASTAR_JPS 1
+
 ///////////////////////////////////////////////////////////////////////////////
 // Textures
 ///////////////////////////////////////////////////////////////////////////////

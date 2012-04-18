@@ -120,15 +120,15 @@ void DK_init() {
         }
     }
 
-    DK_block_at(7, 8)->type = DK_BLOCK_WATER;
-    DK_block_at(8, 8)->type = DK_BLOCK_WATER;
+    DK_block_at(7, 8)->type = DK_BLOCK_DIRT;
+    DK_block_at(8, 8)->type = DK_BLOCK_DIRT;
 
     DK_block_at(10, 8)->type = DK_BLOCK_WATER;
     DK_block_at(11, 8)->type = DK_BLOCK_WATER;
     DK_block_at(11, 9)->type = DK_BLOCK_WATER;
     //DK_block_at(9, 8)->owner = DK_PLAYER_RED;
     
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 6);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
 }
 
 void DK_init_gl() {
