@@ -45,6 +45,10 @@ typedef enum {
 } DK_AIState;
 
 typedef struct {
+    float x, y;
+} waypoint;
+
+typedef struct {
     /** Current AI state */
     DK_AIState state;
 
@@ -56,6 +60,12 @@ typedef struct {
 
     /** Coordinate of the block an imp digs or conquers */
     int bx, by;
+
+    /** The path the unit currently follows (if moving) */
+    waypoint path[32];
+
+    /** The remaining length of the path */
+    unsigned int path_length;
 
     //TODO: workplace
 } DK_AIInfo;
@@ -99,7 +109,7 @@ typedef struct {
 
     /** The node that came before this one in the path it is part of */
     unsigned int came_from;
-} waypoint;
+} node;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Global variables
@@ -117,6 +127,9 @@ static unsigned int total_units = 0;
 /** Number of units per player */
 static unsigned int num_units[DK_PLAYER_COUNT] = {0};
 
+/** Slots on the map that are*/
+static char* work_occupied[DK_PLAYER_COUNT] = {0};
+
 /** Number of cells in the grid used for our A* algorithm */
 static unsigned int a_star_grid_size = 0;
 
@@ -127,8 +140,8 @@ static char* a_star_closed = 0;
 static unsigned int capacity_open = 32, capacity_closed = 64;
 
 /** Re-used waypoint sets for A* search */
-static waypoint* open = 0;
-static waypoint* closed = 0;
+static node* open = 0;
+static node* closed = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Internal update methods
@@ -173,7 +186,11 @@ static float a_star_f(unsigned int x0, unsigned int y0, unsigned int x1, unsigne
     return M_SQRT2 * (dx > dy ? dx : dy);
 }
 
-static int a_star(const DK_Unit* unit, float tx, float ty, float* path, unsigned int max_length) {
+static float a_star_to_global(unsigned int coordinate) {
+    return (coordinate / (float) DK_ASTAR_GRANULARITY + (0.5f / DK_ASTAR_GRANULARITY)) * DK_BLOCK_SIZE;
+}
+
+static int a_star(const DK_Unit* unit, float tx, float ty, waypoint* path, unsigned int max_length) {
 
     // Check if the target position is valid (passable).
     if (!DK_block_is_passable(DK_block_at(
@@ -186,10 +203,10 @@ static int a_star(const DK_Unit* unit, float tx, float ty, float* path, unsigned
 
     // Allocate for the first time, if necessary.
     if (!open) {
-        open = calloc(capacity_open, sizeof (waypoint));
+        open = calloc(capacity_open, sizeof (node));
     }
     if (!closed) {
-        closed = calloc(capacity_closed, sizeof (waypoint));
+        closed = calloc(capacity_closed, sizeof (node));
     }
 
     const unsigned int goal_x = (int) (tx * DK_ASTAR_GRANULARITY / DK_BLOCK_SIZE);
@@ -215,35 +232,33 @@ static int a_star(const DK_Unit* unit, float tx, float ty, float* path, unsigned
         // space.
         if (num_closed >= capacity_closed - 1) {
             capacity_closed = capacity_closed * 2 + 1;
-            closed = realloc(closed, capacity_closed * sizeof (waypoint));
+            closed = realloc(closed, capacity_closed * sizeof (node));
         }
         closed[num_closed] = open[0];
 
         // Remember the current node.
-        const waypoint* current = &closed[num_closed];
+        const node* current = &closed[num_closed];
 
         // Check if we're there yet.
         if (current->x == goal_x && current->y == goal_y) {
             // Done, follow the path back to the beginning to return the best
             // neighboring node.
 
-            // Get highest even index.
-            max_length -= max_length & 1;
-
             // Follow the path until only as many nodes as we can fit into the
-            // specified array remain. We need to floats per step, so make that
-            // half of the array's length.
-            while (current->steps > (max_length >> 1) && current->came_from) {
+            // specified array remain.
+            while (current->steps > max_length && current->came_from) {
                 current = &closed[current->came_from - 1];
             }
-            max_length = current->steps * 2;
+
+            // In case we don't need the full capacity...
+            max_length = current->steps;
 
             // Push the remaining nodes' coordinates (in reverse walk order to
             // make it forward work order).
             int i;
-            for (i = 0; i < max_length; i += 2) {
-                path[max_length - (i + 2)] = (current->x / (float) DK_ASTAR_GRANULARITY + (0.5f / DK_ASTAR_GRANULARITY)) * DK_BLOCK_SIZE;
-                path[max_length - (i + 1)] = (current->y / (float) DK_ASTAR_GRANULARITY + (0.5f / DK_ASTAR_GRANULARITY)) * DK_BLOCK_SIZE;
+            for (i = max_length - 1; i >= 0; --i) {
+                path[i].x = a_star_to_global(current->x);
+                path[i].y = a_star_to_global(current->y);
 
                 if (!current->came_from) {
                     break;
@@ -253,7 +268,7 @@ static int a_star(const DK_Unit* unit, float tx, float ty, float* path, unsigned
             }
 
             // Return the length of the returned array.
-            return i;
+            return max_length;
         }
 
         // Remember there's one more entry in the closed list now.
@@ -261,7 +276,7 @@ static int a_star(const DK_Unit* unit, float tx, float ty, float* path, unsigned
 
         // Shift open list to the left to remove first entry.
         if (--num_open > 0) {
-            memmove(&open[0], &open[1], num_open * sizeof (waypoint));
+            memmove(&open[0], &open[1], num_open * sizeof (node));
         }
 
         // Mark as closed in our bitset.
@@ -297,7 +312,7 @@ static int a_star(const DK_Unit* unit, float tx, float ty, float* path, unsigned
                         a_star_h(x, y, current->x, current->y);
 
                 // See if we can find that neighbor in the open set.
-                waypoint* neighbor = 0;
+                node* neighbor = 0;
                 unsigned int i;
                 for (i = 0; i < num_open; ++i) {
                     if (open[i].x == x && open[i].y == y) {
@@ -312,13 +327,24 @@ static int a_star(const DK_Unit* unit, float tx, float ty, float* path, unsigned
                 }
 
                 // Compute the heuristic cost for a path with this waypoint.
-                const float fscore = gscore + a_star_f(x, y, goal_x, goal_y);
+                const float fscore = (gscore + a_star_f(x, y, goal_x, goal_y))
+                        * 1.001f; // Tie breaking.
+
+#if DK_D_DRAW_PATHS
+                glColor3f(1.0f, 0.0f, 0.0f);
+                glDisable(GL_LIGHTING);
+                glPushMatrix();
+                glTranslatef(a_star_to_global(x), a_star_to_global(y), DK_D_PATH_HEIGHT);
+                gluSphere(quadratic, 0.5f, 8, 8);
+                glPopMatrix();
+                glEnable(GL_LIGHTING);
+#endif
 
                 if (neighbor) {
                     // Already in the list, remove and insert again to update
                     // its fscore based position in the list.
                     const unsigned int idx = neighbor - open;
-                    memmove(neighbor, neighbor + 1, (num_open - idx) * sizeof (waypoint));
+                    memmove(neighbor, neighbor + 1, (num_open - idx) * sizeof (node));
 
                     // Remember we removed it.
                     --num_open;
@@ -327,7 +353,7 @@ static int a_star(const DK_Unit* unit, float tx, float ty, float* path, unsigned
                 // Create new entry.
                 if (num_open >= capacity_open - 1) {
                     capacity_open = capacity_open * 2 + 1;
-                    open = realloc(open, capacity_open * sizeof (waypoint));
+                    open = realloc(open, capacity_open * sizeof (node));
                 }
 
                 // Find where to insert; we want to keep this list sorted,
@@ -344,7 +370,7 @@ static int a_star(const DK_Unit* unit, float tx, float ty, float* path, unsigned
 
                 // Move everything above one up, if necessary.
                 if (low < num_open) {
-                    memmove(&open[low + 1], &open[low], (num_open - low) * sizeof (waypoint));
+                    memmove(&open[low + 1], &open[low], (num_open - low) * sizeof (node));
                 }
 
                 // Remember it.
@@ -371,6 +397,10 @@ static void update_ai(DK_Unit* unit) {
     switch (unit->ai.state) {
         case DK_AI_IDLE:
             // Find the unit something to do.
+            if (unit->type == DK_UNIT_IMP) {
+                // Look for work.
+                
+            }
             break;
         case DK_AI_MOVE:
             // AI is moving, check if we're there yet.
@@ -401,6 +431,11 @@ void DK_init_units() {
     BS_free(a_star_closed);
     a_star_grid_size = DK_map_size * DK_ASTAR_GRANULARITY;
     a_star_closed = BS_alloc(a_star_grid_size * a_star_grid_size);
+    int i;
+    for (i = 0; i < DK_PLAYER_COUNT - 1; ++i) {
+        BS_free(work_occupied[i]);
+        work_occupied[i] = BS_alloc(a_star_grid_size * a_star_grid_size);
+    }
 }
 
 void DK_update_units() {
@@ -437,8 +472,8 @@ void DK_render_units() {
 
 #if DK_D_DRAW_PATHS
         float tx = 11.5f * DK_BLOCK_SIZE;
-        float ty = 9.5f * DK_BLOCK_SIZE;
-        float path[64];
+        float ty = 9.99f * DK_BLOCK_SIZE;
+        waypoint path[64];
         unsigned int length = a_star(unit, tx, ty, path, 64);
 
         if (length > 0) {
@@ -447,16 +482,16 @@ void DK_render_units() {
             glDisable(GL_LIGHTING);
             glBegin(GL_LINES);
 
-            glVertex3f(unit->x, unit->y, DK_BLOCK_HEIGHT * 0.25f);
-            glVertex3f(path[0], path[1], DK_BLOCK_HEIGHT * 0.25f);
+            glVertex3f(unit->x, unit->y, DK_D_PATH_HEIGHT);
+            glVertex3f(path[0].x, path[0].y, DK_D_PATH_HEIGHT);
 
-            for (i = 0; i < length - 2; i += 2) {
-                glVertex3f(path[i], path[i + 1], DK_BLOCK_HEIGHT * 0.25f);
-                glVertex3f(path[i + 2], path[i + 3], DK_BLOCK_HEIGHT * 0.25f);
+            for (i = 0; i < length - 1; ++i) {
+                glVertex3f(path[i].x, path[i].y, DK_D_PATH_HEIGHT);
+                glVertex3f(path[i + 1].x, path[i + 1].y, DK_D_PATH_HEIGHT);
             }
 
-            glVertex3f(path[i], path[i + 1], DK_BLOCK_HEIGHT * 0.25f);
-            glVertex3f(tx, ty, DK_BLOCK_HEIGHT * 0.25f);
+            glVertex3f(path[i].x, path[i].y, DK_D_PATH_HEIGHT);
+            glVertex3f(tx, ty, DK_D_PATH_HEIGHT);
 
             glEnd();
             glEnable(GL_LIGHTING);

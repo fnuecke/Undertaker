@@ -128,7 +128,7 @@ void DK_init() {
     DK_block_at(11, 9)->type = DK_BLOCK_WATER;
     //DK_block_at(9, 8)->owner = DK_PLAYER_RED;
     
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 6);
 }
 
 void DK_init_gl() {
@@ -247,7 +247,7 @@ void DK_render() {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    gluLookAt(DK_camera_position()[0], DK_camera_position()[1], DK_CAMERA_HEIGHT - DK_camera_zoom(),
+    gluLookAt(DK_camera_position()[0], DK_camera_position()[1], DK_CAMERA_HEIGHT - DK_camera_zoom() * DK_CAMERA_MAX_ZOOM,
             DK_camera_position()[0], DK_camera_position()[1] + DK_CAMERA_TARGET_DISTANCE, 0,
             0, 0, 1);
 

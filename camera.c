@@ -21,8 +21,8 @@ void DK_camera_unset_direction(DK_CameraDirection direction) {
 
 void DK_camera_zoom_in() {
     camera_zoom_target += DK_CAMERA_ZOOM_STEP;
-    if (camera_zoom_target > DK_CAMERA_MAX_ZOOM) {
-        camera_zoom_target = DK_CAMERA_MAX_ZOOM;
+    if (camera_zoom_target > 1.0f) {
+        camera_zoom_target = 1.0f;
     }
 }
 

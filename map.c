@@ -326,7 +326,7 @@ static void set_normal(const double* points, int i0, int i1, int i2, int i3, int
  * Where the points argument must contain these 3d positions in the specified
  * order.
  */
-static void DK_draw_4quad(DK_Texture texture, double* points) {
+static void draw_4quad(DK_Texture texture, double* points) {
     // Set surface texture.
     const unsigned int variation = (unsigned int) ((snoise2(points[0], points[1] + points[2]) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
     glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
@@ -396,11 +396,59 @@ static void DK_draw_4quad(DK_Texture texture, double* points) {
 
 #undef DK_D_SAVE_NORMALS
 
+static void draw_outline(double* points) {
+    // Store state.
+    glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT);
+    glPushMatrix();
+
+    // Set up for line drawing.
+    glLineWidth(3.0f);
+    glTranslatef(0, 0, 0.1f);
+    glColor4f(0.5f, 0.5f, 1.0f, 0.5f);
+    glDisable(GL_LIGHTING);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    glBegin(GL_LINES);
+    {
+        set_vertex(points, 0);
+        set_vertex(points, 1);
+        set_vertex(points, 1);
+        set_vertex(points, 2);
+        set_vertex(points, 2);
+        set_vertex(points, 5);
+        set_vertex(points, 5);
+        set_vertex(points, 8);
+        set_vertex(points, 8);
+        set_vertex(points, 7);
+        set_vertex(points, 7);
+        set_vertex(points, 6);
+        set_vertex(points, 6);
+        set_vertex(points, 3);
+        set_vertex(points, 3);
+        set_vertex(points, 0);
+    }
+    glEnd();
+
+    // Reset stuff.
+    glPopMatrix();
+    glPopAttrib();
+}
+
 /** Set a point in a point list to the specified values */
 inline static void set_points(double* points, int point, double x, double y, double z) {
     points[point * 3] = x;
     points[point * 3 + 1] = y;
     points[point * 3 + 2] = z;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Picking
+///////////////////////////////////////////////////////////////////////////////
+
+inline static GLuint pick_block(int x, int y) {
+    return DK_pick(x, y, &DK_render_map);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -451,6 +499,13 @@ DK_Block* DK_block_at(int x, int y) {
     return NULL;
 }
 
+DK_Block* DK_block_under_cursor(int* block_x, int* block_y, int mouse_x, int mouse_y) {
+    GLuint selected_name = pick_block(mouse_x, mouse_y);
+    *block_x = selected_name % DK_map_size;
+    *block_y = selected_name / DK_map_size;
+    return DK_block_at(*block_x, *block_y);
+}
+
 int DK_block_is_fluid(const DK_Block* block) {
     return block != NULL && block->type == DK_BLOCK_LAVA || block->type == DK_BLOCK_WATER;
 }
@@ -460,6 +515,16 @@ int DK_block_is_passable(const DK_Block* block) {
 }
 
 void DK_render_map() {
+    // Get hovered block.
+    int cursor_x = 0, cursor_y = 0;
+    int current_mode = GL_SELECT;
+    glGetIntegerv(GL_RENDER_MODE, &current_mode);
+    if (current_mode != GL_SELECT) {
+        int mouse_x, mouse_y;
+        SDL_GetMouseState(&mouse_x, &mouse_y);
+        DK_block_under_cursor(&cursor_x, &cursor_y, mouse_x, DK_RESOLUTION_Y - mouse_y);
+    }
+
     int x_begin = (int) (DK_camera_position()[0] / DK_BLOCK_SIZE) - DK_RENDER_AREA / 2;
     int y_begin = (int) (DK_camera_position()[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA / 2 + DK_RENDER_OFFSET;
     int x_end = x_begin + DK_RENDER_AREA;
@@ -470,6 +535,11 @@ void DK_render_map() {
 
         for (y = y_begin; y < y_end; ++y) {
             float y_coord = y * (DK_BLOCK_SIZE);
+
+            // Remember whether this is the current block.
+            const int should_outline =
+                    x == cursor_x && y == cursor_y &&
+                    DK_block_is_selectable(DK_PLAYER_RED, x, y);
 
             // Reset tint color.
             glColorMaterial(GL_FRONT, GL_EMISSION);
@@ -494,7 +564,7 @@ void DK_render_map() {
                 // Selected by the local player?
                 if (DK_block_is_selected(DK_PLAYER_RED, x, y)) {
                     glColorMaterial(GL_FRONT, GL_EMISSION);
-                    glColor3f(0.225f, 0.225f, 0.2f);
+                    glColor3f(0.4f, 0.4f, 0.35f);
                 }
 
                 if (block->type == DK_BLOCK_NONE) {
@@ -561,17 +631,22 @@ void DK_render_map() {
             set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, top);
             set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord, top);
 
-            DK_draw_4quad(texture_top, points);
+            // Outline hovered block.
+            if (should_outline) {
+                draw_outline(points);
+            }
+
+            draw_4quad(texture_top, points);
 
             if (texture_top_wall || texture_top_owner) {
                 glEnable(GL_BLEND);
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
                 if (texture_top_wall) {
-                    DK_draw_4quad(texture_top_wall, points);
+                    draw_4quad(texture_top_wall, points);
                 }
                 if (texture_top_owner) {
-                    DK_draw_4quad(texture_top_owner, points);
+                    draw_4quad(texture_top_owner, points);
                 }
 
                 glDisable(GL_BLEND);
@@ -591,7 +666,12 @@ void DK_render_map() {
                     set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, 0);
                     set_points(points, 8, x_coord, y_coord + DK_BLOCK_SIZE, 0);
 
-                    DK_draw_4quad(texture_side, points);
+                    // Outline hovered block.
+                    if (should_outline) {
+                        draw_outline(points);
+                    }
+
+                    draw_4quad(texture_side, points);
                 }
 
                 // South wall.
@@ -606,7 +686,12 @@ void DK_render_map() {
                     set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, 0);
                     set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord, 0);
 
-                    DK_draw_4quad(texture_side, points);
+                    // Outline hovered block.
+                    if (should_outline) {
+                        draw_outline(points);
+                    }
+
+                    draw_4quad(texture_side, points);
                 }
 
                 // East wall.
@@ -621,7 +706,12 @@ void DK_render_map() {
                     set_points(points, 7, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, 0);
                     set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, 0);
 
-                    DK_draw_4quad(texture_side, points);
+                    // Outline hovered block.
+                    if (should_outline) {
+                        draw_outline(points);
+                    }
+
+                    draw_4quad(texture_side, points);
                 }
 
                 // West wall.
@@ -636,7 +726,12 @@ void DK_render_map() {
                     set_points(points, 7, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, 0);
                     set_points(points, 8, x_coord, y_coord, 0);
 
-                    DK_draw_4quad(texture_side, points);
+                    // Outline hovered block.
+                    if (should_outline) {
+                        draw_outline(points);
+                    }
+
+                    draw_4quad(texture_side, points);
                 }
             }
 
@@ -654,7 +749,7 @@ void DK_render_map() {
                     set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, top);
                     set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, top);
 
-                    DK_draw_4quad(DK_TEX_FLUID_SIDE, points);
+                    draw_4quad(DK_TEX_FLUID_SIDE, points);
                 }
 
                 // South wall.
@@ -669,7 +764,7 @@ void DK_render_map() {
                     set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, top);
                     set_points(points, 8, x_coord, y_coord, top);
 
-                    DK_draw_4quad(DK_TEX_FLUID_SIDE, points);
+                    draw_4quad(DK_TEX_FLUID_SIDE, points);
                 }
 
                 // East wall.
@@ -684,7 +779,7 @@ void DK_render_map() {
                     set_points(points, 7, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, top);
                     set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord, top);
 
-                    DK_draw_4quad(DK_TEX_FLUID_SIDE, points);
+                    draw_4quad(DK_TEX_FLUID_SIDE, points);
                 }
 
                 // West wall.
@@ -699,17 +794,11 @@ void DK_render_map() {
                     set_points(points, 7, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, top);
                     set_points(points, 8, x_coord, y_coord + DK_BLOCK_SIZE, top);
 
-                    DK_draw_4quad(DK_TEX_FLUID_SIDE, points);
+                    draw_4quad(DK_TEX_FLUID_SIDE, points);
                 }
             }
         }
     }
-}
-
-DK_Block* DK_as_block(GLuint selected_name, int* x, int* y) {
-    *x = selected_name % DK_map_size;
-    *y = selected_name / DK_map_size;
-    return DK_block_at(*x, *y);
 }
 
 int DK_block_is_selectable(DK_Player player, int x, int y) {

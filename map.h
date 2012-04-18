@@ -71,17 +71,16 @@ int DK_block_is_passable(const DK_Block* block);
 /** Render the current map (blocks) */
 void DK_render_map();
 
-/** Checks if a pointer is a pointer to a block in the current map, and if so
- * returns it as such, including its x and y coordinates. Otherwise returns 0;
- * this will still fill in the coordinates the block would have, were it one. */
-DK_Block* DK_as_block(GLuint selected_name, int* x, int* y);
+/** Gets the block currently hovered by the mouse, and its coordinates */
+DK_Block* DK_block_under_cursor(int* block_x, int* block_y, int mouse_x, int mouse_y);
 
+/** Checks if the specified block is selectable by the specified player */
 int DK_block_is_selectable(DK_Player player, int x, int y);
 
-/** Select a block at the given coordinates for the specified player */
+/** Select the block at the given coordinates for the specified player */
 void DK_block_select(DK_Player player, unsigned short x, unsigned short y);
 
-/** Deselect a block at the given coordinates for the specified player */
+/** Deselect the block at the given coordinates for the specified player */
 void DK_block_deselect(DK_Player player, unsigned short x, unsigned short y);
 
 /** Checks if the specified block is selected by the specified player */

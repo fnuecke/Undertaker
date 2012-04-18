@@ -33,7 +33,9 @@
 /** Maximum number of units a single player have at a time */
 #define DK_UNITS_MAX_PER_PLAYER 100
 
-/** How fine the overlayed block grid for A* is (higher = finer) */
+/**
+ * How fine the overlayed block grid for A* is (higher = finer); also sets how
+ * many imps can work on one wall at a time */
 #define DK_ASTAR_GRANULARITY 3
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -91,10 +93,10 @@
 #define DK_CAMERA_TARGET_DISTANCE DK_BLOCK_SIZE * 2
 
 /** How far to zoom in (Z axis) for one zoom step */
-#define DK_CAMERA_ZOOM_STEP DK_BLOCK_SIZE
+#define DK_CAMERA_ZOOM_STEP (1.0f / 3.0f)
 
 /** Maximum camera zoom amount */
-#define DK_CAMERA_MAX_ZOOM 4 * DK_CAMERA_ZOOM_STEP
+#define DK_CAMERA_MAX_ZOOM 4 * DK_BLOCK_SIZE
 
 ///////////////////////////////////////////////////////////////////////////////
 // Debugging
@@ -117,6 +119,9 @@
 
 /** Render unit paths */
 #define DK_D_DRAW_PATHS 1
+
+/** Height at which to render paths */
+#define DK_D_PATH_HEIGHT 1
 
 #endif	/* CONFIG_H */
 
