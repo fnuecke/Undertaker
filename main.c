@@ -56,12 +56,24 @@ int main(int argc, char** argv) {
     DK_init();
 
     // Start the main loop.
+    Uint32 start, end;
+    int delay;
     while (DK_running) {
+        start = SDL_GetTicks();
+
         DK_events();
         DK_update();
         DK_render();
 
         SDL_GL_SwapBuffers();
+
+        end = SDL_GetTicks();
+
+        // Wait to get a constant frame rate.
+        delay = 1000 / 30 - (end - start);
+        if (delay > 0) {
+            SDL_Delay(delay);
+        }
     }
 
     return EXIT_SUCCESS;
@@ -107,7 +119,7 @@ void DK_init() {
     DK_init_gl();
 
     // Initialize a test map.
-    DK_init_map(32);
+    DK_init_map(128);
     DK_init_selection();
     DK_init_a_star();
     DK_init_units();
@@ -131,7 +143,31 @@ void DK_init() {
     DK_block_at(11, 8)->type = DK_BLOCK_WATER;
     DK_block_at(11, 9)->type = DK_BLOCK_WATER;
     //DK_block_at(9, 8)->owner = DK_PLAYER_RED;
-    
+
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
     DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
     DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
     DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
@@ -261,9 +297,6 @@ void DK_events() {
 void DK_update() {
     DK_update_camera();
     DK_update_units();
-
-    // Wait to get a constant frame rate.
-    SDL_Delay(1000/60);
 }
 
 void DK_render() {

@@ -72,21 +72,29 @@
 /** Delay in updates to wait before doing an actual update when idling */
 #define DK_AI_IDLE_DELAY 16
 
+/** Number of times the delay has to kick in before we try to wander again */
+#define DK_AI_WANDER_DELAY 5
+
+/** How often to try to find a point to wander to in one round (may fail) */
+#define DK_AI_WANDER_TRIES 3
+
 /** Maximum number of stacked jobs */
 #define DK_AI_JOB_STACK_MAX 8
 
 /** Maximum path length a unit can keep track of */
 #define DK_AI_PATH_MAX 32
 
+
+
 ///////////////////////////////////////////////////////////////////////////////
 // Map
 ///////////////////////////////////////////////////////////////////////////////
 
 /** Damage a normal dirt block can take before breaking */
-#define DK_BLOCK_DIRT_HEALTH 50
+#define DK_BLOCK_DIRT_HEALTH 80
 
 /** Damage a gold block can take before breaking */
-#define DK_BLOCK_GOLD_HEALTH 100
+#define DK_BLOCK_GOLD_HEALTH 160
 
 /** Damage a gem block can take before breaking; broke one?... well, good job */
 #define DK_BLOCK_GEM_HEALTH UINT32_MAX
@@ -95,13 +103,13 @@
 #define DK_BLOCK_GOLD_PER_HEALTH 10
 
 /** The base strength of a normal dirt block */
-#define DK_BLOCK_DIRT_STRENGTH 20
+#define DK_BLOCK_DIRT_STRENGTH 160
 
 /** The base strength of an empty block */
-#define DK_BLOCK_NONE_STRENGTH 20
+#define DK_BLOCK_NONE_STRENGTH 80
 
 /** The base strength of an owned empty block */
-#define DK_BLOCK_OWNED_STRENGTH 100
+#define DK_BLOCK_OWNED_STRENGTH 320
 
 ///////////////////////////////////////////////////////////////////////////////
 // Textures
@@ -183,13 +191,13 @@
 #define DK_D_CACHE_NOISE 1
 
 /** Render unit paths */
-#define DK_D_DRAW_PATHS 1
+#define DK_D_DRAW_PATHS 0
 
 /** Height at which to render paths */
 #define DK_D_PATH_HEIGHT 1
 
 /** Render job slots for player red */
-#define DK_D_DRAW_JOBS 1
+#define DK_D_DRAW_JOBS 0
 
 #endif	/* CONFIG_H */
 

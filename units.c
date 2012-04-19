@@ -34,8 +34,8 @@ enum {
 
 /** Must be in same order as unit definitions in unit type enum */
 static float move_speeds[] = {
-    [DK_UNIT_IMP] = 0.9f,
-    [DK_UNIT_WIZARD] = 0.5f
+    [DK_UNIT_IMP] = 0.6f,
+    [DK_UNIT_WIZARD] = 0.4f
 };
 
 /** Cooldowns for different abilities */
@@ -43,7 +43,7 @@ static unsigned int cooldowns[][DK_UNITS_MAX_ABILITIES] = {
     [DK_UNIT_IMP] =
     {
         [DK_ABILITY_IMP_ATTACK] = 8,
-        [DK_ABILITY_IMP_CONVERT] = 16
+        [DK_ABILITY_IMP_CONVERT] = 12
     },
     [DK_UNIT_WIZARD] =
     {
@@ -95,6 +95,7 @@ typedef enum {
 
 typedef struct {
     unsigned int delay;
+    unsigned int wander_delay;
 } AIJob_Idle;
 
 typedef struct {
@@ -236,7 +237,10 @@ static void update_ai(DK_Unit* unit) {
     if (unit->ai_count == 0) {
         // Switch to idle state if there is none set.
         unit->ai[0].state = DK_AI_IDLE;
-        ((AIJob_Idle*) unit->ai[0].info)->delay = DK_AI_IDLE_DELAY / 2 + (rand() * DK_AI_IDLE_DELAY / 2 / RAND_MAX);
+        AIJob_Idle* idle = (AIJob_Idle*) unit->ai[0].info;
+        idle->delay = DK_AI_IDLE_DELAY / 2 + (rand() * DK_AI_IDLE_DELAY / 2 / RAND_MAX);
+        idle->wander_delay = DK_AI_WANDER_DELAY;
+
         unit->ai_count = 1;
     }
     const AI_Node* ai = &unit->ai[unit->ai_count - 1];
@@ -349,8 +353,25 @@ static void update_ai(DK_Unit* unit) {
                     unit->ty = move->path[0].y * DK_BLOCK_SIZE;
                     move->path_index = 1;
                     unit->ai_count += 2;
-                }
+                } else if (idle->wander_delay > 0) {
+                    --idle->wander_delay;
+                } else {
+                    // Just walk around dumbly.
+                    int i;
+                    for (i = 0; i < DK_AI_WANDER_TRIES; ++i) {
+                        const float wx = unit->x + (rand() / (float) RAND_MAX - 0.5f) * DK_BLOCK_SIZE;
+                        const float wy = unit->y + (rand() / (float) RAND_MAX - 0.5f) * DK_BLOCK_SIZE;
+                        if (DK_block_is_passable(DK_block_at((int) (wx / DK_BLOCK_SIZE), (int) (wy / DK_BLOCK_SIZE)))) {
+                            // TODO: avoid getting too close to walls
+                            unit->tx = wx;
+                            unit->ty = wy;
+                            break;
+                        }
+                    }
 
+                    // Wait a bit before trying again.
+                    idle->wander_delay = DK_AI_WANDER_DELAY;
+                }
             }
             break;
         }
