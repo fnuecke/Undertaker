@@ -416,17 +416,20 @@ void DK_render_units() {
                 glDisable(GL_LIGHTING);
                 switch (unit->ai[unit->ai_count - 1].state) {
                     case DK_AI_MOVE:
-                        glColor3f(0.6f, 0.6f, 0.9f);
+                        glColor3f(0.9f, 0.9f, 0.9f);
                         break;
                     case DK_AI_IMP_DIG:
                         glColor3f(0.6f, 0.9f, 0.6f);
+                        break;
+                    case DK_AI_IMP_CONVERT:
+                        glColor3f(0.6f, 0.6f, 0.9f);
                         break;
                     default:
                         glColor3f(0.6f, 0.6f, 0.6f);
                         break;
                 }
                 glPushMatrix();
-                glTranslatef(unit->x, unit->y, 0);
+                glTranslatef(unit->x, unit->y, 4);
                 gluSphere(quadratic, DK_BLOCK_SIZE / 6.0f, 8, 8);
                 glPopMatrix();
                 glEnable(GL_LIGHTING);

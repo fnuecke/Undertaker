@@ -244,7 +244,11 @@ void DK_render_jobs() {
         const DK_Job* job = jobs[DK_PLAYER_RED][i];
 
         if (job->worker) {
-            glColor3f(0.4f, 0.8f, 0.4f);
+            if (job->type == DK_JOB_DIG) {
+                glColor3f(0.4f, 0.8f, 0.4f);
+            } else {
+                glColor3f(0.4f, 0.4f, 0.8f);
+            }
         } else {
             glColor3f(0.4f, 0.4f, 0.4f);
         }
@@ -252,10 +256,10 @@ void DK_render_jobs() {
 
         glBegin(GL_QUADS);
         {
-            glVertex3f((job->x - 0.2f) * DK_BLOCK_SIZE, (job->y - 0.2f) * DK_BLOCK_SIZE, 0.75f);
-            glVertex3f((job->x + 0.2f) * DK_BLOCK_SIZE, (job->y - 0.2f) * DK_BLOCK_SIZE, 0.75f);
-            glVertex3f((job->x + 0.2f) * DK_BLOCK_SIZE, (job->y + 0.2f) * DK_BLOCK_SIZE, 0.75f);
-            glVertex3f((job->x - 0.2f) * DK_BLOCK_SIZE, (job->y + 0.2f) * DK_BLOCK_SIZE, 0.75f);
+            glVertex3f((job->x - 0.2f) * DK_BLOCK_SIZE, (job->y - 0.2f) * DK_BLOCK_SIZE, 1);
+            glVertex3f((job->x + 0.2f) * DK_BLOCK_SIZE, (job->y - 0.2f) * DK_BLOCK_SIZE, 1);
+            glVertex3f((job->x + 0.2f) * DK_BLOCK_SIZE, (job->y + 0.2f) * DK_BLOCK_SIZE, 1);
+            glVertex3f((job->x - 0.2f) * DK_BLOCK_SIZE, (job->y + 0.2f) * DK_BLOCK_SIZE, 1);
         }
         glEnd();
 
