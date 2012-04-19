@@ -131,8 +131,26 @@ static int a_star_jump(int dx, int dy, int* sx, int* sy, int gx, int gy) {
     return a_star_jump(dx, dy, sx, sy, gx, gy);
 }
 
-/** Tests if we have reached our goal and writes out result data if yes */
-static int a_star_test_goal(const AStar_Node* n, int gx, int gy, float tx, float ty, AStar_Waypoint* path, unsigned int* depth, float* length) {
+/**
+ * Tests if we have reached our goal and writes out result data if yes.
+ * @param n the current node.
+ * @param sx the start x coordinate in map space.
+ * @param sy the start y coordinate in map space.
+ * @param gx the goal x coordinate in A* space.
+ * @param gy the goal y coordinate in A* space.
+ * @param tx the goal x coordinate in map space.
+ * @param ty the goal y coordinate in map space.
+ * @param path the buffer to write the path to.
+ * @param depth the length of the buffer, set to the used length.
+ * @param length the actual length of the found path, in map space.
+ * @return whether the goal was reached or not.
+ */
+static int a_star_test_goal(const AStar_Node* n,
+        float sx, float sy,
+        int gx, int gy,
+        float tx, float ty,
+        AStar_Waypoint* path, unsigned int* depth,
+        float* length) {
     if (n->x == gx && n->y == gy) {
         // Done, follow the path back to the beginning to return the best
         // neighboring node.
@@ -162,6 +180,9 @@ static int a_star_test_goal(const AStar_Node* n, int gx, int gy, float tx, float
             }
 
             if (!n->came_from) {
+                // This is the start node, set it to the actual start coordinates.
+                path[i].x = sx;
+                path[i].y = sy;
                 break;
             } else {
                 n = &closed[n->came_from - 1];
@@ -235,7 +256,7 @@ int DK_a_star(float sx, float sy, float tx, float ty, AStar_Waypoint* path, unsi
         const AStar_Node* current = &closed[closed_count];
 
         // Check if we're there yet.
-        if (a_star_test_goal(current, gx, gy, tx, ty, path, depth, length)) {
+        if (a_star_test_goal(current, sx, sy, gx, gy, tx, ty, path, depth, length)) {
             return 1;
         }
 
@@ -297,7 +318,7 @@ int DK_a_star(float sx, float sy, float tx, float ty, AStar_Waypoint* path, unsi
                 }
 
                 // We might have jumped to the goal, check for that.
-                if (a_star_test_goal(current, gx, gy, tx, ty, path, depth, length)) {
+                if (a_star_test_goal(current, sx, sy, gx, gy, tx, ty, path, depth, length)) {
                     return 1;
                 }
 #else

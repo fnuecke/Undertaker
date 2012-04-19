@@ -210,10 +210,6 @@ static void get_vertex(double* v, const double* points, int point) {
     const double offset_factor = 2 * (0.75 - fabs(p[2] / DK_BLOCK_HEIGHT - 0.5));
     offset[0] *= offset_factor;
     offset[1] *= offset_factor;
-#if DK_D_DRAW_NOISE_FACTOR
-    const double len = sqrt(offset[0] * offset[0] + offset[1] * offset[1]);
-    glColor3d(len, 0.25, 0.25);
-#endif
     offset[0] *= DK_BLOCK_MAX_NOISE_OFFSET;
     offset[1] *= DK_BLOCK_MAX_NOISE_OFFSET;
 #if DK_D_CACHE_NOISE

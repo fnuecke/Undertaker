@@ -317,7 +317,7 @@ static void update_ai(DK_Unit* unit) {
                                 const float cdx = job->worker->x - job->x * DK_BLOCK_SIZE;
                                 const float cdy = job->worker->y - job->y * DK_BLOCK_SIZE;
                                 const float current_distance = sqrt(cdx * cdx + cdy * cdy);
-                                if (current_distance <= distance) {
+                                if (current_distance <= distance + DK_AI_ALREADY_WORKING_BONUS) {
                                     // The one that's on it is closer, ignore.
                                     continue;
                                 }
@@ -511,14 +511,14 @@ void DK_render_units() {
             glDisable(GL_LIGHTING);
             glBegin(GL_LINES);
 
-            glVertex3f(unit->x, unit->y, DK_D_PATH_HEIGHT);
-            glVertex3f(unit->tx, unit->ty, DK_D_PATH_HEIGHT);
+            glVertex3f(unit->x, unit->y, DK_D_DRAW_PATH_HEIGHT);
+            glVertex3f(unit->tx, unit->ty, DK_D_DRAW_PATH_HEIGHT);
 
             AIJob_Move* info = (AIJob_Move*) unit->ai[unit->ai_count - 1].info;
             int j;
             for (j = info->path_index - 1; j < info->path_depth - 1; ++j) {
-                glVertex3f(info->path[j].x * DK_BLOCK_SIZE, info->path[j].y * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
-                glVertex3f(info->path[j + 1].x * DK_BLOCK_SIZE, info->path[j + 1].y * DK_BLOCK_SIZE, DK_D_PATH_HEIGHT);
+                glVertex3f(info->path[j].x * DK_BLOCK_SIZE, info->path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                glVertex3f(info->path[j + 1].x * DK_BLOCK_SIZE, info->path[j + 1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
             }
 
             glEnd();

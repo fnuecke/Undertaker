@@ -87,7 +87,8 @@
 /** Maximum path length a unit can keep track of */
 #define DK_AI_PATH_MAX 32
 
-
+/** Bonus accounted to a worker that's already on a job when checking if closer */
+#define DK_AI_ALREADY_WORKING_BONUS DK_BLOCK_SIZE / 2
 
 ///////////////////////////////////////////////////////////////////////////////
 // Map
@@ -187,9 +188,6 @@
 /** Factor in surroundings for terrain noise (empty blocks, owned blocks) */
 #define DK_D_USE_NOISE_OFFSET 1
 
-/** Highlight vertices that use offsetting due to nearby blocks */
-#define DK_D_DRAW_NOISE_FACTOR 0
-
 /** Cache the global noise instead of recomputing it on the fly */
 #define DK_D_CACHE_NOISE 1
 
@@ -197,10 +195,10 @@
 #define DK_D_DRAW_PATHS 0
 
 /** Height at which to render paths */
-#define DK_D_PATH_HEIGHT 1
+#define DK_D_DRAW_PATH_HEIGHT 1.1f
 
 /** Render job slots for player red */
-#define DK_D_DRAW_JOBS 0
+#define DK_D_DRAW_JOBS 1
 
 #endif	/* CONFIG_H */
 
