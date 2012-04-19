@@ -49,7 +49,7 @@ typedef struct {
     unsigned int health;
     
     /** Strength of the block (damage until converted, per player) */
-    unsigned int strength[DK_PLAYER_COUNT];
+    unsigned int strength;
 } DK_Block;
 
 /** Size (width and height) of the current map */
@@ -84,7 +84,7 @@ DK_Block* DK_block_under_cursor(int* block_x, int* block_y, int mouse_x, int mou
 int DK_block_damage(DK_Block* block, unsigned int damage);
 
 /** Apply conversion to a block (dirt, wall, empty); return 1 if successful */
-int DK_block_convert(DK_Block* block, unsigned int strength);
+int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player);
 
 #ifdef	__cplusplus
 }

@@ -65,7 +65,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /** Damage a normal dirt block can take before breaking */
-#define DK_BLOCK_DIRT_HEALTH 100
+#define DK_BLOCK_DIRT_HEALTH 50
 
 /** Damage a gold block can take before breaking */
 #define DK_BLOCK_GOLD_HEALTH 100
@@ -77,7 +77,7 @@
 #define DK_BLOCK_GOLD_PER_HEALTH 10
 
 /** The base strength of a normal dirt block */
-#define DK_BLOCK_DIRT_STRENGTH 50
+#define DK_BLOCK_DIRT_STRENGTH 20
 
 /** The base strength of an empty block */
 #define DK_BLOCK_NONE_STRENGTH 20

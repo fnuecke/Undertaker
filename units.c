@@ -42,7 +42,8 @@ static float move_speeds[] = {
 static unsigned int cooldowns[][DK_UNITS_MAX_ABILITIES] = {
     [DK_UNIT_IMP] =
     {
-        [DK_ABILITY_IMP_ATTACK] = 8
+        [DK_ABILITY_IMP_ATTACK] = 8,
+        [DK_ABILITY_IMP_CONVERT] = 16
     },
     [DK_UNIT_WIZARD] =
     {
@@ -55,7 +56,8 @@ static unsigned int cooldowns[][DK_UNITS_MAX_ABILITIES] = {
 static unsigned int damage[][DK_UNITS_MAX_ABILITIES] = {
     [DK_UNIT_IMP] =
     {
-        [DK_ABILITY_IMP_ATTACK] = 10
+        [DK_ABILITY_IMP_ATTACK] = 10,
+        [DK_ABILITY_IMP_CONVERT] = 10
     },
     [DK_UNIT_WIZARD] =
     {
@@ -170,7 +172,7 @@ typedef struct DK_Unit {
 static GLUquadric* quadratic = 0;
 
 /** Units in the game, must be ensured to be non-sparse */
-static DK_Unit units[DK_PLAYER_COUNT * DK_UNITS_MAX_PER_PLAYER];
+static DK_Unit units[DK_PLAYER_COUNT * DK_UNITS_MAX_PER_PLAYER] = {0};
 
 /** Total number of units */
 static unsigned int total_unit_count = 0;
@@ -320,7 +322,8 @@ static void update_ai(DK_Unit* unit) {
             }
 
             // Skip if on cooldown.
-            if (unit->cooldowns[DK_ABILITY_IMP_ATTACK]-- > 0) {
+            if (unit->cooldowns[DK_ABILITY_IMP_ATTACK] > 0) {
+                --unit->cooldowns[DK_ABILITY_IMP_ATTACK];
                 break;
             }
 
@@ -335,6 +338,26 @@ static void update_ai(DK_Unit* unit) {
         }
         case DK_AI_IMP_CONVERT:
         {
+            // Stop if the job got voided.
+            AIJob_DigConvert* info = (AIJob_DigConvert*) ai->info;
+            if (!info->job) {
+                --unit->ai_count;
+                break;
+            }
+
+            // Skip if on cooldown.
+            if (unit->cooldowns[DK_ABILITY_IMP_CONVERT] > 0) {
+                --unit->cooldowns[DK_ABILITY_IMP_CONVERT];
+                break;
+            }
+
+            // Else hoyoyo! Update cooldown and apply conversion.
+            unit->cooldowns[DK_ABILITY_IMP_CONVERT] =
+                    cooldowns[DK_UNIT_IMP][DK_ABILITY_IMP_CONVERT];
+            if (DK_block_convert(info->job->block, damage[DK_UNIT_IMP][DK_ABILITY_IMP_CONVERT], unit->owner)) {
+                // Block was destroyed! Job done.
+                --unit->ai_count;
+            }
             break;
         }
         default:

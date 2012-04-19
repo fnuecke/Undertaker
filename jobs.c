@@ -18,7 +18,7 @@ static DK_Job* get_job(DK_Player player) {
         jobs_capacity[player] = jobs_capacity[player] * 2 + 1;
         jobs[player] = realloc(jobs[player], jobs_capacity[player] * sizeof (DK_Job*));
     }
-    DK_Job* job = calloc(1, sizeof(DK_Job));
+    DK_Job* job = calloc(1, sizeof (DK_Job));
     jobs[player][jobs_count[player]++] = job;
     return job;
 }
@@ -70,97 +70,155 @@ static inline int owns_adjacent(DK_Player player, unsigned int x, unsigned int y
             ((block = DK_block_at(x, y + 1)) && block->owner == player);
 }
 
+static enum {
+    SAME = 1,
+    NORTH = 2,
+    EAST = 4,
+    SOUTH = 8,
+    WEST = 16
+} JobNeighbors;
+
 void DK_jobs_create(DK_Player player, unsigned short x, unsigned short y) {
+    DK_Block* block = DK_block_at(x, y);
+
+    // Check which jobs are already taken care of. There are 5 slots: the block
+    // itself (converting) and the four non-diagonal neighbors (dig/convert).
+    char existing_jobs = 0, i;
+    for (i = 0; i < jobs_count[player]; ++i) {
+        const DK_Job* job = jobs[player][i];
+        if (job->block != block) {
+            continue;
+        }
+        if (job->x < x) {
+            // Left.
+            existing_jobs |= WEST;
+        } else if (job->x > x + 1) {
+            // Right.
+            existing_jobs |= EAST;
+        } else if (job->y < y) {
+            // Top.
+            existing_jobs |= NORTH;
+        } else if (job->y > y + 1) {
+            // Bottom.
+            existing_jobs |= SOUTH;
+        } else {
+            // Same block.
+            existing_jobs |= SAME;
+        }
+    }
+
+
     if (DK_block_is_selectable(player, x, y)) {
         // Valid block for working on.
         if (DK_block_is_selected(player, x, y)) {
             // It's selected, start digging.
             // Check if a neighboring tile is passable.
-            DK_Block* block;
-            if ((block = DK_block_at(x - 1, y)) && DK_block_is_passable(block)) {
+            DK_Block* b;
+            if (!(existing_jobs & WEST) &&
+                    (b = DK_block_at(x - 1, y)) &&
+                    DK_block_is_passable(b)) {
                 // Left is valid.
                 DK_Job* job = get_job(player);
-                job->block = DK_block_at(x, y);
+                job->block = block;
                 job->x = (x - 0.25f);
                 job->y = (y + 0.5f);
                 job->type = DK_JOB_DIG;
                 job->worker = 0;
             }
-            if ((block = DK_block_at(x + 1, y)) && DK_block_is_passable(block)) {
+            if (!(existing_jobs & EAST) &&
+                    (b = DK_block_at(x + 1, y)) &&
+                    DK_block_is_passable(b)) {
                 // Right is valid.
                 DK_Job* job = get_job(player);
-                job->block = DK_block_at(x, y);
+                job->block = block;
                 job->x = (x + 1.25f);
                 job->y = (y + 0.5f);
                 job->type = DK_JOB_DIG;
                 job->worker = 0;
             }
-            if ((block = DK_block_at(x, y - 1)) && DK_block_is_passable(block)) {
+            if (!(existing_jobs & NORTH) &&
+                    (b = DK_block_at(x, y - 1)) &&
+                    DK_block_is_passable(b)) {
                 // Top is valid.
                 DK_Job* job = get_job(player);
-                job->block = DK_block_at(x, y);
+                job->block = block;
                 job->x = (x + 0.5f);
                 job->y = (y - 0.25f);
                 job->type = DK_JOB_DIG;
                 job->worker = 0;
             }
-            if ((block = DK_block_at(x, y + 1)) && DK_block_is_passable(block)) {
+            if (!(existing_jobs & SOUTH) &&
+                    (b = DK_block_at(x, y + 1)) &&
+                    DK_block_is_passable(b)) {
                 // Bottom is valid.
                 DK_Job* job = get_job(player);
-                job->block = DK_block_at(x, y);
+                job->block = block;
                 job->x = (x + 0.5f);
                 job->y = (y + 1.25f);
                 job->type = DK_JOB_DIG;
                 job->worker = 0;
             }
-        } else if (DK_block_at(x, y)->owner == DK_PLAYER_NONE) {
+        } else if (block->owner == DK_PLAYER_NONE) {
             // Not selected, and not owned, start conquering.
             // Check if a neighboring tile is owned by the same player.
-            DK_Block* block;
-            if ((block = DK_block_at(x - 1, y)) && block->owner == player) {
+            DK_Block* b;
+            if (!(existing_jobs & WEST) &&
+                    (b = DK_block_at(x - 1, y)) &&
+                    DK_block_is_passable(b) &&
+                    b->owner == player) {
                 // Left is valid.
                 DK_Job* job = get_job(player);
-                job->block = DK_block_at(x, y);
+                job->block = block;
                 job->x = (x - 0.25f);
                 job->y = (y + 0.5f);
                 job->type = DK_JOB_CONVERT;
                 job->worker = 0;
             }
-            if ((block = DK_block_at(x + 1, y)) && block->owner == player) {
+            if (!(existing_jobs & EAST) &&
+                    (b = DK_block_at(x + 1, y)) &&
+                    DK_block_is_passable(b) &&
+                    b->owner == player) {
                 // Right is valid.
                 DK_Job* job = get_job(player);
-                job->block = DK_block_at(x, y);
+                job->block = block;
                 job->x = (x + 1.25f);
                 job->y = (y + 0.5f);
                 job->type = DK_JOB_CONVERT;
                 job->worker = 0;
             }
-            if ((block = DK_block_at(x, y - 1)) && block->owner == player) {
+            if (!(existing_jobs & NORTH) &&
+                    (b = DK_block_at(x, y - 1)) &&
+                    DK_block_is_passable(b) &&
+                    b->owner == player) {
                 // Top is valid.
                 DK_Job* job = get_job(player);
-                job->block = DK_block_at(x, y);
+                job->block = block;
                 job->x = (x + 0.5f);
                 job->y = (y - 0.25f);
                 job->type = DK_JOB_CONVERT;
                 job->worker = 0;
             }
-            if ((block = DK_block_at(x, y + 1)) && block->owner == player) {
+            if (!(existing_jobs & SOUTH) &&
+                    (b = DK_block_at(x, y + 1)) &&
+                    DK_block_is_passable(b) &&
+                    b->owner == player) {
                 // Bottom is valid.
                 DK_Job* job = get_job(player);
-                job->block = DK_block_at(x, y);
+                job->block = block;
                 job->x = (x + 0.5f);
                 job->y = (y - 0.25f);
                 job->type = DK_JOB_CONVERT;
                 job->worker = 0;
             }
         }
-    } else if (DK_block_at(x, y)->type == DK_BLOCK_NONE &&
-            DK_block_at(x, y)->owner != player) {
+    } else if (!(existing_jobs & SAME) &&
+            block->type == DK_BLOCK_NONE &&
+            block->owner != player) {
         // Block is empty tile and not already owned.
         // Check if a neighboring tile is owned by the same player.
         if (owns_adjacent(player, x, y)) {
             DK_Job* job = get_job(player);
-            job->block = DK_block_at(x, y);
+            job->block = block;
             job->x = (x + 0.5f);
             job->y = (y + 0.5f);
             job->type = DK_JOB_CONVERT;
@@ -183,6 +241,21 @@ void DK_jobs_destroy(DK_Player player, unsigned short x, unsigned short y) {
             // Free memory.
             delete_job(player, i - 1);
         }
+    }
+
+    // Update / recreate jobs.
+    DK_jobs_create(player, x, y);
+    if (x > 0) {
+        DK_jobs_create(player, x - 1, y);
+    }
+    if (x < DK_map_size - 1) {
+        DK_jobs_create(player, x + 1, y);
+    }
+    if (y > 0) {
+        DK_jobs_create(player, x, y - 1);
+    }
+    if (y < DK_map_size - 1) {
+        DK_jobs_create(player, x, y + 1);
     }
 }
 

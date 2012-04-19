@@ -462,9 +462,7 @@ void DK_init_map(unsigned short size) {
             DK_Block* block = &map[i + j * size];
             block->type = DK_BLOCK_DIRT;
             block->health = DK_BLOCK_DIRT_HEALTH;
-            for (k = 0; k < DK_PLAYER_COUNT; ++k) {
-                block->strength[k] = DK_BLOCK_DIRT_STRENGTH;
-            }
+            block->strength = DK_BLOCK_DIRT_STRENGTH;
             block->room = DK_ROOM_NONE;
         }
     }
@@ -821,7 +819,8 @@ int DK_block_damage(DK_Block* block, unsigned int damage) {
     // Block is destroyed.
     block->health = 0;
     block->type = DK_BLOCK_NONE;
-    // TODO update jobs
+    block->owner = DK_PLAYER_NONE;
+    block->strength = DK_BLOCK_NONE_STRENGTH;
 
     unsigned short x, y;
     DK_block_coordinates(&x, &y, block);
@@ -834,6 +833,37 @@ int DK_block_damage(DK_Block* block, unsigned int damage) {
     return 1;
 }
 
-int DK_block_convert(DK_Block* block, unsigned int strength) {
+int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
+    unsigned short x, y;
 
+    // First reduce any enemy influence.
+    if (block->owner != player) {
+        if (block->strength > strength) {
+            block->strength -= strength;
+            return 0;
+        }
+    } else {
+        // Owned by this player, repair it.
+        if (block->strength + strength < DK_BLOCK_OWNED_STRENGTH) {
+            block->strength += strength;
+            return 0;
+        } else {
+            block->strength = DK_BLOCK_OWNED_STRENGTH;
+            DK_block_coordinates(&x, &y, block);
+            DK_jobs_destroy(player, x, y);
+            return 1;
+        }
+    }
+
+    // Block is completely converted.
+    block->strength = DK_BLOCK_OWNED_STRENGTH;
+    block->owner = player;
+    DK_block_coordinates(&x, &y, block);
+
+    int i;
+    for (i = 0; i < DK_PLAYER_COUNT; ++i) {
+        DK_block_deselect(i, x, y);
+    }
+
+    return 1;
 }
