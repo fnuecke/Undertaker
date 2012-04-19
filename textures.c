@@ -3,6 +3,7 @@
 #include <SDL_image.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
+#include <GL/glext.h>
 
 #include "config.h"
 #include "textures.h"
@@ -79,7 +80,7 @@ void DK_load_textures() {
 
         fprintf(stdout, "Found %d variations of texture '%s'.\n", *count, DK_texture_names[textureId]);
     }
-    
+
     // Load test texture.
     sprintf(filename, "%s%s%s", DK_TEX_DIR, "test", DK_TEX_FILETYPE);
 
@@ -94,13 +95,23 @@ GLuint DK_surface2glTex(const SDL_Surface* surface) {
     glBindTexture(GL_TEXTURE_2D, texture);
 
     // Scaling settings.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     // Set the data from our surface.
+#ifdef GL_GENERATE_MIPMAP
+    glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, surface->format->BytesPerPixel,
+            surface->w, surface->h, 0, (surface->format->Amask) ? GL_RGBA : GL_RGB,
+            GL_UNSIGNED_BYTE, surface->pixels);
+#else
     gluBuild2DMipmaps(GL_TEXTURE_2D, surface->format->BytesPerPixel,
             surface->w, surface->h, (surface->format->Amask) ? GL_RGBA : GL_RGB,
             GL_UNSIGNED_BYTE, surface->pixels);
+#endif
 
     return texture;
 }
@@ -113,6 +124,6 @@ void DK_opengl_textures() {
             DK_gl_textures[textureId][count] = DK_surface2glTex(DK_textures[textureId][count]);
         }
     }
-    
+
     DK_gl_test_texture = DK_surface2glTex(DK_test_texture);
 }

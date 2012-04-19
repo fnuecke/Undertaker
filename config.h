@@ -24,10 +24,13 @@
 #define DK_ASPECT_RATIO ((float)DK_RESOLUTION_X / (float)DK_RESOLUTION_Y)
 
 /** Whether to use anti aliasing or not */
-#define DK_USE_ANTIALIASING 1
+#define DK_USE_ANTIALIASING 0
 
 /** Target framerate */
 #define DK_FRAMERATE 60
+
+/** Use fog in the distance, to fade out to black */
+#define DK_USE_FOG 1
 
 ///////////////////////////////////////////////////////////////////////////////
 // Units
@@ -147,11 +150,14 @@
 /** Multiplier applied to vertices reducing above offset based on nearby owned blocks */
 #define DK_OWNED_NOISE_REDUCTION 0.8
 
-/** The size of the squared area of blocks to render based on the camera position */
-#define DK_RENDER_AREA 20
+/** The horizontal number of blocks to render around the camera position */
+#define DK_RENDER_AREA_X 20
+
+/** The vertical number of blocks to render around the camera position */
+#define DK_RENDER_AREA_Y 16
 
 /** Y offset of tiles to render (due to camera looking slightly forward) */
-#define DK_RENDER_OFFSET 4
+#define DK_RENDER_AREA_Y_OFFSET 3
 
 ///////////////////////////////////////////////////////////////////////////////
 // Camera

@@ -524,10 +524,10 @@ void DK_render_map() {
         DK_block_under_cursor(&cursor_x, &cursor_y, mouse_x, DK_RESOLUTION_Y - mouse_y);
     }
 
-    int x_begin = (int) (DK_camera_position()[0] / DK_BLOCK_SIZE) - DK_RENDER_AREA / 2;
-    int y_begin = (int) (DK_camera_position()[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA / 2 + DK_RENDER_OFFSET;
-    int x_end = x_begin + DK_RENDER_AREA;
-    int y_end = y_begin + DK_RENDER_AREA;
+    int x_begin = (int) (DK_camera_position()[0] / DK_BLOCK_SIZE) - DK_RENDER_AREA_X / 2;
+    int y_begin = (int) (DK_camera_position()[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA_Y_OFFSET;
+    int x_end = x_begin + DK_RENDER_AREA_X;
+    int y_end = y_begin + DK_RENDER_AREA_Y;
     int x, y;
     for (x = x_begin; x < x_end; ++x) {
         float x_coord = x * (DK_BLOCK_SIZE);

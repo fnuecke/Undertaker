@@ -22,10 +22,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /** Main screen we use */
-SDL_Surface* DK_screen;
+static SDL_Surface* screen;
 
 /** Whether the game is still running; if set to 0 the game will exit */
-int DK_running = 1;
+static int running = 1;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Main logic
@@ -58,14 +58,12 @@ int main(int argc, char** argv) {
     // Start the main loop.
     Uint32 start, end;
     int delay;
-    while (DK_running) {
+    while (running) {
         start = SDL_GetTicks();
 
         DK_events();
         DK_update();
         DK_render();
-
-        SDL_GL_SwapBuffers();
 
         end = SDL_GetTicks();
 
@@ -74,6 +72,8 @@ int main(int argc, char** argv) {
         if (delay > 0) {
             SDL_Delay(delay);
         }
+
+        SDL_GL_SwapBuffers();
     }
 
     return EXIT_SUCCESS;
@@ -103,8 +103,8 @@ void DK_init() {
     }
 
     // Set up video.
-    DK_screen = SDL_SetVideoMode(DK_RESOLUTION_X, DK_RESOLUTION_Y, 16, SDL_HWSURFACE | SDL_OPENGL);
-    if (DK_screen == NULL) {
+    screen = SDL_SetVideoMode(DK_RESOLUTION_X, DK_RESOLUTION_Y, 16, SDL_HWSURFACE | SDL_OPENGL);
+    if (screen == NULL) {
         fprintf(stderr, "Unable to set video: %s\n", SDL_GetError());
         exit(EXIT_FAILURE);
     }
@@ -146,52 +146,54 @@ void DK_init() {
 
     DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
     DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    /*
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+     */
 }
 
 void DK_init_gl() {
@@ -226,6 +228,7 @@ void DK_init_gl() {
 
     // We'll make sure stuff is rotated correctly, so we can cull back-faces.
     glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
 
     // Set up global ambient lighting.
     glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
@@ -258,6 +261,7 @@ void DK_init_gl() {
     glLightfv(GL_LIGHT1, GL_POSITION, lightPos1);
     glEnable(GL_LIGHT1);
 
+#if DK_USE_FOG
     GLfloat fog_color[] = {0.0f, 0.0f, 0.0f, 1.0f};
     glFogi(GL_FOG_MODE, GL_LINEAR);
     glFogfv(GL_FOG_COLOR, fog_color);
@@ -266,6 +270,7 @@ void DK_init_gl() {
     glFogf(GL_FOG_START, DK_CAMERA_HEIGHT + DK_BLOCK_SIZE);
     glFogf(GL_FOG_END, DK_CAMERA_HEIGHT + DK_BLOCK_SIZE * 4);
     glEnable(GL_FOG);
+#endif
 
     // Load all textures we may need.
     DK_opengl_textures();
