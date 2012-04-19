@@ -70,7 +70,7 @@ int main(int argc, char** argv) {
         end = SDL_GetTicks();
 
         // Wait to get a constant frame rate.
-        delay = 1000 / 30 - (end - start);
+        delay = 1000 / DK_FRAMERATE - (end - start);
         if (delay > 0) {
             SDL_Delay(delay);
         }
