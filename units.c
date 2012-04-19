@@ -189,16 +189,39 @@ static void update_position(DK_Unit* unit) {
     const float dx = unit->tx - unit->x;
     const float dy = unit->ty - unit->y;
     if (fabs(dx) > 0.001f || fabs(dy) > 0.001f) {
-        const float l0 = sqrt(dx * dx + dy * dy);
+        const float l = sqrt(dx * dx + dy * dy);
 
-        if (l0 <= unit->ms) {
+        if (l <= unit->ms) {
             // This step will get us to our target position.
             unit->x = unit->tx;
             unit->y = unit->ty;
         } else {
             // Still have some way to go, normalize deltas and apply movement speed
             // to update the position.
-            const float factor = unit->ms / l0;
+            /*
+                        const float pdx = unit->px - unit->x;
+                        const float pdy = unit->py - unit->y;
+                        const float pl = sqrt(pdx * pdx + pdy * pdy);
+
+                        const float s = l / pl; // scale s to go from 0 to 1
+                        const float s2 = s + s;
+                        const float s3 = s2 + s;
+                        const float sp2 = s * s;
+                        const float sp3 = s * s * s;
+                        const float s2p3 = s2 * s2*s2;
+                        const float s3p2 = s3 * s3;
+                        const float h1 = s2p3 - s3p2 + 1; // calculate basis function 1
+                        const float h2 = s3p2 - s2p3; // calculate basis function 2
+                        const float h3 = sp3 - 2 * sp2 + s; // calculate basis function 3
+                        const float h4 = sp3 - sp2; // calculate basis function 4
+                        const float px = h1 * unit->px + h2 * unit->tx + h3 * unit->tx + h;
+                        vector p = h1 * P1 + // multiply and sum all funtions
+                                h2 * P2 + // together to build the interpolated
+                                h3 * T1 + // point along the curve.
+                                h4*T2;
+             */
+
+            const float factor = unit->ms / l;
             unit->x += dx * factor;
             unit->y += dy * factor;
         }
@@ -231,7 +254,8 @@ static void update_ai(DK_Unit* unit) {
             // Find the unit something to do.
             if (unit->type == DK_UNIT_IMP) {
                 // Look for the closest workplace.
-                float best_length = FLT_MAX;
+                float best_distance = FLT_MAX;
+                float best_penalty = 0;
                 DK_Job* best_job = NULL;
 
                 // Assuming we'll find work we'll want to add two jobs, one for
@@ -247,9 +271,12 @@ static void update_ai(DK_Unit* unit) {
                     // Current workplace we're checking.
                     DK_Job* job = jobs[job_count - 1];
 
-                    // Skip jobs that are being worked on for now.
-                    // TODO: override if we're closer.
-                    if (job->worker) {
+                    // Test direct distance; if that's longer than our best we
+                    // can safely skip this one.
+                    const float dx = unit->x - job->x * DK_BLOCK_SIZE;
+                    const float dy = unit->y - job->y * DK_BLOCK_SIZE;
+                    float distance = sqrt(dx * dx + dy * dy);
+                    if (distance >= best_distance + best_penalty) {
                         continue;
                     }
 
@@ -257,26 +284,46 @@ static void update_ai(DK_Unit* unit) {
                     // overriding existing path that may be shorter.
                     AStar_Waypoint path[DK_AI_PATH_MAX] = {0};
                     unsigned int depth = DK_AI_PATH_MAX;
-                    float length = FLT_MAX;
-                    if (DK_a_star(unit->x / DK_BLOCK_SIZE, unit->y / DK_BLOCK_SIZE, job->x, job->y, path, &depth, &length)) {
+                    if (DK_a_star(unit->x / DK_BLOCK_SIZE, unit->y / DK_BLOCK_SIZE, job->x, job->y, path, &depth, &distance)) {
+                        // Scale to world units.
+                        distance *= DK_BLOCK_SIZE;
+
                         // Factor in priorities.
+                        float penalty = 0;
                         switch (job->type) {
                             case DK_JOB_DIG:
-                                length += DK_JOB_DIG_PRIORITY;
+                                penalty = DK_JOB_DIG_PRIORITY;
                                 break;
                             case DK_JOB_CONVERT:
                                 if (DK_block_is_passable(job->block)) {
-                                    length += DK_JOB_CONVERT_FLOOR_PRIORITY;
+                                    penalty = DK_JOB_CONVERT_FLOOR_PRIORITY;
                                 } else {
-                                    length += DK_JOB_CONVERT_WALL_PRIORITY;
+                                    penalty = DK_JOB_CONVERT_WALL_PRIORITY;
                                 }
                                 break;
 
                         }
+
                         // Got a path, check its length.
-                        if (length < best_length) {
-                            // Got a new best. Copy data.
-                            best_length = length;
+                        if (distance + penalty < best_distance + best_penalty) {
+                            // Got a new best. Check if it's occupied, and if so
+                            // only take it if our path is better than the
+                            // direct distance to the occupant.
+                            if (job->worker) {
+                                const float cdx = job->worker->x - job->x * DK_BLOCK_SIZE;
+                                const float cdy = job->worker->y - job->y * DK_BLOCK_SIZE;
+                                const float current_distance = sqrt(cdx * cdx + cdy * cdy);
+                                if (current_distance <= distance) {
+                                    // The one that's on it is closer, ignore.
+                                    continue;
+                                }
+                                // We're closer, kick the other one.
+                                DK_unit_cancel_job(job->worker);
+                            }
+
+                            // Copy data.
+                            best_distance = distance;
+                            best_penalty = penalty;
                             best_job = job;
                             memcpy(move->path, path, depth * sizeof (AStar_Waypoint));
                             move->path_depth = depth;
@@ -497,8 +544,11 @@ void DK_unit_cancel_job(DK_Unit* unit) {
                 // It wasn't canceled yet.
                 info->job->worker = 0;
                 info->job = 0;
-                unit->tx = unit->x;
-                unit->ty = unit->y;
+                // Do *not* stop! Looks more natural and will avoid units
+                // jittering in the middle of nowhere because all their jobs
+                // get stolen :P
+                //unit->tx = unit->x;
+                //unit->ty = unit->y;
             }
             return;
         }

@@ -138,7 +138,7 @@ static int a_star_test_goal(const AStar_Node* n, int gx, int gy, float tx, float
         // neighboring node.
 
         // Return the length of the returned array.
-        *length = n->gscore;
+        *length = n->gscore / DK_ASTAR_GRANULARITY;
 
         // Follow the path until only as many nodes as we can fit into the
         // specified array remain.

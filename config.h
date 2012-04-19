@@ -42,13 +42,13 @@
 // These are linear to the distance to the job: rank = dist * prio
 
 /** Priority for digging up stuff */
-#define DK_JOB_DIG_PRIORITY 1.0f
+#define DK_JOB_DIG_PRIORITY 0
 
 /** Priority for converting floor tiles */
-#define DK_JOB_CONVERT_FLOOR_PRIORITY DK_BLOCK_SIZE * 2
+#define DK_JOB_CONVERT_FLOOR_PRIORITY DK_BLOCK_SIZE * 8
 
 /** Priority for converting walls */
-#define DK_JOB_CONVERT_WALL_PRIORITY DK_BLOCK_SIZE * 4
+#define DK_JOB_CONVERT_WALL_PRIORITY DK_BLOCK_SIZE * 16
 
 ///////////////////////////////////////////////////////////////////////////////
 // Path finding
