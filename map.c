@@ -500,8 +500,8 @@ int DK_block_coordinates(unsigned short* x, unsigned short* y, const DK_Block* b
 
 DK_Block* DK_block_under_cursor(int* block_x, int* block_y, int mouse_x, int mouse_y) {
     GLuint selected_name = pick_block(mouse_x, mouse_y);
-    *block_x = selected_name % DK_map_size;
-    *block_y = selected_name / DK_map_size;
+    *block_x = (short)(selected_name & 0xFFFF);
+    *block_y = (short)(selected_name >> 16);
     return DK_block_at(*block_x, *block_y);
 }
 
@@ -535,6 +535,9 @@ void DK_render_map() {
         for (y = y_begin; y < y_end; ++y) {
             float y_coord = y * (DK_BLOCK_SIZE);
 
+            // Mark for select mode, coordinates of that block.
+            glLoadName(((unsigned short)y << 16) | (unsigned short)x);
+
             // Remember whether this is the current block.
             const int should_outline =
                     x == cursor_x && y == cursor_y &&
@@ -545,9 +548,6 @@ void DK_render_map() {
             glColor3f(0.0f, 0.0f, 0.0f);
             glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
             glColor3f(1.0f, 1.0f, 1.0f);
-
-            // Mark for select mode, coordinates of that block.
-            glLoadName(y * DK_map_size + x);
 
             DK_Texture texture_top, texture_side, texture_top_wall = 0, texture_top_owner = 0;
             int top;
