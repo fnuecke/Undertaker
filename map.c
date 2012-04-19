@@ -850,7 +850,7 @@ int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
         } else {
             block->strength = DK_BLOCK_OWNED_STRENGTH;
             DK_block_coordinates(&x, &y, block);
-            DK_jobs_destroy(player, x, y);
+            DK_jobs_update(player, x, y);
             return 1;
         }
     }

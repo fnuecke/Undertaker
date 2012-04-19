@@ -42,21 +42,8 @@ void DK_init_jobs();
 /** Display hints for job slots (e.g. debugging) */
 void DK_render_jobs();
 
-/**
- * Create job(s) for the block at the specified coordinates.
- * If the block is minable adjacent free slots will be marked, else, if the
- * block is adjacent to an owned block, it will be marked for conversion. For
- * open tiles this will create one job (at the center of the block), for
- * occupied ones (must be ensured to be unselected dirt only!) this will
- * generate 3 * [open walls] jobs.
- */
-void DK_jobs_create(DK_Player player, unsigned short x, unsigned short y);
-
-/**
- * Invert operation of create, removes all adjacent jobs that target the block
- * at the specified coordinates.
- */
-void DK_jobs_destroy(DK_Player player, unsigned short x, unsigned short y);
+/** Update jobs at and surrounding the specified coordinate */
+void DK_jobs_update(DK_Player player, unsigned short x, unsigned short y);
 
 /** Get a list of all jobs for the specified player */
 DK_Job** DK_jobs(DK_Player player, unsigned int* count);

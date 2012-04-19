@@ -35,33 +35,6 @@ void DK_init_jobs() {
     }
 }
 
-void DK_render_jobs() {
-#if DK_D_DRAW_JOBS
-    int i;
-    for (i = 0; i < jobs_count[DK_PLAYER_RED]; ++i) {
-        const DK_Job* job = jobs[DK_PLAYER_RED][i];
-
-        if (job->worker) {
-            glColor3f(0.4f, 0.8f, 0.4f);
-        } else {
-            glColor3f(0.4f, 0.4f, 0.4f);
-        }
-        glDisable(GL_LIGHTING);
-
-        glBegin(GL_QUADS);
-        {
-            glVertex3f((job->x - 0.2f) * DK_BLOCK_SIZE, (job->y - 0.2f) * DK_BLOCK_SIZE, 0.75f);
-            glVertex3f((job->x + 0.2f) * DK_BLOCK_SIZE, (job->y - 0.2f) * DK_BLOCK_SIZE, 0.75f);
-            glVertex3f((job->x + 0.2f) * DK_BLOCK_SIZE, (job->y + 0.2f) * DK_BLOCK_SIZE, 0.75f);
-            glVertex3f((job->x - 0.2f) * DK_BLOCK_SIZE, (job->y + 0.2f) * DK_BLOCK_SIZE, 0.75f);
-        }
-        glEnd();
-
-        glEnable(GL_LIGHTING);
-    }
-#endif
-}
-
 static inline int owns_adjacent(DK_Player player, unsigned int x, unsigned int y) {
     DK_Block* block;
     return ((block = DK_block_at(x - 1, y)) && DK_block_is_passable(block) && block->owner == player) ||
@@ -78,7 +51,7 @@ static enum {
     WEST = 16
 } JobNeighbors;
 
-void DK_jobs_create(DK_Player player, unsigned short x, unsigned short y) {
+static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
     DK_Block* block = DK_block_at(x, y);
 
     // Check which jobs are already taken care of. There are 5 slots: the block
@@ -227,7 +200,7 @@ void DK_jobs_create(DK_Player player, unsigned short x, unsigned short y) {
     }
 }
 
-void DK_jobs_destroy(DK_Player player, unsigned short x, unsigned short y) {
+void DK_jobs_update(DK_Player player, unsigned short x, unsigned short y) {
     DK_Block* block = DK_block_at(x, y);
     int i;
     for (i = jobs_count[player]; i > 0; --i) {
@@ -244,22 +217,49 @@ void DK_jobs_destroy(DK_Player player, unsigned short x, unsigned short y) {
     }
 
     // Update / recreate jobs.
-    DK_jobs_create(player, x, y);
+    jobs_add(player, x, y);
     if (x > 0) {
-        DK_jobs_create(player, x - 1, y);
+        jobs_add(player, x - 1, y);
     }
     if (x < DK_map_size - 1) {
-        DK_jobs_create(player, x + 1, y);
+        jobs_add(player, x + 1, y);
     }
     if (y > 0) {
-        DK_jobs_create(player, x, y - 1);
+        jobs_add(player, x, y - 1);
     }
     if (y < DK_map_size - 1) {
-        DK_jobs_create(player, x, y + 1);
+        jobs_add(player, x, y + 1);
     }
 }
 
 DK_Job** DK_jobs(DK_Player player, unsigned int* count) {
     *count = jobs_count[player];
     return jobs[player];
+}
+
+void DK_render_jobs() {
+#if DK_D_DRAW_JOBS
+    int i;
+    for (i = 0; i < jobs_count[DK_PLAYER_RED]; ++i) {
+        const DK_Job* job = jobs[DK_PLAYER_RED][i];
+
+        if (job->worker) {
+            glColor3f(0.4f, 0.8f, 0.4f);
+        } else {
+            glColor3f(0.4f, 0.4f, 0.4f);
+        }
+        glDisable(GL_LIGHTING);
+
+        glBegin(GL_QUADS);
+        {
+            glVertex3f((job->x - 0.2f) * DK_BLOCK_SIZE, (job->y - 0.2f) * DK_BLOCK_SIZE, 0.75f);
+            glVertex3f((job->x + 0.2f) * DK_BLOCK_SIZE, (job->y - 0.2f) * DK_BLOCK_SIZE, 0.75f);
+            glVertex3f((job->x + 0.2f) * DK_BLOCK_SIZE, (job->y + 0.2f) * DK_BLOCK_SIZE, 0.75f);
+            glVertex3f((job->x - 0.2f) * DK_BLOCK_SIZE, (job->y + 0.2f) * DK_BLOCK_SIZE, 0.75f);
+        }
+        glEnd();
+
+        glEnable(GL_LIGHTING);
+    }
+#endif
 }
