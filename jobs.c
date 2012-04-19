@@ -64,10 +64,10 @@ void DK_render_jobs() {
 
 static inline int owns_adjacent(DK_Player player, unsigned int x, unsigned int y) {
     DK_Block* block;
-    return ((block = DK_block_at(x - 1, y)) && block->owner == player) ||
-            ((block = DK_block_at(x + 1, y)) && block->owner == player) ||
-            ((block = DK_block_at(x, y - 1)) && block->owner == player) ||
-            ((block = DK_block_at(x, y + 1)) && block->owner == player);
+    return ((block = DK_block_at(x - 1, y)) && DK_block_is_passable(block) && block->owner == player) ||
+            ((block = DK_block_at(x + 1, y)) && DK_block_is_passable(block) && block->owner == player) ||
+            ((block = DK_block_at(x, y - 1)) && DK_block_is_passable(block) && block->owner == player) ||
+            ((block = DK_block_at(x, y + 1)) && DK_block_is_passable(block) && block->owner == player);
 }
 
 static enum {
@@ -206,7 +206,7 @@ void DK_jobs_create(DK_Player player, unsigned short x, unsigned short y) {
                 DK_Job* job = get_job(player);
                 job->block = block;
                 job->x = (x + 0.5f);
-                job->y = (y - 0.25f);
+                job->y = (y + 1.25f);
                 job->type = DK_JOB_CONVERT;
                 job->worker = 0;
             }

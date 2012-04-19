@@ -259,6 +259,20 @@ static void update_ai(DK_Unit* unit) {
                     unsigned int depth = DK_AI_PATH_MAX;
                     float length = FLT_MAX;
                     if (DK_a_star(unit->x / DK_BLOCK_SIZE, unit->y / DK_BLOCK_SIZE, job->x, job->y, path, &depth, &length)) {
+                        // Factor in priorities.
+                        switch (job->type) {
+                            case DK_JOB_DIG:
+                                length += DK_JOB_DIG_PRIORITY;
+                                break;
+                            case DK_JOB_CONVERT:
+                                if (DK_block_is_passable(job->block)) {
+                                    length += DK_JOB_CONVERT_FLOOR_PRIORITY;
+                                } else {
+                                    length += DK_JOB_CONVERT_WALL_PRIORITY;
+                                }
+                                break;
+
+                        }
                         // Got a path, check its length.
                         if (length < best_length) {
                             // Got a new best. Copy data.

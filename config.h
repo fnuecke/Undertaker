@@ -36,6 +36,24 @@
 /** Maximum number of abilities a unit may have (number of cooldowns) */
 #define DK_UNITS_MAX_ABILITIES 4
 
+///////////////////////////////////////////////////////////////////////////////
+// Job priorities
+///////////////////////////////////////////////////////////////////////////////
+// These are linear to the distance to the job: rank = dist * prio
+
+/** Priority for digging up stuff */
+#define DK_JOB_DIG_PRIORITY 1.0f
+
+/** Priority for converting floor tiles */
+#define DK_JOB_CONVERT_FLOOR_PRIORITY DK_BLOCK_SIZE * 2
+
+/** Priority for converting walls */
+#define DK_JOB_CONVERT_WALL_PRIORITY DK_BLOCK_SIZE * 4
+
+///////////////////////////////////////////////////////////////////////////////
+// Path finding
+///////////////////////////////////////////////////////////////////////////////
+
 /**
  * How fine the overlayed block grid for A* is (higher = finer); also sets how
  * many imps can work on one wall at a time */

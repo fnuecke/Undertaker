@@ -34,7 +34,7 @@ void DK_block_select(DK_Player player, unsigned short x, unsigned short y) {
         const unsigned int idx = y * DK_map_size + x;
         BS_set(selection[player], idx);
 
-        DK_jobs_create(player, x, y);
+        DK_jobs_destroy(player, x, y);
     }
 }
 
