@@ -28,6 +28,9 @@ static double last_vertex[3] = {0, 0, 0};
 /** The current map */
 static DK_Block* map = 0;
 
+/** Current map size */
+unsigned short DK_map_size = 0;
+
 /** Cache of map noise */
 static double* map_noise = 0;
 
@@ -36,6 +39,36 @@ static int cursor_x = 0, cursor_y = 0;
 
 /** Currently doing a picking (select) render pass? */
 static char picking = 0;
+
+///////////////////////////////////////////////////////////////////////////////
+// Map model data
+///////////////////////////////////////////////////////////////////////////////
+
+/** Vector type */
+typedef struct {
+    GLfloat x, y, z;
+} v3f;
+
+/** Vertices making up the map model */
+static v3f* vertices = 0;
+
+/** Normals at a specific vertex, for walls and toppings separately */
+static v3f* normals_x = 0;
+static v3f* normals_y = 0;
+static v3f* normals_z = 0;
+
+/** Number of vertices in x and y direction */
+static unsigned int vertices_count_full = 0;
+static unsigned int vertices_count_semi = 0;
+
+// Base z coordinates for vertices.
+static const float z_coords[5] = {
+    -DK_WATER_LEVEL,
+    -DK_WATER_LEVEL / 2.0f,
+    0,
+    DK_BLOCK_HEIGHT / 2.0f,
+    DK_BLOCK_HEIGHT
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 // Internal rendering stuff
@@ -456,6 +489,879 @@ inline static GLuint pick_block(int x, int y) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// Map model computation
+///////////////////////////////////////////////////////////////////////////////
+
+#define XYZD2I(x, y, z, dx, dy) (((z) * (dx) * (dy)) + (y) * (dy) + (x))
+#define XYZ2IF(x, y, z) XYZD2I(x, y, z, vertices_count_full, vertices_count_full)
+#define XYZ2IH(x, y, z) XYZD2I(x, y, z, vertices_count_full, vertices_count_semi)
+
+inline static void crossv3f(v3f* cross, const v3f* a, const v3f* b) {
+    cross->x = a->y * b->z - a->z * b->y;
+    cross->y = a->z * b->x - a->x * b->z;
+    cross->z = a->x * b->y - a->y * b->x;
+}
+
+inline static void iaddv3f(v3f* a, const v3f* b) {
+    a->x += b->x;
+    a->y += b->y;
+    a->z += b->z;
+}
+
+inline static void subv3f(v3f* sub, const v3f* a, const v3f* b) {
+    sub->x = a->x - b->x;
+    sub->y = a->y - b->y;
+    sub->z = a->z - b->z;
+}
+
+inline static float lenv3f(const v3f* v) {
+    return sqrtf(v->x * v->x + v->y * v->y + v->z * v->z);
+}
+
+inline static void idivsv3f(v3f* v, float s) {
+    v->x /= s;
+    v->y /= s;
+    v->z /= s;
+}
+
+static void normal(v3f* normal, const v3f* v0, const v3f* v1, const v3f* v2) {
+    v3f a, b;
+    subv3f(&a, v1, v0);
+    subv3f(&b, v2, v0);
+    crossv3f(normal, &a, &b);
+}
+
+static void interpolate_normal(v3f* n, const v3f* v0,
+        const v3f* v1, const v3f* v2, const v3f* v3, const v3f* v4,
+        const v3f* v5, const v3f* v6, const v3f* v7, const v3f* v8) {
+    // Compute normals based on neighbors and accumulate.
+    v3f tmp;
+    normal(&tmp, v0, v1, v2);
+    iaddv3f(n, &tmp);
+    normal(&tmp, v0, v2, v3);
+    iaddv3f(n, &tmp);
+    normal(&tmp, v0, v3, v4);
+    iaddv3f(n, &tmp);
+    normal(&tmp, v0, v4, v5);
+    iaddv3f(n, &tmp);
+    normal(&tmp, v0, v5, v6);
+    iaddv3f(n, &tmp);
+    normal(&tmp, v0, v6, v7);
+    iaddv3f(n, &tmp);
+    normal(&tmp, v0, v7, v8);
+    iaddv3f(n, &tmp);
+    normal(&tmp, v0, v8, v1);
+    iaddv3f(n, &tmp);
+
+    // Then normalize.
+    idivsv3f(n, lenv3f(n));
+}
+
+static void recompute_normals(unsigned int x, unsigned int y) {
+    unsigned int z;
+    for (z = 1; z < 4; ++z) {
+        if ((x & 1) == 0) {
+            // Compute x normals.
+            v3f* n = &normals_x[XYZ2IH(x / 2, y, z)];
+
+            // Vertex the normal sits on.
+            const v3f* v0 = &vertices[XYZ2IF(x, y, z)];
+
+            // Neighboring vertices.
+            const v3f* v1 = &vertices[XYZ2IF(x, y - 1, z + 1)];
+            const v3f* v2 = &vertices[XYZ2IF(x, y - 1, z)];
+            const v3f* v3 = &vertices[XYZ2IF(x, y - 1, z - 1)];
+            const v3f* v4 = &vertices[XYZ2IF(x, y, z - 1)];
+            const v3f* v5 = &vertices[XYZ2IF(x, y + 1, z - 1)];
+            const v3f* v6 = &vertices[XYZ2IF(x, y + 1, z)];
+            const v3f* v7 = &vertices[XYZ2IF(x, y + 1, z + 1)];
+            const v3f* v8 = &vertices[XYZ2IF(x, y, z + 1)];
+
+            // Compute normals based on neighbors and accumulate.
+            interpolate_normal(n, v0, v1, v2, v3, v4, v5, v6, v7, v8);
+        }
+
+        if ((y & 1) == 0) {
+            // Compute y normals.
+            v3f* n = &normals_y[XYZ2IH(x, y / 2, z)];
+
+            // Vertex the normal sits on.
+            const v3f* v0 = &vertices[XYZ2IF(x, y, z)];
+
+            // Neighboring vertices.
+            const v3f* v1 = &vertices[XYZ2IF(x + 1, y, z + 1)];
+            const v3f* v2 = &vertices[XYZ2IF(x + 1, y, z)];
+            const v3f* v3 = &vertices[XYZ2IF(x + 1, y, z - 1)];
+            const v3f* v4 = &vertices[XYZ2IF(x, y, z - 1)];
+            const v3f* v5 = &vertices[XYZ2IF(x - 1, y, z - 1)];
+            const v3f* v6 = &vertices[XYZ2IF(x - 1, y, z)];
+            const v3f* v7 = &vertices[XYZ2IF(x - 1, y, z + 1)];
+            const v3f* v8 = &vertices[XYZ2IF(x, y, z + 1)];
+
+            // Compute normals based on neighbors and accumulate.
+            interpolate_normal(n, v0, v1, v2, v3, v4, v5, v6, v7, v8);
+        }
+    }
+
+    for (z = 0; z < 5; z += 2) {
+        // Compute z normals.
+        v3f* n = &normals_z[XYZ2IF(x, y, z / 2)];
+
+        // Vertex the normal sits on.
+        const v3f* v0 = &vertices[XYZ2IF(x, y, z)];
+
+        // Neighboring vertices.
+        const v3f* v1 = &vertices[XYZ2IF(x, y - 1, z)];
+        const v3f* v2 = &vertices[XYZ2IF(x + 1, y - 1, z)];
+        const v3f* v3 = &vertices[XYZ2IF(x + 1, y, z)];
+        const v3f* v4 = &vertices[XYZ2IF(x + 1, y + 1, z)];
+        const v3f* v5 = &vertices[XYZ2IF(x, y + 1, z)];
+        const v3f* v6 = &vertices[XYZ2IF(x - 1, y + 1, z)];
+        const v3f* v7 = &vertices[XYZ2IF(x - 1, y, z)];
+        const v3f* v8 = &vertices[XYZ2IF(x - 1, y - 1, z)];
+
+        // Compute normals based on neighbors and accumulate.
+        interpolate_normal(n, v0, v1, v2, v3, v4, v5, v6, v7, v8);
+    }
+}
+
+static void recompute_offsets(unsigned int x, unsigned int y) {
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Map model rendering
+///////////////////////////////////////////////////////////////////////////////
+
+static void draw_top(int x, int y, unsigned int z, DK_Texture texture, int outline) {
+    const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
+    glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
+
+    unsigned int idx;
+    glBegin(GL_QUAD_STRIP);
+    {
+        glTexCoord2d(0, 0);
+        idx = XYZ2IF(x * 2, y * 2 + 2, z / 2);
+        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 2, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0, 0.5);
+        idx = XYZ2IF(x * 2, y * 2 + 1, z / 2);
+        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 1, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 0);
+        idx = XYZ2IF(x * 2 + 1, y * 2 + 2, z / 2);
+        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        idx = XYZ2IF(x * 2 + 1, y * 2 + 2, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 0.5);
+        idx = XYZ2IF(x * 2 + 1, y * 2 + 1, z / 2);
+        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        idx = XYZ2IF(x * 2 + 1, y * 2 + 1, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 0);
+        idx = XYZ2IF(x * 2 + 2, y * 2 + 2, z / 2);
+        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        idx = XYZ2IF(x * 2 + 2, y * 2 + 2, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 0.5);
+        idx = XYZ2IF(x * 2 + 2, y * 2 + 1, z / 2);
+        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        idx = XYZ2IF(x * 2 + 2, y * 2 + 1, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+    }
+    glEnd();
+
+    glBegin(GL_QUAD_STRIP);
+    {
+        glTexCoord2d(0, 0.5);
+        idx = XYZ2IF(x * 2, y * 2 + 1, z / 2);
+        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 1, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0, 1);
+        idx = XYZ2IF(x * 2, y * 2, z / 2);
+        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 0.5);
+        idx = XYZ2IF(x * 2 + 1, y * 2 + 1, z / 2);
+        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        idx = XYZ2IF(x * 2 + 1, y * 2 + 1, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 1);
+        idx = XYZ2IF(x * 2 + 1, y * 2, z / 2);
+        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        idx = XYZ2IF(x * 2 + 1, y * 2, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 0.5);
+        idx = XYZ2IF(x * 2 + 2, y * 2 + 1, z / 2);
+        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        idx = XYZ2IF(x * 2 + 2, y * 2 + 1, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 1);
+        idx = XYZ2IF(x * 2 + 2, y * 2, z / 2);
+        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        idx = XYZ2IF(x * 2 + 2, y * 2, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+    }
+    glEnd();
+
+    if (outline) {
+        // Store state.
+        glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT);
+        glPushMatrix();
+
+        glDisable(GL_LIGHTING);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        // Set up for line drawing.
+        glLineWidth(3.0f);
+        glColor4f(0.5f, 0.5f, 1.0f, 0.5f);
+
+        glTranslatef(0, 0, 0.1f);
+
+        glBegin(GL_LINES);
+        {
+            idx = XYZ2IF(x * 2, y * 2 + 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 1, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 1, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 1, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 1, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2 + 1, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2 + 1, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2 + 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2 + 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 1, y * 2 + 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 1, y * 2 + 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        }
+        glEnd();
+
+        // Reset stuff.
+        glPopMatrix();
+        glPopAttrib();
+    }
+}
+
+static void draw_east(int x, int y, unsigned int z, DK_Texture texture, int outline) {
+    const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
+    glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
+
+    unsigned int idx;
+    glBegin(GL_QUAD_STRIP);
+    {
+        glTexCoord2d(0, 0);
+        idx = XYZ2IH(x, y * 2, z + 2);
+        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z + 2);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0, 0.5);
+        idx = XYZ2IH(x, y * 2, z + 1);
+        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 0);
+        idx = XYZ2IH(x, y * 2 + 1, z + 2);
+        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 1, z + 2);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 0.5);
+        idx = XYZ2IH(x, y * 2 + 1, z + 1);
+        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 1, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 0);
+        idx = XYZ2IH(x, y * 2 + 2, z + 2);
+        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 2, z + 2);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 0.5);
+        idx = XYZ2IH(x, y * 2 + 2, z + 1);
+        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+    }
+    glEnd();
+
+    glBegin(GL_QUAD_STRIP);
+    {
+        glTexCoord2d(0, 0.5);
+        idx = XYZ2IH(x, y * 2, z + 1);
+        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0, 1);
+        idx = XYZ2IH(x, y * 2, z);
+        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 0.5);
+        idx = XYZ2IH(x, y * 2 + 1, z + 1);
+        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 1, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 1);
+        idx = XYZ2IH(x, y * 2 + 1, z);
+        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 1, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 0.5);
+        idx = XYZ2IH(x, y * 2 + 2, z + 1);
+        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 1);
+        idx = XYZ2IH(x, y * 2 + 2, z);
+        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 2, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+    }
+    glEnd();
+
+    if (outline) {
+        // Store state.
+        glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT);
+        glPushMatrix();
+
+        glDisable(GL_LIGHTING);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        // Set up for line drawing.
+        glLineWidth(3.0f);
+        glColor4f(0.5f, 0.5f, 1.0f, 0.5f);
+
+        glTranslatef(0.1f, 0, 0);
+
+        glBegin(GL_LINES);
+        {
+            idx = XYZ2IF(x * 2, y * 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+            idx = XYZ2IF(x * 2, y * 2, z + 1);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z + 1);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+            idx = XYZ2IF(x * 2, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+            idx = XYZ2IF(x * 2, y * 2 + 1, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 1, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+            idx = XYZ2IF(x * 2, y * 2 + 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+            idx = XYZ2IF(x * 2, y * 2 + 2, z + 1);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 2, z + 1);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+            idx = XYZ2IF(x * 2, y * 2 + 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+            idx = XYZ2IF(x * 2, y * 2 + 1, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 1, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+            idx = XYZ2IF(x * 2, y * 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        }
+        glEnd();
+
+        // Reset stuff.
+        glPopMatrix();
+        glPopAttrib();
+    }
+}
+
+static void draw_west(int x, int y, unsigned int z, DK_Texture texture, int outline) {
+    const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
+    glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
+
+    unsigned int idx;
+    glBegin(GL_QUAD_STRIP);
+    {
+        glTexCoord2d(0, 0);
+        idx = XYZ2IH(x, y * 2, z + 2);
+        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 2, z + 2);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0, 0.5);
+        idx = XYZ2IH(x, y * 2, z + 1);
+        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 0);
+        idx = XYZ2IH(x, y * 2 + 1, z + 2);
+        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 1, z + 2);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 0.5);
+        idx = XYZ2IH(x, y * 2 + 1, z + 1);
+        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 1, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 0);
+        idx = XYZ2IH(x, y * 2 + 2, z + 2);
+        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z + 2);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 0.5);
+        idx = XYZ2IH(x, y * 2 + 2, z + 1);
+        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+    }
+    glEnd();
+
+    glBegin(GL_QUAD_STRIP);
+    {
+        glTexCoord2d(0, 0.5);
+        idx = XYZ2IH(x, y * 2, z + 1);
+        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0, 1);
+        idx = XYZ2IH(x, y * 2, z);
+        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 2, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 0.5);
+        idx = XYZ2IH(x, y * 2 + 1, z + 1);
+        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 1, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 1);
+        idx = XYZ2IH(x, y * 2 + 1, z);
+        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2 + 1, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 0.5);
+        idx = XYZ2IH(x, y * 2 + 2, z + 1);
+        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 1);
+        idx = XYZ2IH(x, y * 2 + 2, z);
+        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+    }
+    glEnd();
+
+    if (outline) {
+        // Store state.
+        glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT);
+        glPushMatrix();
+
+        glDisable(GL_LIGHTING);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        // Set up for line drawing.
+        glLineWidth(3.0f);
+        glColor4f(0.5f, 0.5f, 1.0f, 0.5f);
+
+        glTranslatef(-0.1f, 0, 0);
+
+        glBegin(GL_LINES);
+        {
+            idx = XYZ2IF(x * 2, y * 2 + 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 2, z + 1);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 2, z + 1);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 1, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 1, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z + 1);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z + 1);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 1, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 1, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2 + 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        }
+        glEnd();
+
+        // Reset stuff.
+        glPopMatrix();
+        glPopAttrib();
+    }
+}
+
+static void draw_north(int x, int y, unsigned int z, DK_Texture texture, int outline) {
+    const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
+    glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
+
+    unsigned int idx;
+    glBegin(GL_QUAD_STRIP);
+    {
+        glTexCoord2d(0, 0);
+        idx = XYZ2IH(x * 2, y, z + 2);
+        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        idx = XYZ2IF(x * 2 + 2, y * 2, z + 2);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0, 0.5);
+        idx = XYZ2IH(x * 2, y, z + 1);
+        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        idx = XYZ2IF(x * 2 + 2, y * 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 0);
+        idx = XYZ2IH(x * 2 + 1, y, z + 2);
+        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        idx = XYZ2IF(x * 2 + 1, y * 2, z + 2);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 0.5);
+        idx = XYZ2IH(x * 2 + 1, y, z + 1);
+        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        idx = XYZ2IF(x * 2 + 1, y * 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 0);
+        idx = XYZ2IH(y * 2 + 2, y, z + 2);
+        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z + 2);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 0.5);
+        idx = XYZ2IH(x * 2 + 2, y, z + 1);
+        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+    }
+    glEnd();
+
+    glBegin(GL_QUAD_STRIP);
+    {
+        glTexCoord2d(0, 0.5);
+        idx = XYZ2IH(x * 2, y, z + 1);
+        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        idx = XYZ2IF(x * 2 + 2, y * 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0, 1);
+        idx = XYZ2IH(x * 2, y, z);
+        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        idx = XYZ2IF(x * 2 + 2, y * 2, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 0.5);
+        idx = XYZ2IH(x * 2 + 1, y, z + 1);
+        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        idx = XYZ2IF(x * 2 + 1, y * 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 1);
+        idx = XYZ2IH(x * 2 + 1, y, z);
+        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        idx = XYZ2IF(x * 2 + 1, y * 2, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 0.5);
+        idx = XYZ2IH(x * 2 + 2, y, z + 1);
+        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 1);
+        idx = XYZ2IH(x * 2 + 2, y, z);
+        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+    }
+    glEnd();
+
+    if (outline) {
+        // Store state.
+        glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT);
+        glPushMatrix();
+
+        glDisable(GL_LIGHTING);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        // Set up for line drawing.
+        glLineWidth(3.0f);
+        glColor4f(0.5f, 0.5f, 1.0f, 0.5f);
+
+        glTranslatef(0, 0.1f, 0);
+
+        glBegin(GL_LINES);
+        {
+            idx = XYZ2IF(x * 2 + 2, y * 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2, z + 1);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2, z + 1);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 1, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 1, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z + 1);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z + 1);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 1, y * 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 1, y * 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        }
+        glEnd();
+
+        // Reset stuff.
+        glPopMatrix();
+        glPopAttrib();
+    }
+}
+
+static void draw_south(int x, int y, unsigned int z, DK_Texture texture, int outline) {
+    const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
+    glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
+
+    unsigned int idx;
+    glBegin(GL_QUAD_STRIP);
+    {
+        glTexCoord2d(0, 0);
+        idx = XYZ2IH(x * 2, y, z + 2);
+        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z + 2);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0, 0.5);
+        idx = XYZ2IH(x * 2, y, z + 1);
+        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 0);
+        idx = XYZ2IH(x * 2 + 1, y, z + 2);
+        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        idx = XYZ2IF(x * 2 + 1, y * 2, z + 2);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 0.5);
+        idx = XYZ2IH(x * 2 + 1, y, z + 1);
+        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        idx = XYZ2IF(x * 2 + 1, y * 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 0);
+        idx = XYZ2IH(y * 2 + 2, y, z + 2);
+        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        idx = XYZ2IF(x * 2 + 2, y * 2, z + 2);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 0.5);
+        idx = XYZ2IH(x * 2 + 2, y, z + 1);
+        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        idx = XYZ2IF(x * 2 + 2, y * 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+    }
+    glEnd();
+
+    glBegin(GL_QUAD_STRIP);
+    {
+        glTexCoord2d(0, 0.5);
+        idx = XYZ2IH(x * 2, y, z + 1);
+        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0, 1);
+        idx = XYZ2IH(x * 2, y, z);
+        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        idx = XYZ2IF(x * 2, y * 2, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 0.5);
+        idx = XYZ2IH(x * 2 + 1, y, z + 1);
+        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        idx = XYZ2IF(x * 2 + 1, y * 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(0.5, 1);
+        idx = XYZ2IH(x * 2 + 1, y, z);
+        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        idx = XYZ2IF(x * 2 + 1, y * 2, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 0.5);
+        idx = XYZ2IH(x * 2 + 2, y, z + 1);
+        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        idx = XYZ2IF(x * 2 + 2, y * 2, z + 1);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+
+        glTexCoord2d(1, 1);
+        idx = XYZ2IH(x * 2 + 2, y, z);
+        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        idx = XYZ2IF(x * 2 + 2, y * 2, z);
+        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+    }
+    glEnd();
+
+    if (outline) {
+        // Store state.
+        glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT);
+        glPushMatrix();
+
+        glDisable(GL_LIGHTING);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        // Set up for line drawing.
+        glLineWidth(3.0f);
+        glColor4f(0.5f, 0.5f, 1.0f, 0.5f);
+
+        glTranslatef(0, -0.1f, 0);
+
+        glBegin(GL_LINES);
+        {
+            idx = XYZ2IF(x * 2, y * 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z + 1);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z + 1);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 1, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 1, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2, z);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2, z + 1);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2, z + 1);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 2, y * 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 1, y * 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2 + 1, y * 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+            idx = XYZ2IF(x * 2, y * 2, z + 2);
+            glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        }
+        glEnd();
+
+        // Reset stuff.
+        glPopMatrix();
+        glPopAttrib();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Miscellaneous
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -468,15 +1374,42 @@ inline static int block_index_valid(int x, int y) {
 ///////////////////////////////////////////////////////////////////////////////
 
 void DK_init_map(unsigned short size) {
-    DK_map_size = size;
+    // Reallocate data only if the size changed.
+    if (size != DK_map_size) {
+        // Free old map data.
+        free(map);
 
-    free(map);
-    map = calloc(size * size, sizeof (DK_Block));
+        // Allocate new map data.
+        if (!(map = calloc(size * size, sizeof (DK_Block)))) {
+            fprintf(stderr, "Out of memory while allocating map data.\n");
+            exit(EXIT_FAILURE);
+        }
 
-    int i, j;
-    for (i = 0; i < size; ++i) {
-        for (j = 0; j < size; ++j) {
-            DK_Block* block = &map[i + j * size];
+        // Free old map model data.
+        free(vertices);
+        free(normals_x);
+        free(normals_y);
+        free(normals_z);
+
+        // Allocate new map model data.
+        vertices_count_full = size * 2 + 1;
+        vertices_count_semi = size + 1;
+        vertices = calloc(vertices_count_full * vertices_count_full * 5, sizeof (v3f));
+        normals_x = calloc(vertices_count_semi * vertices_count_full * 5, sizeof (v3f));
+        normals_y = calloc(vertices_count_semi * vertices_count_full * 5, sizeof (v3f));
+        normals_z = calloc(vertices_count_full * vertices_count_full * 3, sizeof (v3f));
+
+        if (!vertices || !normals_x || !normals_y || !normals_z) {
+            fprintf(stderr, "Out of memory while allocating map model data.\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    // Initialize map data.
+    unsigned int x, y, z;
+    for (x = 0; x < size; ++x) {
+        for (y = 0; y < size; ++y) {
+            DK_Block* block = &map[x + y * size];
             block->type = DK_BLOCK_DIRT;
             block->health = DK_BLOCK_DIRT_HEALTH;
             block->strength = DK_BLOCK_DIRT_STRENGTH;
@@ -484,20 +1417,69 @@ void DK_init_map(unsigned short size) {
         }
     }
 
+    // Initialize map model data.
+
+    // Pass 1: set vertex positions.
+    for (x = 0; x < vertices_count_full; ++x) {
+        for (y = 0; y < vertices_count_full; ++y) {
+            for (z = 0; z < 5; ++z) {
+                v3f* v = &vertices[XYZ2IF(x, y, z)];
+                const float vx = x * DK_BLOCK_SIZE / 2.0f;
+                const float vy = y * DK_BLOCK_SIZE / 2.0f;
+                const float vz = z_coords[z];
+                v->x = vx + snoise4(vx, vy, vz, 0);
+                v->y = vy + snoise4(vx, vy, vz, 1);
+                v->z = vz + snoise4(vx, vy, vz, 2);
+
+                // Initialize normals to defaults.
+                if ((x & 1) == 0) {
+                    // Compute x normals.
+                    v3f* n = &normals_x[XYZ2IH(x / 2, y, z)];
+                    n->x = 1;
+                    n->y = 0;
+                    n->z = 0;
+                }
+                if ((y & 1) == 0) {
+                    // Compute y normals.
+                    v3f* n = &normals_y[XYZ2IH(x, y / 2, z)];
+                    n->x = 0;
+                    n->y = 1;
+                    n->z = 0;
+                }
+                if ((z & 1) == 0) {
+                    v3f* n = &normals_z[XYZ2IF(x, y, z / 2)];
+                    n->x = 0;
+                    n->y = 0;
+                    n->z = 1;
+                }
+            }
+        }
+    }
+
+    // Pass 2: compute normals.
+    for (x = 1; x < vertices_count_full - 1; ++x) {
+        for (y = 1; y < vertices_count_full - 1; ++y) {
+            recompute_normals(x, y);
+        }
+    }
+
 #if DK_D_CACHE_NOISE
     free(map_noise);
     map_noise = calloc((size * 2 + 1) * (size * 2 + 1) * 3 * 3, sizeof (double));
-    int k, l;
-    for (i = 0; i < size * 2 + 1; ++i) {
-        for (j = 0; j < size * 2 + 1; ++j) {
-            for (k = 0; k < 3; ++k) {
+    int l;
+    for (x = 0; x < size * 2 + 1; ++x) {
+        for (y = 0; y < size * 2 + 1; ++y) {
+            for (z = 0; z < 3; ++z) {
                 for (l = 0; l < 3; ++l) {
-                    *noise_at_index(i, j, k, l) = snoise4(i * DK_BLOCK_SIZE / 2.0, j * DK_BLOCK_SIZE / 2.0, k / 2.0 * DK_BLOCK_HEIGHT, l);
+                    *noise_at_index(x, y, z, l) = snoise4(x * DK_BLOCK_SIZE / 2.0, y * DK_BLOCK_SIZE / 2.0, z / 2.0 * DK_BLOCK_HEIGHT, l);
                 }
             }
         }
     }
 #endif
+
+    // Remember new map size.
+    DK_map_size = size;
 }
 
 void DK_update_map() {
@@ -513,7 +1495,7 @@ void DK_render_map() {
     int y_begin = (int) (DK_camera_position()[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA_Y_OFFSET;
     int x_end = x_begin + DK_RENDER_AREA_X;
     int y_end = y_begin + DK_RENDER_AREA_Y;
-    int x, y;
+    int x, y, z;
 
     for (x = x_begin; x < x_end; ++x) {
         float x_coord = x * (DK_BLOCK_SIZE);
@@ -540,10 +1522,9 @@ void DK_render_map() {
             }
 
             DK_Texture texture_top, texture_side, texture_top_wall = 0, texture_top_owner = 0;
-            int top;
             if (x < 0 || y < 0 || x >= DK_map_size || y >= DK_map_size) {
                 // Solid rock when out of bounds.
-                top = DK_BLOCK_HEIGHT;
+                z = 4;
                 texture_top = DK_TEX_ROCK_TOP;
                 texture_side = DK_TEX_ROCK_SIDE;
             } else {
@@ -557,7 +1538,7 @@ void DK_render_map() {
 
                 if (block->type == DK_BLOCK_NONE) {
                     // Render floor.
-                    top = 0;
+                    z = 2;
                     if (block->owner == DK_PLAYER_NONE) {
                         texture_top = DK_TEX_DIRT_FLOOR;
                     } else {
@@ -566,11 +1547,12 @@ void DK_render_map() {
                     }
                 } else if (block->type == DK_BLOCK_WATER ||
                         block->type == DK_BLOCK_LAVA) {
-                    top = -DK_WATER_LEVEL;
+                    // Draw fluid floor.
+                    z = 0;
                     texture_top = DK_TEX_DIRT_FLOOR;
                 } else {
+                    z = 4;
                     // Render block top.
-                    top = DK_BLOCK_HEIGHT;
                     switch (block->type) {
                         case DK_BLOCK_DIRT:
                             if (block->owner == DK_PLAYER_NONE) {
@@ -600,189 +1582,68 @@ void DK_render_map() {
                 }
             }
 
-            /*
-             * 0 - 1 - 2
-             * | / | / |
-             * 3 - 4 - 5
-             * | / | / |
-             * 6 - 7 - 8
-             */
-            double points[3 * 9];
+            if (x < 0 || x >= DK_map_size || y < 0 || y >= DK_map_size) continue;
 
-            set_points(points, 0, x_coord, y_coord + DK_BLOCK_SIZE, top);
-            set_points(points, 1, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, top);
-            set_points(points, 2, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, top);
-            set_points(points, 3, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, top);
-            set_points(points, 4, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE / 2.0, top);
-            set_points(points, 5, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, top);
-            set_points(points, 6, x_coord, y_coord, top);
-            set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, top);
-            set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord, top);
-
-            // Outline hovered block.
-            if (should_outline) {
-                draw_outline(points);
-            }
-
-            draw_4quad(texture_top, points);
+            //draw_4quad(texture_top, points);
+            draw_top(x, y, z, texture_top, should_outline);
 
             if (!picking && (texture_top_wall || texture_top_owner)) {
                 glEnable(GL_BLEND);
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
                 if (texture_top_wall) {
-                    draw_4quad(texture_top_wall, points);
+                    draw_top(x, y, z, texture_top_wall, 0);
                 }
                 if (texture_top_owner) {
-                    draw_4quad(texture_top_owner, points);
+                    draw_top(x, y, z, texture_top_owner, 0);
                 }
 
                 glDisable(GL_BLEND);
             }
 
             // Check if we need to render walls.
-            if (top > 0) {
+            if (z == 4) {
                 // North wall.
                 if (y + 1 < DK_map_size && DK_block_is_passable(&map[x + (y + 1) * DK_map_size])) {
-                    set_points(points, 0, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT);
-                    set_points(points, 1, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT);
-                    set_points(points, 2, x_coord, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT);
-                    set_points(points, 3, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT / 2.0);
-                    set_points(points, 4, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT / 2.0);
-                    set_points(points, 5, x_coord, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT / 2.0);
-                    set_points(points, 6, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, 0);
-                    set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, 0);
-                    set_points(points, 8, x_coord, y_coord + DK_BLOCK_SIZE, 0);
-
-                    // Outline hovered block.
-                    if (should_outline) {
-                        draw_outline(points);
-                    }
-
-                    draw_4quad(texture_side, points);
+                    draw_north(x, y + 1, 2, texture_side, should_outline);
                 }
 
                 // South wall.
                 if (y > 0 && DK_block_is_passable(&map[x + (y - 1) * DK_map_size])) {
-                    set_points(points, 0, x_coord, y_coord, DK_BLOCK_HEIGHT);
-                    set_points(points, 1, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, DK_BLOCK_HEIGHT);
-                    set_points(points, 2, x_coord + DK_BLOCK_SIZE, y_coord, DK_BLOCK_HEIGHT);
-                    set_points(points, 3, x_coord, y_coord, DK_BLOCK_HEIGHT / 2.0);
-                    set_points(points, 4, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, DK_BLOCK_HEIGHT / 2.0);
-                    set_points(points, 5, x_coord + DK_BLOCK_SIZE, y_coord, DK_BLOCK_HEIGHT / 2.0);
-                    set_points(points, 6, x_coord, y_coord, 0);
-                    set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, 0);
-                    set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord, 0);
-
-                    // Outline hovered block.
-                    if (should_outline) {
-                        draw_outline(points);
-                    }
-
-                    draw_4quad(texture_side, points);
+                    draw_south(x, y, 2, texture_side, should_outline);
                 }
 
                 // East wall.
                 if (x + 1 < DK_map_size && DK_block_is_passable(&map[(x + 1) + y * DK_map_size])) {
-                    set_points(points, 0, x_coord + DK_BLOCK_SIZE, y_coord, DK_BLOCK_HEIGHT);
-                    set_points(points, 1, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, DK_BLOCK_HEIGHT);
-                    set_points(points, 2, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT);
-                    set_points(points, 3, x_coord + DK_BLOCK_SIZE, y_coord, DK_BLOCK_HEIGHT / 2.0);
-                    set_points(points, 4, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, DK_BLOCK_HEIGHT / 2.0);
-                    set_points(points, 5, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT / 2.0);
-                    set_points(points, 6, x_coord + DK_BLOCK_SIZE, y_coord, 0);
-                    set_points(points, 7, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, 0);
-                    set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, 0);
-
-                    // Outline hovered block.
-                    if (should_outline) {
-                        draw_outline(points);
-                    }
-
-                    draw_4quad(texture_side, points);
+                    draw_east(x + 1, y, 2, texture_side, should_outline);
                 }
 
                 // West wall.
                 if (x > 0 && DK_block_is_passable(&map[(x - 1) + y * DK_map_size])) {
-                    set_points(points, 0, x_coord, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT);
-                    set_points(points, 1, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, DK_BLOCK_HEIGHT);
-                    set_points(points, 2, x_coord, y_coord, DK_BLOCK_HEIGHT);
-                    set_points(points, 3, x_coord, y_coord + DK_BLOCK_SIZE, DK_BLOCK_HEIGHT / 2.0);
-                    set_points(points, 4, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, DK_BLOCK_HEIGHT / 2.0);
-                    set_points(points, 5, x_coord, y_coord, DK_BLOCK_HEIGHT / 2.0);
-                    set_points(points, 6, x_coord, y_coord + DK_BLOCK_SIZE, 0);
-                    set_points(points, 7, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, 0);
-                    set_points(points, 8, x_coord, y_coord, 0);
-
-                    // Outline hovered block.
-                    if (should_outline) {
-                        draw_outline(points);
-                    }
-
-                    draw_4quad(texture_side, points);
+                    draw_west(x, y, 2, texture_side, should_outline);
                 }
             }
 
             // Check if we need to render water walls.
-            if (top < 0) {
+            if (z == 0) {
                 // North wall.
                 if (y + 1 < DK_map_size && !DK_block_is_fluid(&map[x + (y + 1) * DK_map_size])) {
-                    set_points(points, 0, x_coord, y_coord + DK_BLOCK_SIZE, 0);
-                    set_points(points, 1, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, 0);
-                    set_points(points, 2, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, 0);
-                    set_points(points, 3, x_coord, y_coord + DK_BLOCK_SIZE, top / 2.0);
-                    set_points(points, 4, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, top / 2.0);
-                    set_points(points, 5, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, top / 2.0);
-                    set_points(points, 6, x_coord, y_coord + DK_BLOCK_SIZE, top);
-                    set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord + DK_BLOCK_SIZE, top);
-                    set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, top);
-
-                    draw_4quad(DK_TEX_FLUID_SIDE, points);
+                    draw_south(x, y + 1, 0, DK_TEX_FLUID_SIDE, 0);
                 }
 
                 // South wall.
                 if (y > 0 && !DK_block_is_fluid(&map[x + (y - 1) * DK_map_size])) {
-                    set_points(points, 0, x_coord + DK_BLOCK_SIZE, y_coord, 0);
-                    set_points(points, 1, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, 0);
-                    set_points(points, 2, x_coord, y_coord, 0);
-                    set_points(points, 3, x_coord + DK_BLOCK_SIZE, y_coord, top / 2.0);
-                    set_points(points, 4, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, top / 2.0);
-                    set_points(points, 5, x_coord, y_coord, top / 2.0);
-                    set_points(points, 6, x_coord + DK_BLOCK_SIZE, y_coord, top);
-                    set_points(points, 7, x_coord + DK_BLOCK_SIZE / 2.0, y_coord, top);
-                    set_points(points, 8, x_coord, y_coord, top);
-
-                    draw_4quad(DK_TEX_FLUID_SIDE, points);
+                    draw_north(x, y, 0, DK_TEX_FLUID_SIDE, 0);
                 }
 
                 // East wall.
                 if (x + 1 < DK_map_size && !DK_block_is_fluid(&map[(x + 1) + y * DK_map_size])) {
-                    set_points(points, 0, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, 0);
-                    set_points(points, 1, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, 0);
-                    set_points(points, 2, x_coord + DK_BLOCK_SIZE, y_coord, 0);
-                    set_points(points, 3, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, top / 2.0);
-                    set_points(points, 4, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, top / 2.0);
-                    set_points(points, 5, x_coord + DK_BLOCK_SIZE, y_coord, top / 2.0);
-                    set_points(points, 6, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE, top);
-                    set_points(points, 7, x_coord + DK_BLOCK_SIZE, y_coord + DK_BLOCK_SIZE / 2.0, top);
-                    set_points(points, 8, x_coord + DK_BLOCK_SIZE, y_coord, top);
-
-                    draw_4quad(DK_TEX_FLUID_SIDE, points);
+                    draw_west(x + 1, y, 0, DK_TEX_FLUID_SIDE, 0);
                 }
 
                 // West wall.
                 if (x > 0 && !DK_block_is_fluid(&map[(x - 1) + y * DK_map_size])) {
-                    set_points(points, 0, x_coord, y_coord, 0);
-                    set_points(points, 1, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, 0);
-                    set_points(points, 2, x_coord, y_coord + DK_BLOCK_SIZE, 0);
-                    set_points(points, 3, x_coord, y_coord, top / 2.0);
-                    set_points(points, 4, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, top / 2.0);
-                    set_points(points, 5, x_coord, y_coord + DK_BLOCK_SIZE, top / 2.0);
-                    set_points(points, 6, x_coord, y_coord, top);
-                    set_points(points, 7, x_coord, y_coord + DK_BLOCK_SIZE / 2.0, top);
-                    set_points(points, 8, x_coord, y_coord + DK_BLOCK_SIZE, top);
-
-                    draw_4quad(DK_TEX_FLUID_SIDE, points);
+                    draw_east(x, y, 0, DK_TEX_FLUID_SIDE, 0);
                 }
             }
         }
