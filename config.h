@@ -8,7 +8,7 @@
 #ifndef CONFIG_H
 #define	CONFIG_H
 
-#include <GL/gl.h>
+#include "GLee.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Display
@@ -198,7 +198,7 @@
 #define DK_D_CACHE_NOISE 1
 
 /** Render unit paths */
-#define DK_D_DRAW_PATHS 0
+#define DK_D_DRAW_PATHS 1
 
 /** Height at which to render paths */
 #define DK_D_DRAW_PATH_HEIGHT 1.1f

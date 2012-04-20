@@ -1,6 +1,7 @@
-#include <GL/gl.h>
-#include <GL/glu.h>
 #include <inttypes.h>
+
+#include "GLee.h"
+#include <GL/glu.h>
 
 #include "config.h"
 #include "picking.h"

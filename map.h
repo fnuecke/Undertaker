@@ -8,7 +8,7 @@
 #ifndef MAP_H
 #define	MAP_H
 
-#include <GL/gl.h>
+#include "GLee.h"
 
 #include "players.h"
 
@@ -62,6 +62,12 @@ extern "C" {
 /** Clears the current map and initializes a new one with the specified size */
 void DK_init_map(unsigned short size);
 
+/** Update map data such as currently hovered block */
+void DK_update_map();
+
+/** Render the current map (blocks) */
+void DK_render_map();
+
 /** Get the map block at the specified coordinate */
 DK_Block* DK_block_at(int x, int y);
 
@@ -74,11 +80,8 @@ int DK_block_is_fluid(const DK_Block* block);
 /** Utility method for checking if a block is passable */
 int DK_block_is_passable(const DK_Block* block);
 
-/** Render the current map (blocks) */
-void DK_render_map();
-
 /** Gets the block currently hovered by the mouse, and its coordinates */
-DK_Block* DK_block_under_cursor(int* block_x, int* block_y, int mouse_x, int mouse_y);
+DK_Block* DK_block_under_cursor(int* block_x, int* block_y);
 
 /** Apply damage to a block (dirt, gold or gem); return 1 if destroyed */
 int DK_block_damage(DK_Block* block, unsigned int damage);

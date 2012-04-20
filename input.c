@@ -59,7 +59,7 @@ void DK_mouse_down(const SDL_Event* e) {
         case SDL_BUTTON_LEFT:
         {
             // Find the block we clicked on.
-            DK_block_under_cursor(&start_x, &start_y, e->button.x, DK_RESOLUTION_Y - e->button.y);
+            DK_block_under_cursor(&start_x, &start_y);
             if (DK_block_is_selectable(DK_PLAYER_RED, start_x, start_y)) {
                 // OK, if it's selectable, start selection.
                 if (DK_block_is_selected(DK_PLAYER_RED, start_x, start_y)) {
@@ -85,7 +85,7 @@ void DK_mouse_up(const SDL_Event* e) {
             if (mode != MODE_NONE) {
                 // Find the block we released over.
                 int end_x = start_x, end_y = start_y;
-                DK_block_under_cursor(&end_x, &end_y, e->button.x, DK_RESOLUTION_Y - e->button.y);
+                DK_block_under_cursor(&end_x, &end_y);
 
                 if (end_x < start_x) {
                     const int tmp = end_x;

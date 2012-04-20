@@ -8,7 +8,7 @@
 #ifndef TEXTURES_H
 #define	TEXTURES_H
 
-#include <GL/gl.h>
+#include "GLee.h"
 
 /** Textures used for rendering the map */
 typedef enum {

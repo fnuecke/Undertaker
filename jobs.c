@@ -256,10 +256,10 @@ void DK_render_jobs() {
 
         glBegin(GL_QUADS);
         {
-            glVertex3f((job->x - 0.2f) * DK_BLOCK_SIZE, (job->y - 0.2f) * DK_BLOCK_SIZE, 1);
-            glVertex3f((job->x + 0.2f) * DK_BLOCK_SIZE, (job->y - 0.2f) * DK_BLOCK_SIZE, 1);
-            glVertex3f((job->x + 0.2f) * DK_BLOCK_SIZE, (job->y + 0.2f) * DK_BLOCK_SIZE, 1);
-            glVertex3f((job->x - 0.2f) * DK_BLOCK_SIZE, (job->y + 0.2f) * DK_BLOCK_SIZE, 1);
+            glVertex3f((job->x - 0.1f) * DK_BLOCK_SIZE, (job->y - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+            glVertex3f((job->x + 0.1f) * DK_BLOCK_SIZE, (job->y - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+            glVertex3f((job->x + 0.1f) * DK_BLOCK_SIZE, (job->y + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+            glVertex3f((job->x - 0.1f) * DK_BLOCK_SIZE, (job->y + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
         }
         glEnd();
 

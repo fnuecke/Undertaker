@@ -1,10 +1,8 @@
 #include <math.h>
-#define GL_GLEXT_PROTOTYPES
-#include <GL/gl.h>
-#include <GL/glu.h>
-#include <GL/glext.h>
 #include <string.h>
 #include <malloc.h>
+
+#include "GLee.h"
 
 #include "bitset.h"
 #include "config.h"
@@ -30,6 +28,12 @@ static DK_Block* map = 0;
 
 /** Cache of map noise */
 static double* map_noise = 0;
+
+/** Currently hovered block coordinates */
+static int cursor_x = 0, cursor_y = 0;
+
+/** Currently doing a picking (select) render pass? */
+static char picking = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Internal rendering stuff
@@ -243,6 +247,9 @@ inline static void cross(double* cross, const double* v0, const double* v1) {
 
 /** Sets normal for a vertex (base don four neighboring vertices) */
 static void set_normal(const double* points, int i0, int i1, int i2, int i3, int i4, int snap) {
+    if (picking) {
+        return;
+    }
     double p0[3], p1[3], p2[3], p3[3], p4[3];
     get_vertex(p0, points, i0);
     get_vertex(p1, points, i1);
@@ -319,8 +326,10 @@ static void set_normal(const double* points, int i0, int i1, int i2, int i3, int
  */
 static void draw_4quad(DK_Texture texture, double* points) {
     // Set surface texture.
-    const unsigned int variation = (unsigned int) ((snoise2(points[0], points[1] + points[2]) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
-    glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
+    if (!picking) {
+        const unsigned int variation = (unsigned int) ((snoise2(points[0], points[1] + points[2]) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
+        glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
+    }
 
     // Top two quads (0 through 5).
     glBegin(GL_QUAD_STRIP);
@@ -385,8 +394,6 @@ static void draw_4quad(DK_Texture texture, double* points) {
     glEnd();
 }
 
-#undef DK_D_SAVE_NORMALS
-
 static void draw_outline(double* points) {
     // Store state.
     glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT);
@@ -439,7 +446,19 @@ inline static void set_points(double* points, int point, double x, double y, dou
 ///////////////////////////////////////////////////////////////////////////////
 
 inline static GLuint pick_block(int x, int y) {
-    return DK_pick(x, y, &DK_render_map);
+    GLuint result;
+    picking = 1;
+    result = DK_pick(x, y, &DK_render_map);
+    picking = 0;
+    return result;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Miscellaneous
+///////////////////////////////////////////////////////////////////////////////
+
+inline static int block_index_valid(int x, int y) {
+    return x >= 0 && y >= 0 && x < DK_map_size && y < DK_map_size;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -452,7 +471,7 @@ void DK_init_map(unsigned short size) {
     free(map);
     map = calloc(size * size, sizeof (DK_Block));
 
-    int i, j, k, l;
+    int i, j;
     for (i = 0; i < size; ++i) {
         for (j = 0; j < size; ++j) {
             DK_Block* block = &map[i + j * size];
@@ -466,6 +485,7 @@ void DK_init_map(unsigned short size) {
 #if DK_D_CACHE_NOISE
     free(map_noise);
     map_noise = calloc((size * 2 + 1) * (size * 2 + 1) * 3 * 3, sizeof (double));
+    int k, l;
     for (i = 0; i < size * 2 + 1; ++i) {
         for (j = 0; j < size * 2 + 1; ++j) {
             for (k = 0; k < 3; ++k) {
@@ -478,57 +498,21 @@ void DK_init_map(unsigned short size) {
 #endif
 }
 
-inline static int block_index_valid(int x, int y) {
-    return x >= 0 && y >= 0 && x < DK_map_size && y < DK_map_size;
-}
-
-DK_Block* DK_block_at(int x, int y) {
-    if (block_index_valid(x, y)) {
-        return &map[y * DK_map_size + x];
-    }
-    return NULL;
-}
-
-int DK_block_coordinates(unsigned short* x, unsigned short* y, const DK_Block* block) {
-    if (!block) {
-        return 0;
-    }
-    unsigned int idx = block - map;
-    *x = idx % DK_map_size;
-    *y = idx / DK_map_size;
-}
-
-DK_Block* DK_block_under_cursor(int* block_x, int* block_y, int mouse_x, int mouse_y) {
-    GLuint selected_name = pick_block(mouse_x, mouse_y);
-    *block_x = (short)(selected_name & 0xFFFF);
-    *block_y = (short)(selected_name >> 16);
-    return DK_block_at(*block_x, *block_y);
-}
-
-int DK_block_is_fluid(const DK_Block* block) {
-    return block && (block->type == DK_BLOCK_LAVA || block->type == DK_BLOCK_WATER);
-}
-
-int DK_block_is_passable(const DK_Block* block) {
-    return block && (block->type == DK_BLOCK_NONE || DK_block_is_fluid(block));
+void DK_update_map() {
+    int mouse_x, mouse_y;
+    SDL_GetMouseState(&mouse_x, &mouse_y);
+    GLuint selected_name = pick_block(mouse_x, DK_RESOLUTION_Y - mouse_y);
+    cursor_x = (short) (selected_name & 0xFFFF);
+    cursor_y = (short) (selected_name >> 16);
 }
 
 void DK_render_map() {
-    // Get hovered block.
-    int cursor_x = 0, cursor_y = 0;
-    int current_mode = GL_SELECT;
-    glGetIntegerv(GL_RENDER_MODE, &current_mode);
-    if (current_mode != GL_SELECT) {
-        int mouse_x, mouse_y;
-        SDL_GetMouseState(&mouse_x, &mouse_y);
-        DK_block_under_cursor(&cursor_x, &cursor_y, mouse_x, DK_RESOLUTION_Y - mouse_y);
-    }
-
     int x_begin = (int) (DK_camera_position()[0] / DK_BLOCK_SIZE) - DK_RENDER_AREA_X / 2;
     int y_begin = (int) (DK_camera_position()[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA_Y_OFFSET;
     int x_end = x_begin + DK_RENDER_AREA_X;
     int y_end = y_begin + DK_RENDER_AREA_Y;
     int x, y;
+
     for (x = x_begin; x < x_end; ++x) {
         float x_coord = x * (DK_BLOCK_SIZE);
 
@@ -536,23 +520,26 @@ void DK_render_map() {
             float y_coord = y * (DK_BLOCK_SIZE);
 
             // Mark for select mode, coordinates of that block.
-            glLoadName(((unsigned short)y << 16) | (unsigned short)x);
+            if (picking) {
+                glLoadName(((unsigned short) y << 16) | (unsigned short) x);
+            }
 
             // Remember whether this is the current block.
-            const int should_outline =
+            const int should_outline = !picking &&
                     x == cursor_x && y == cursor_y &&
                     DK_block_is_selectable(DK_PLAYER_RED, x, y);
 
-            // Reset tint color.
-            glColorMaterial(GL_FRONT, GL_EMISSION);
-            glColor3f(0.0f, 0.0f, 0.0f);
-            glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
-            glColor3f(1.0f, 1.0f, 1.0f);
+            if (!picking) {
+                // Reset tint color.
+                glColorMaterial(GL_FRONT, GL_EMISSION);
+                glColor3f(0.0f, 0.0f, 0.0f);
+                glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+                glColor3f(1.0f, 1.0f, 1.0f);
+            }
 
             DK_Texture texture_top, texture_side, texture_top_wall = 0, texture_top_owner = 0;
             int top;
             if (x < 0 || y < 0 || x >= DK_map_size || y >= DK_map_size) {
-
                 // Solid rock when out of bounds.
                 top = DK_BLOCK_HEIGHT;
                 texture_top = DK_TEX_ROCK_TOP;
@@ -561,7 +548,7 @@ void DK_render_map() {
                 const DK_Block* block = &map[x + y * DK_map_size];
 
                 // Selected by the local player?
-                if (DK_block_is_selected(DK_PLAYER_RED, x, y)) {
+                if (!picking && DK_block_is_selected(DK_PLAYER_RED, x, y)) {
                     glColorMaterial(GL_FRONT, GL_EMISSION);
                     glColor3f(0.4f, 0.4f, 0.35f);
                 }
@@ -637,7 +624,7 @@ void DK_render_map() {
 
             draw_4quad(texture_top, points);
 
-            if (texture_top_wall || texture_top_owner) {
+            if (!picking && (texture_top_wall || texture_top_owner)) {
                 glEnable(GL_BLEND);
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -798,6 +785,36 @@ void DK_render_map() {
             }
         }
     }
+}
+
+DK_Block* DK_block_at(int x, int y) {
+    if (block_index_valid(x, y)) {
+        return &map[y * DK_map_size + x];
+    }
+    return NULL;
+}
+
+int DK_block_coordinates(unsigned short* x, unsigned short* y, const DK_Block* block) {
+    if (!block) {
+        return 0;
+    }
+    unsigned int idx = block - map;
+    *x = idx % DK_map_size;
+    *y = idx / DK_map_size;
+}
+
+DK_Block* DK_block_under_cursor(int* block_x, int* block_y) {
+    *block_x = cursor_x;
+    *block_y = cursor_y;
+    return DK_block_at(cursor_x, cursor_y);
+}
+
+int DK_block_is_fluid(const DK_Block* block) {
+    return block && (block->type == DK_BLOCK_LAVA || block->type == DK_BLOCK_WATER);
+}
+
+int DK_block_is_passable(const DK_Block* block) {
+    return block && (block->type == DK_BLOCK_NONE || DK_block_is_fluid(block));
 }
 
 int DK_block_damage(DK_Block* block, unsigned int damage) {

@@ -4,8 +4,8 @@
 #include <math.h>
 
 #include <SDL.h>
-#include <GL/gl.h>
-#include <GL/glext.h>
+
+#include "GLee.h"
 #include <GL/glu.h>
 
 #include "noise.h"
@@ -65,15 +65,19 @@ int main(int argc, char** argv) {
         DK_update();
         DK_render();
 
+        SDL_GL_SwapBuffers();
+
         end = SDL_GetTicks();
 
         // Wait to get a constant frame rate.
-        delay = 1000 / DK_FRAMERATE - (end - start);
+        delay = 1000.0f / DK_FRAMERATE - (end - start);
         if (delay > 0) {
+            const float load = (end - start) * DK_FRAMERATE / 1000.0f;
+            char title[32] = {0};
+            sprintf(title, "Undertaker - Load: %.2f", load);
+            SDL_WM_SetCaption(title, NULL);
             SDL_Delay(delay);
         }
-
-        SDL_GL_SwapBuffers();
     }
 
     return EXIT_SUCCESS;
@@ -84,6 +88,11 @@ int main(int argc, char** argv) {
 ///////////////////////////////////////////////////////////////////////////////
 
 void DK_init() {
+
+    fprintf(stdout, "------------------------------------------------------------\n");
+
+    fprintf(stdout, "Initializing SDL...\n");
+
     // Set up SDL.
     if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO) < 0) {
         fprintf(stderr, "Unable to init SDL: %s\n", SDL_GetError());
@@ -91,16 +100,22 @@ void DK_init() {
     }
     atexit(SDL_Quit);
 
+    fprintf(stdout, "SDL initialized successfully, setting up...\n");
+
     // Set up OpenGL related settings.
     SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 5);
     SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 5);
     SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 5);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 0);
     if (DK_USE_ANTIALIASING) {
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
     }
+
+
+    fprintf(stdout, "Starting up video...\n");
 
     // Set up video.
     screen = SDL_SetVideoMode(DK_RESOLUTION_X, DK_RESOLUTION_Y, 16, SDL_HWSURFACE | SDL_OPENGL);
@@ -109,17 +124,33 @@ void DK_init() {
         exit(EXIT_FAILURE);
     }
 
+    fprintf(stdout, "Successfully started up video, querying capabilities...\n");
+
+    fprintf(stdout, "GleeInit result: %d\n", GLeeInit());
+    fprintf(stdout, "Supports OpenGL 1.2: %d\n", GLEE_VERSION_1_2);
+    fprintf(stdout, "Supports OpenGL 1.3: %d\n", GLEE_VERSION_1_3);
+    fprintf(stdout, "Supports OpenGL 1.4: %d\n", GLEE_VERSION_1_4);
+    fprintf(stdout, "Supports OpenGL 1.5: %d\n", GLEE_VERSION_1_5);
+    fprintf(stdout, "Supports OpenGL 2.0: %d\n", GLEE_VERSION_2_0);
+    fprintf(stdout, "Supports OpenGL 2.1: %d\n", GLEE_VERSION_2_1);
+    fprintf(stdout, "Supports OpenGL 3.0: %d\n", GLEE_VERSION_3_0);
+    fprintf(stdout, "Supports VBOs: %d\n", GLEE_ARB_vertex_buffer_object);
+
     // Set window title.
     SDL_WM_SetCaption("Undertaker", NULL);
 
+    fprintf(stdout, "Loading textures...\n");
+
     // Load all textures we may need.
     DK_load_textures();
+
+    fprintf(stdout, "Initializing OpenGL...\n");
 
     // Initialize openGL.
     DK_init_gl();
 
     // Initialize a test map.
-    DK_init_map(128);
+    DK_init_map(16);
     DK_init_selection();
     DK_init_a_star();
     DK_init_units();
@@ -146,54 +177,52 @@ void DK_init() {
 
     DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
     DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    /*
         DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-     */
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
 }
 
 void DK_init_gl() {
@@ -302,6 +331,7 @@ void DK_events() {
 void DK_update() {
     DK_update_camera();
     DK_update_units();
+    DK_update_map();
 }
 
 void DK_render() {

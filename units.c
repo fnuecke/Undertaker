@@ -2,7 +2,8 @@
 #include <math.h>
 #include <memory.h>
 #include <stdlib.h>
-#include <GL/gl.h>
+
+#include "GLee.h"
 #include <GL/glu.h>
 
 #include "astar.h"
