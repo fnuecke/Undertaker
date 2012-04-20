@@ -1,49 +1,65 @@
 #include <assert.h>
 #include <malloc.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "jobs.h"
 #include "selection.h"
 #include "config.h"
 
+///////////////////////////////////////////////////////////////////////////////
+// Globals
+///////////////////////////////////////////////////////////////////////////////
+
 /** List of all current jobs, per player */
 static DK_Job** jobs[DK_PLAYER_COUNT] = {0};
 
-/** Capacity of the workplace lists, and actual load */
+/** Capacity of the workplace lists */
 static unsigned int jobs_capacity[DK_PLAYER_COUNT] = {0};
+
+/** Number of used entries in the lists */
 static unsigned int jobs_count[DK_PLAYER_COUNT] = {0};
 
+///////////////////////////////////////////////////////////////////////////////
+// Allocation
+///////////////////////////////////////////////////////////////////////////////
+
+/** Allocate a job and track it in our list */
 static DK_Job* get_job(DK_Player player) {
+    // Ensure we have the capacity to add the job.
     if (jobs_count[player] + 1 > jobs_capacity[player]) {
-        jobs_capacity[player] = jobs_capacity[player] * 2 + 1;
-        jobs[player] = realloc(jobs[player], jobs_capacity[player] * sizeof (DK_Job*));
+        jobs_capacity[player] = DK_AI_JOB_CAPACITY_GROWTH(jobs_capacity[player]);
+        if (!(jobs[player] = realloc(jobs[player], jobs_capacity[player] * sizeof (DK_Job*)))) {
+            fprintf(stderr, "Out of memory while resizing job list.\n");
+            exit(EXIT_FAILURE);
+        }
     }
+
+    // Allocate the actual job.
     DK_Job* job = calloc(1, sizeof (DK_Job));
-    jobs[player][jobs_count[player]++] = job;
-    return job;
-}
-
-static void delete_job(DK_Player player, int idx) {
-    free(jobs[player][idx]);
-    memmove(&jobs[player][idx], &jobs[player][idx + 1], (--jobs_count[player] - idx) * sizeof (DK_Job*));
-}
-
-void DK_init_jobs() {
-    int i;
-    for (i = 0; i < DK_PLAYER_COUNT; ++i) {
-        jobs_count[i] = 0;
+    if (!job) {
+        fprintf(stderr, "Out of memory while allocating a job.\n");
+        exit(EXIT_FAILURE);
     }
+    
+    // Store it in our list and return it.
+    return jobs[player][jobs_count[player]++] = job;
 }
 
-static inline int owns_adjacent(DK_Player player, unsigned int x, unsigned int y) {
-    DK_Block* block;
-    return ((block = DK_block_at(x - 1, y)) && DK_block_is_passable(block) && block->owner == player) ||
-            ((block = DK_block_at(x + 1, y)) && DK_block_is_passable(block) && block->owner == player) ||
-            ((block = DK_block_at(x, y - 1)) && DK_block_is_passable(block) && block->owner == player) ||
-            ((block = DK_block_at(x, y + 1)) && DK_block_is_passable(block) && block->owner == player);
+/** Delete a job that is no longer used */
+static void delete_job(DK_Player player, int job_index) {
+    assert(job_index >= 0);
+    assert(job_index < jobs_count[player]);
+
+    // Free the actual memory.
+    free(jobs[player][job_index]);
+
+    // Move up the list entries to close the gap.
+    --jobs_count[player];
+    memmove(&jobs[player][job_index], &jobs[player][job_index + 1], (jobs_count[player] - job_index) * sizeof (DK_Job*));
 }
 
-static enum {
+typedef enum {
     SAME = 1,
     NORTH = 2,
     EAST = 4,
@@ -56,7 +72,7 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
 
     // Check which jobs are already taken care of. There are 5 slots: the block
     // itself (converting) and the four non-diagonal neighbors (dig/convert).
-    char existing_jobs = 0, i;
+    JobNeighbors existing_jobs = 0, i;
     for (i = 0; i < jobs_count[player]; ++i) {
         const DK_Job* job = jobs[player][i];
         if (job->block != block) {
@@ -189,7 +205,22 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
             block->owner != player) {
         // Block is empty tile and not already owned.
         // Check if a neighboring tile is owned by the same player.
-        if (owns_adjacent(player, x, y)) {
+        DK_Block* b;
+        if (((b = DK_block_at(x - 1, y)) &&
+                DK_block_is_passable(b) &&
+                b->owner == player) ||
+
+                ((b = DK_block_at(x + 1, y)) &&
+                DK_block_is_passable(b) &&
+                b->owner == player) ||
+
+                ((b = DK_block_at(x, y - 1)) &&
+                DK_block_is_passable(b) &&
+                b->owner == player) ||
+
+                ((b = DK_block_at(x, y + 1)) &&
+                DK_block_is_passable(b) &&
+                b->owner == player)) {
             DK_Job* job = get_job(player);
             job->block = block;
             job->x = (x + 0.5f);
@@ -200,7 +231,21 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
     }
 }
 
-void DK_jobs_update(DK_Player player, unsigned short x, unsigned short y) {
+///////////////////////////////////////////////////////////////////////////////
+// Header implementation
+///////////////////////////////////////////////////////////////////////////////
+
+void DK_init_jobs() {
+    int player, job_index;
+    for (player = 0; player < DK_PLAYER_COUNT; ++player) {
+        for (job_index = jobs_count[player] - 1; job_index >= 0; --job_index) {
+            free(jobs[player][job_index]);
+        }
+        jobs_count[player] = 0;
+    }
+}
+
+void DK_update_jobs(DK_Player player, unsigned short x, unsigned short y) {
     DK_Block* block = DK_block_at(x, y);
     int i;
     for (i = jobs_count[player]; i > 0; --i) {
@@ -232,11 +277,6 @@ void DK_jobs_update(DK_Player player, unsigned short x, unsigned short y) {
     }
 }
 
-DK_Job** DK_jobs(DK_Player player, unsigned int* count) {
-    *count = jobs_count[player];
-    return jobs[player];
-}
-
 void DK_render_jobs() {
 #if DK_D_DRAW_JOBS
     int i;
@@ -266,4 +306,9 @@ void DK_render_jobs() {
         glEnable(GL_LIGHTING);
     }
 #endif
+}
+
+DK_Job** DK_jobs(DK_Player player, unsigned int* count) {
+    *count = jobs_count[player];
+    return jobs[player];
 }

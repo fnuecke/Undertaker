@@ -16,6 +16,9 @@
 #include "selection.h"
 #include "camera.h"
 #include "units.h"
+#include "textures.h"
+#include "input.h"
+#include "jobs.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Global data

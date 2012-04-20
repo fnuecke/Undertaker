@@ -8,9 +8,14 @@
 #ifndef SELECTION_H
 #define	SELECTION_H
 
+#include "players.h"
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
+
+/** (Re)Initialize selection data structures after map change */
+void DK_init_selection();
 
 /** Checks if the specified block is selectable by the specified player */
 int DK_block_is_selectable(DK_Player player, int x, int y);

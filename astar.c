@@ -1,6 +1,8 @@
+#include <assert.h>
 #include <malloc.h>
 #include <math.h>
 #include <memory.h>
+#include <stdio.h>
 
 #include "astar.h"
 #include "bitset.h"
@@ -43,7 +45,7 @@ static char* a_star_closed_set = 0;
 static AStar_Node* open = 0;
 static AStar_Node* closed = 0;
 
-/** Capacity of A* node sets; set to the initial capacities, will grow as necessary */
+/** Capacity of A* node sets */
 static unsigned int open_capacity = 0;
 static unsigned int closed_capacity = 0;
 
@@ -59,8 +61,11 @@ static unsigned int closed_count = 0;
 static AStar_Node* get_open(float key) {
     // Ensure we have the capacity to add the node.
     if (open_count + 1 >= open_capacity) {
-        open_capacity = open_capacity * 2 + 1;
-        open = realloc(open, open_capacity * sizeof (AStar_Node));
+        open_capacity = DK_ASTAR_CAPACITY_GROWTH(open_capacity);
+        if (!(open = realloc(open, open_capacity * sizeof (AStar_Node)))) {
+            fprintf(stderr, "Out of memory while resizing A* open queue.\n");
+            exit(EXIT_FAILURE);
+        }
     }
 
     // Find where to insert; we want to keep this list sorted, so that the entry
@@ -91,8 +96,11 @@ static AStar_Node* get_open(float key) {
 static AStar_Node* pop_to_closed() {
     // Ensure we have the capacity to add the node.
     if (closed_count + 1 >= closed_capacity) {
-        closed_capacity = closed_capacity * 2 + 1;
-        closed = realloc(closed, closed_capacity * sizeof (AStar_Node));
+        closed_capacity = DK_ASTAR_CAPACITY_GROWTH(closed_capacity);
+        if (!(closed = realloc(closed, closed_capacity * sizeof (AStar_Node)))) {
+            fprintf(stderr, "Out of memory while resizing A* closed set.\n");
+            exit(EXIT_FAILURE);
+        }
     }
 
     // Copy it over.
@@ -273,12 +281,19 @@ static int is_goal(AStar_Waypoint* path, unsigned int* depth, float* length,
 
         // Return the length of the returned array. This isn't 100% accurate,
         // because we replace the start and end points with the search start
-        // and end coordinates, but it's close enough.
+        // and end coordinates, but it's close enough (because they're
+        // guaranteed to be in the same A* cell).
         *length = node->gscore / DK_ASTAR_GRANULARITY;
+
+        // Make sure we can write something back.
+        if (*depth == 0) {
+            // Well that sucks :P
+            return 1;
+        }
 
         // Follow the path until only as many nodes as we can fit into the
         // specified buffer remain.
-        while (node->steps > *depth && node->came_from) {
+        while (node->steps + 1 > *depth) {
             node = &closed[node->came_from - 1];
         }
 
@@ -346,21 +361,16 @@ int DK_a_star(float start_x, float start_y, float goal_x, float goal_y, AStar_Wa
     BS_reset(a_star_closed_set, a_star_grid_size * a_star_grid_size);
 
     // Get goal in local coordinates.
-    const unsigned int gx = (int) (goal_x * DK_ASTAR_GRANULARITY);
-    const unsigned int gy = (int) (goal_y * DK_ASTAR_GRANULARITY);
+    const unsigned int gx = (unsigned int) (goal_x * DK_ASTAR_GRANULARITY);
+    const unsigned int gy = (unsigned int) (goal_y * DK_ASTAR_GRANULARITY);
 
     // Initialize the first open node to the one we're starting from.
     {
-        const int sx = (int) (start_x * DK_ASTAR_GRANULARITY);
-        const int sy = (int) (start_y * DK_ASTAR_GRANULARITY);
-        const int dx = sx - gx;
-        const int dy = sy - gy;
-
         AStar_Node* start = get_open(0);
-        start->x = sx;
-        start->y = sy;
+        start->x = (unsigned int) (start_x * DK_ASTAR_GRANULARITY);
+        start->y = (unsigned int) (start_y * DK_ASTAR_GRANULARITY);
         start->gscore = 0.0f;
-        start->fscore = f(0, 0, dx, dy);
+        start->fscore = 0.0f;
         start->came_from = 0;
         start->steps = 0;
     }

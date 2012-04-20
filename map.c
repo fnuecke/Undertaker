@@ -3,6 +3,7 @@
 #include <malloc.h>
 
 #include "GLee.h"
+#include <SDL.h>
 
 #include "bitset.h"
 #include "config.h"
@@ -12,6 +13,7 @@
 #include "camera.h"
 #include "selection.h"
 #include "jobs.h"
+#include "picking.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Internal variables
@@ -801,6 +803,7 @@ int DK_block_coordinates(unsigned short* x, unsigned short* y, const DK_Block* b
     unsigned int idx = block - map;
     *x = idx % DK_map_size;
     *y = idx / DK_map_size;
+    return 1;
 }
 
 DK_Block* DK_block_under_cursor(int* block_x, int* block_y) {
@@ -863,7 +866,7 @@ int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
         } else {
             block->strength = DK_BLOCK_OWNED_STRENGTH;
             DK_block_coordinates(&x, &y, block);
-            DK_jobs_update(player, x, y);
+            DK_update_jobs(player, x, y);
             return 1;
         }
     }

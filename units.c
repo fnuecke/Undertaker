@@ -270,7 +270,7 @@ static void update_ai(DK_Unit* unit) {
                 AIJob_Move* move = (AIJob_Move*) moveNode->info;
                 moveNode->state = DK_AI_MOVE;
 
-                int job_count;
+                unsigned int job_count;
                 DK_Job** jobs = DK_jobs(unit->owner, &job_count);
                 for (; job_count > 0; --job_count) {
                     // Current workplace we're checking.
@@ -360,8 +360,24 @@ static void update_ai(DK_Unit* unit) {
                     // Just walk around dumbly.
                     int i;
                     for (i = 0; i < DK_AI_WANDER_TRIES; ++i) {
-                        const float wx = unit->x + (rand() / (float) RAND_MAX - 0.5f) * DK_BLOCK_SIZE;
-                        const float wy = unit->y + (rand() / (float) RAND_MAX - 0.5f) * DK_BLOCK_SIZE;
+                        float wx = unit->x + (rand() / (float) RAND_MAX - 0.5f) * DK_BLOCK_SIZE;
+                        float wy = unit->y + (rand() / (float) RAND_MAX - 0.5f) * DK_BLOCK_SIZE;
+                        // Make sure the coordinates are in bounds. This is
+                        // expecially important for the interval of [-1, 0],
+                        // because those get rounded to 0 when casting to int,
+                        // resulting in a seemingly valid block.
+                        if (wx < 0.2f) {
+                            wx = 0.2f;
+                        }
+                        if (wx > DK_map_size * DK_BLOCK_SIZE - 0.2f) {
+                            wx = DK_map_size * DK_BLOCK_SIZE - 0.2f;
+                        }
+                        if (wy < 0.2f) {
+                            wy = 0.2f;
+                        }
+                        if (wy > DK_map_size * DK_BLOCK_SIZE - 0.2f) {
+                            wy = DK_map_size * DK_BLOCK_SIZE - 0.2f;
+                        }
                         if (DK_block_is_passable(DK_block_at((int) (wx / DK_BLOCK_SIZE), (int) (wy / DK_BLOCK_SIZE)))) {
                             // TODO: avoid getting too close to walls
                             unit->tx = wx;
@@ -532,13 +548,13 @@ void DK_render_units() {
 unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, unsigned short y) {
     if (total_unit_count > DK_PLAYER_COUNT * DK_UNITS_MAX_PER_PLAYER) {
         // TODO
-        return;
+        return 0;
     }
 
     // Check if the block is valid.
     if (!DK_block_is_passable(DK_block_at(x, y))) {
         // TODO
-        return;
+        return 0;
     }
 
     DK_Unit* unit = &units[total_unit_count];
@@ -552,6 +568,8 @@ unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, u
 
     ++total_unit_count;
     ++unit_count[player];
+    
+    return 1;
 }
 
 void DK_unit_cancel_job(DK_Unit* unit) {

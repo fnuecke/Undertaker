@@ -71,6 +71,9 @@
  * In National Conference on Artificial Intelligence (AAAI), 2011. */
 #define DK_ASTAR_JPS 1
 
+/** Defines how capacity of lists grows when exceeded */
+#define DK_ASTAR_CAPACITY_GROWTH(old_capacity) (old_capacity * 2 + 16)
+
 ///////////////////////////////////////////////////////////////////////////////
 // AI
 ///////////////////////////////////////////////////////////////////////////////
@@ -92,6 +95,9 @@
 
 /** Bonus accounted to a worker that's already on a job when checking if closer */
 #define DK_AI_ALREADY_WORKING_BONUS DK_BLOCK_SIZE / 2
+
+/** Defines how capacity of lists grows when exceeded */
+#define DK_AI_JOB_CAPACITY_GROWTH(old_capacity) (old_capacity * 2 + 16)
 
 ///////////////////////////////////////////////////////////////////////////////
 // Map

@@ -43,7 +43,7 @@ void DK_init_jobs();
 void DK_render_jobs();
 
 /** Update jobs at and surrounding the specified coordinate */
-void DK_jobs_update(DK_Player player, unsigned short x, unsigned short y);
+void DK_update_jobs(DK_Player player, unsigned short x, unsigned short y);
 
 /** Get a list of all jobs for the specified player */
 DK_Job** DK_jobs(DK_Player player, unsigned int* count);

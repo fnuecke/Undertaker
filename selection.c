@@ -2,6 +2,7 @@
 #include "map.h"
 #include "players.h"
 #include "jobs.h"
+#include "selection.h"
 
 /**
  * Selected blocks, per player.
@@ -34,7 +35,7 @@ void DK_block_select(DK_Player player, unsigned short x, unsigned short y) {
         const unsigned int idx = y * DK_map_size + x;
         BS_set(selection[player], idx);
 
-        DK_jobs_update(player, x, y);
+        DK_update_jobs(player, x, y);
     }
 }
 
@@ -43,7 +44,7 @@ void DK_block_deselect(DK_Player player, unsigned short x, unsigned short y) {
         const unsigned int idx = y * DK_map_size + x;
         BS_unset(selection[player], idx);
 
-        DK_jobs_update(player, x, y);
+        DK_update_jobs(player, x, y);
     }
 }
 

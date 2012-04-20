@@ -2,6 +2,7 @@
 
 #include "config.h"
 #include "input.h"
+#include "selection.h"
 #include "map.h"
 #include "camera.h"
 
