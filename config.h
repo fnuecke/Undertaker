@@ -197,23 +197,23 @@
 // Debugging
 ///////////////////////////////////////////////////////////////////////////////
 
-/** Use test texture instead of actual textures */
-#define DK_D_DRAW_TEST_TEXTURE 0
-
 /** Use terrain noise */
 #define DK_D_TERRAIN_NOISE 1
 
 /** Factor in surroundings for terrain noise (empty blocks, owned blocks) */
 #define DK_D_USE_NOISE_OFFSET 1
 
+/** Use test texture instead of actual textures */
+int DK_d_draw_test_texture;
+
 /** Render unit paths */
-#define DK_D_DRAW_PATHS 1
+int DK_d_draw_paths;
 
 /** Height at which to render paths */
 #define DK_D_DRAW_PATH_HEIGHT 1.1f
 
 /** Render job slots for player red */
-#define DK_D_DRAW_JOBS 1
+int DK_d_draw_jobs;
 
 #endif	/* CONFIG_H */
 

@@ -41,7 +41,7 @@ static DK_Job* get_job(DK_Player player) {
         fprintf(stderr, "Out of memory while allocating a job.\n");
         exit(EXIT_FAILURE);
     }
-    
+
     // Store it in our list and return it.
     return jobs[player][jobs_count[player]++] = job;
 }
@@ -278,34 +278,34 @@ void DK_update_jobs(DK_Player player, unsigned short x, unsigned short y) {
 }
 
 void DK_render_jobs() {
-#if DK_D_DRAW_JOBS
-    int i;
-    for (i = 0; i < jobs_count[DK_PLAYER_RED]; ++i) {
-        const DK_Job* job = jobs[DK_PLAYER_RED][i];
+    if (DK_d_draw_jobs) {
+        int i;
+        for (i = 0; i < jobs_count[DK_PLAYER_RED]; ++i) {
+            const DK_Job* job = jobs[DK_PLAYER_RED][i];
 
-        if (job->worker) {
-            if (job->type == DK_JOB_DIG) {
-                glColor3f(0.4f, 0.8f, 0.4f);
+            if (job->worker) {
+                if (job->type == DK_JOB_DIG) {
+                    glColor3f(0.4f, 0.8f, 0.4f);
+                } else {
+                    glColor3f(0.4f, 0.4f, 0.8f);
+                }
             } else {
-                glColor3f(0.4f, 0.4f, 0.8f);
+                glColor3f(0.4f, 0.4f, 0.4f);
             }
-        } else {
-            glColor3f(0.4f, 0.4f, 0.4f);
-        }
-        glDisable(GL_LIGHTING);
+            glDisable(GL_LIGHTING);
 
-        glBegin(GL_QUADS);
-        {
-            glVertex3f((job->x - 0.1f) * DK_BLOCK_SIZE, (job->y - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-            glVertex3f((job->x + 0.1f) * DK_BLOCK_SIZE, (job->y - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-            glVertex3f((job->x + 0.1f) * DK_BLOCK_SIZE, (job->y + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-            glVertex3f((job->x - 0.1f) * DK_BLOCK_SIZE, (job->y + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-        }
-        glEnd();
+            glBegin(GL_QUADS);
+            {
+                glVertex3f((job->x - 0.1f) * DK_BLOCK_SIZE, (job->y - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+                glVertex3f((job->x + 0.1f) * DK_BLOCK_SIZE, (job->y - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+                glVertex3f((job->x + 0.1f) * DK_BLOCK_SIZE, (job->y + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+                glVertex3f((job->x - 0.1f) * DK_BLOCK_SIZE, (job->y + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+            }
+            glEnd();
 
-        glEnable(GL_LIGHTING);
+            glEnable(GL_LIGHTING);
+        }
     }
-#endif
 }
 
 DK_Job** DK_jobs(DK_Player player, unsigned int* count) {

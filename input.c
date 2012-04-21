@@ -46,6 +46,15 @@ void DK_key_up(const SDL_Event* e) {
         case SDLK_RIGHT:
             DK_camera_unset_direction(DK_CAMD_EAST);
             break;
+        case SDLK_F1:
+            DK_d_draw_test_texture = 1 - DK_d_draw_test_texture;
+            break;
+        case SDLK_F2:
+            DK_d_draw_paths = 1 - DK_d_draw_paths;
+            break;
+        case SDLK_F3:
+            DK_d_draw_jobs = 1 - DK_d_draw_jobs;
+            break;
     }
 }
 

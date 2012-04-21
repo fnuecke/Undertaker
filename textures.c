@@ -42,15 +42,15 @@ SDL_Surface* DK_textures[DK_TEX_COUNT][DK_TEX_MAX_VARIATIONS];
 GLuint DK_gl_textures[DK_TEX_COUNT][DK_TEX_MAX_VARIATIONS];
 
 GLuint DK_opengl_texture(DK_Texture texture, unsigned int hash) {
-#if DK_D_DRAW_TEST_TEXTURE
-    return DK_gl_test_texture;
-#else
-    if (DK_num_textures[texture] > 0) {
-        return DK_gl_textures[texture][hash % DK_num_textures[texture]];
+    if (DK_d_draw_test_texture) {
+        return DK_gl_test_texture;
     } else {
-        return 0;
+        if (DK_num_textures[texture] > 0) {
+            return DK_gl_textures[texture][hash % DK_num_textures[texture]];
+        } else {
+            return 0;
+        }
     }
-#endif
 }
 
 void DK_load_textures() {

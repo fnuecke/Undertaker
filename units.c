@@ -526,27 +526,27 @@ void DK_render_units() {
                 break;
         }
 
-#if DK_D_DRAW_PATHS
-        if (unit->ai[unit->ai_count - 1].state == DK_AI_MOVE) {
-            glColor3f(0.8f, 0.8f, 0.9f);
-            glLineWidth(1.52f);
-            glDisable(GL_LIGHTING);
-            glBegin(GL_LINES);
+        if (DK_d_draw_paths) {
+            if (unit->ai[unit->ai_count - 1].state == DK_AI_MOVE) {
+                glColor3f(0.8f, 0.8f, 0.9f);
+                glLineWidth(1.52f);
+                glDisable(GL_LIGHTING);
+                glBegin(GL_LINES);
 
-            glVertex3f(unit->x, unit->y, DK_D_DRAW_PATH_HEIGHT);
-            glVertex3f(unit->tx, unit->ty, DK_D_DRAW_PATH_HEIGHT);
+                glVertex3f(unit->x, unit->y, DK_D_DRAW_PATH_HEIGHT);
+                glVertex3f(unit->tx, unit->ty, DK_D_DRAW_PATH_HEIGHT);
 
-            AIJob_Move* info = (AIJob_Move*) unit->ai[unit->ai_count - 1].info;
-            int j;
-            for (j = info->path_index - 1; j < info->path_depth - 1; ++j) {
-                glVertex3f(info->path[j].x * DK_BLOCK_SIZE, info->path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
-                glVertex3f(info->path[j + 1].x * DK_BLOCK_SIZE, info->path[j + 1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                AIJob_Move* info = (AIJob_Move*) unit->ai[unit->ai_count - 1].info;
+                int j;
+                for (j = info->path_index - 1; j < info->path_depth - 1; ++j) {
+                    glVertex3f(info->path[j].x * DK_BLOCK_SIZE, info->path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                    glVertex3f(info->path[j + 1].x * DK_BLOCK_SIZE, info->path[j + 1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                }
+
+                glEnd();
+                glEnable(GL_LIGHTING);
             }
-
-            glEnd();
-            glEnable(GL_LIGHTING);
         }
-#endif
     }
 }
 
