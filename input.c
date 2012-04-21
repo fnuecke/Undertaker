@@ -59,6 +59,11 @@ void DK_mouse_down(const SDL_Event* e) {
         case SDL_BUTTON_LEFT:
             DK_selection_begin();
             break;
+        case SDL_BUTTON_RIGHT:
+            if (DK_selection_cancel()) {
+                break;
+            }
+            break;
     }
 }
 

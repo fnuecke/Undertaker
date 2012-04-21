@@ -906,8 +906,6 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
 
     glBindTexture(GL_TEXTURE_2D, 0);
     glDisable(GL_LIGHTING);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // Set up for line drawing.
     glLineWidth(3.0f + DK_camera_zoom() * 3.0f);

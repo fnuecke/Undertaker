@@ -24,7 +24,7 @@
 #define DK_ASPECT_RATIO ((float)DK_RESOLUTION_X / (float)DK_RESOLUTION_Y)
 
 /** Whether to use anti aliasing or not */
-#define DK_USE_ANTIALIASING 0
+#define DK_USE_ANTIALIASING 1
 
 /** Target framerate */
 #define DK_FRAMERATE 60
@@ -172,12 +172,12 @@
 #define DK_MAP_BORDER (DK_RENDER_AREA_X * 2)
 
 /** The color of the selection outline */
-#define DK_MAP_SELECTED_COLOR(intensity) 0.6f * intensity, 0.7f * intensity, 0.8f * intensity
+#define DK_MAP_SELECTED_COLOR(intensity) 0.6f * intensity, 0.7f * intensity, 0.7f * intensity
 
 #define DK_MAP_SELECTED_PULSE_FREQUENCY 1 / 750.0f
 
 /** The color of the selection outline */
-#define DK_MAP_OUTLINE_COLOR 0.8f, 0.9f, 1.0f
+#define DK_MAP_OUTLINE_COLOR 0.4f, 0.5f, 0.9f
 
 /** Offset for outline to not intersect with map blocks */
 #define DK_MAP_OUTLINE_OFFSET 0.05f

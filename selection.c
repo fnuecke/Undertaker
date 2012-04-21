@@ -67,6 +67,15 @@ void DK_selection_begin() {
     }
 }
 
+int DK_selection_cancel() {
+    if (mode != MODE_NONE) {
+        // Reset mode.
+        mode = MODE_NONE;
+        return 1;
+    }
+    return 0;
+}
+
 void DK_selection_end() {
     if (mode != MODE_NONE) {
         // Find the block we released over.

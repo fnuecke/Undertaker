@@ -23,6 +23,9 @@ void DK_selection(int* start_x, int* start_y, int* end_x, int* end_y);
 /** Start selecting an area of the map, uses currently hovered block as start */
 void DK_selection_begin();
 
+/** Cancel selecting; returns whether selection was active */
+int DK_selection_cancel();
+
 /** Done selecting, uses currently hovered block as end */
 void DK_selection_end();
 
