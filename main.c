@@ -67,8 +67,6 @@ int main(int argc, char** argv) {
         DK_update();
         DK_render();
 
-        SDL_GL_SwapBuffers();
-
         end = SDL_GetTicks();
 
         // Wait to get a constant frame rate.
@@ -366,4 +364,6 @@ void DK_render() {
     DK_render_map();
     DK_render_units();
     DK_render_jobs();
+
+    SDL_GL_SwapBuffers();
 }
