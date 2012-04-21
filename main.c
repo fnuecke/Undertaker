@@ -268,28 +268,29 @@ void DK_init_gl() {
     glShadeModel(GL_SMOOTH);
     glEnable(GL_COLOR_MATERIAL);
 
-    GLfloat global_ambient[] = {0.0f, 0.0f, 0.0f, 1.0f};
+    GLfloat global_ambient[] = {0.1f, 0.1f, 0.1f, 1.0f};
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, global_ambient);
 
     // Create light components
-    GLfloat ambientLight[] = {0.0f, 0.0f, 0.0f, 1.0f};
+    GLfloat darkness[] = {0.0f, 0.0f, 0.0f, 1.0f};
     GLfloat diffuseLight[] = {1.0f, 0.9f, 0.8f, 1.0f};
-    GLfloat specularLight[] = {0.0f, 0.0f, 0.0f, 1.0f};
 
     // Assign created components to GL_LIGHT0
-    glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, darkness);
     glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseLight);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, darkness);
 
     glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.0f);
     glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.0025f);
 
     glEnable(GL_LIGHT0);
 
-    //Add directed light
-    GLfloat lightColor1[] = {0.3f, 0.25f, 0.25f, 1.0f};
-    GLfloat lightPos1[] = {-1.0f, 0.5f, 0.5f, 0.0f};
+    //Add ambient directed light.
+    GLfloat lightColor1[] = {0.1f, 0.06f, 0.06f, 1.0f};
+    GLfloat lightPos1[] = {-1.0f, 1.0f, 1.0f, 0.0f};
+    glLightfv(GL_LIGHT0, GL_AMBIENT, darkness);
     glLightfv(GL_LIGHT1, GL_DIFFUSE, lightColor1);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, darkness);
     glLightfv(GL_LIGHT1, GL_POSITION, lightPos1);
     glEnable(GL_LIGHT1);
 

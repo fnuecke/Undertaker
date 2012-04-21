@@ -294,6 +294,9 @@ static void interpolate_normal(v3f* n, const v3f* v0,
         const v3f* v5, const v3f* v6, const v3f* v7, const v3f* v8) {
     // Compute normals based on neighbors and accumulate.
     v3f tmp;
+    n->x = 0;
+    n->y = 0;
+    n->z = 0;
     normal(&tmp, v0, v1, v2);
     iaddv3f(n, &tmp);
     normal(&tmp, v0, v2, v3);
