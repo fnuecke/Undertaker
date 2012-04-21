@@ -16,6 +16,10 @@ const char* DK_texture_names[DK_TEX_COUNT] = {
     "fluid_lava",
     "fluid_side",
     "fluid_water",
+    "gem_side",
+    "gem_top",
+    "gold_side",
+    "gold_top",
     "owner_blue",
     "owner_green",
     "owner_red",
@@ -42,14 +46,10 @@ SDL_Surface* DK_textures[DK_TEX_COUNT][DK_TEX_MAX_VARIATIONS];
 GLuint DK_gl_textures[DK_TEX_COUNT][DK_TEX_MAX_VARIATIONS];
 
 GLuint DK_opengl_texture(DK_Texture texture, unsigned int hash) {
-    if (DK_d_draw_test_texture) {
+    if (DK_d_draw_test_texture || !DK_num_textures[texture]) {
         return DK_gl_test_texture;
     } else {
-        if (DK_num_textures[texture] > 0) {
-            return DK_gl_textures[texture][hash % DK_num_textures[texture]];
-        } else {
-            return 0;
-        }
+        return DK_gl_textures[texture][hash % DK_num_textures[texture]];
     }
 }
 

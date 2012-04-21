@@ -8,17 +8,16 @@
 #include "GLee.h"
 #include <GL/glu.h>
 
-#include "noise.h"
-
-#include "config.h"
-#include "map.h"
 #include "astar.h"
-#include "selection.h"
 #include "camera.h"
-#include "units.h"
-#include "textures.h"
+#include "config.h"
+#include "cursor.h"
 #include "input.h"
 #include "jobs.h"
+#include "map.h"
+#include "selection.h"
+#include "textures.h"
+#include "units.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Global data
@@ -180,7 +179,7 @@ void DK_init() {
 
     DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
     DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
+    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
     DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
     DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
     DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
@@ -228,6 +227,41 @@ void DK_init() {
     DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
 }
 
+static void init_lighting() {
+    // Set up global ambient lighting.
+    glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
+    glEnable(GL_LIGHTING);
+    glShadeModel(GL_SMOOTH);
+    glEnable(GL_COLOR_MATERIAL);
+
+    // Light colors.
+    GLfloat darkness[] = {0.0f, 0.0f, 0.0f, 1.0f};
+    GLfloat ambient_global[] = {0.1f, 0.1f, 0.1f, 1.0f};
+    GLfloat ambient_directed[] = {0.1f, 0.06f, 0.06f, 1.0f};
+    GLfloat hand_diffuse[] = {0.5f, 0.4f, 0.3f, 1.0f};
+
+    // And directions.
+    GLfloat ambient_direction[] = {-1.0f, 1.0f, 1.0f, 0.0f};
+
+    // Ambient overall light.
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambient_global);
+
+    //Add ambient directed light.
+    glLightfv(GL_LIGHT0, GL_AMBIENT, darkness);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, ambient_directed);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, darkness);
+    glLightfv(GL_LIGHT0, GL_POSITION, ambient_direction);
+    glEnable(GL_LIGHT0);
+
+    // Assign created components to GL_LIGHT0
+    glLightfv(GL_LIGHT1, GL_AMBIENT, darkness);
+    glLightfv(GL_LIGHT1, GL_DIFFUSE, hand_diffuse);
+    glLightfv(GL_LIGHT1, GL_SPECULAR, darkness);
+    glLightf(GL_LIGHT1, GL_CONSTANT_ATTENUATION, 0.0f);
+    glLightf(GL_LIGHT1, GL_QUADRATIC_ATTENUATION, 0.00125f);
+    glEnable(GL_LIGHT1);
+}
+
 void DK_init_gl() {
     // Clear to black.
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -262,37 +296,7 @@ void DK_init_gl() {
     glEnable(GL_CULL_FACE);
     glFrontFace(GL_CCW);
 
-    // Set up global ambient lighting.
-    glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
-    glEnable(GL_LIGHTING);
-    glShadeModel(GL_SMOOTH);
-    glEnable(GL_COLOR_MATERIAL);
-
-    GLfloat global_ambient[] = {0.1f, 0.1f, 0.1f, 1.0f};
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, global_ambient);
-
-    // Create light components
-    GLfloat darkness[] = {0.0f, 0.0f, 0.0f, 1.0f};
-    GLfloat diffuseLight[] = {1.0f, 0.9f, 0.8f, 1.0f};
-
-    // Assign created components to GL_LIGHT0
-    glLightfv(GL_LIGHT0, GL_AMBIENT, darkness);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseLight);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, darkness);
-
-    glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.0f);
-    glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.0025f);
-
-    glEnable(GL_LIGHT0);
-
-    //Add ambient directed light.
-    GLfloat lightColor1[] = {0.1f, 0.06f, 0.06f, 1.0f};
-    GLfloat lightPos1[] = {-1.0f, 1.0f, 1.0f, 0.0f};
-    glLightfv(GL_LIGHT0, GL_AMBIENT, darkness);
-    glLightfv(GL_LIGHT1, GL_DIFFUSE, lightColor1);
-    glLightfv(GL_LIGHT0, GL_AMBIENT, darkness);
-    glLightfv(GL_LIGHT1, GL_POSITION, lightPos1);
-    glEnable(GL_LIGHT1);
+    init_lighting();
 
 #if DK_USE_FOG
     GLfloat fog_color[] = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -345,14 +349,20 @@ void DK_render() {
     // Set "camera" position.
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-
     gluLookAt(DK_camera_position()[0], DK_camera_position()[1], DK_CAMERA_HEIGHT - DK_camera_zoom() * DK_CAMERA_MAX_ZOOM,
             DK_camera_position()[0], DK_camera_position()[1] + DK_CAMERA_TARGET_DISTANCE, 0,
             0, 0, 1);
 
-    GLfloat light_position[] = {160 - 24, 160 - 24, 20, 1};
-    glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+    // Update cursor position (depends on view being set up).
+    DK_update_cursor();
 
+    // Get cursor position and update hand light accordingly.
+    float x, y;
+    DK_cursor(&x, &y);
+    GLfloat light_position[] = {x, y, DK_BLOCK_HEIGHT * 2, 1};
+    glLightfv(GL_LIGHT1, GL_POSITION, light_position);
+
+    // Render game components.
     DK_render_map();
     DK_render_units();
     DK_render_jobs();

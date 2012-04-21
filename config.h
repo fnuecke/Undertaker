@@ -171,6 +171,17 @@
 /** Size of the border to allocate around the actual map vertices to render out of range area */
 #define DK_MAP_BORDER (DK_RENDER_AREA_X * 2)
 
+/** The color of the selection outline */
+#define DK_MAP_SELECTED_COLOR(intensity) 0.6f * intensity, 0.7f * intensity, 0.8f * intensity
+
+#define DK_MAP_SELECTED_PULSE_FREQUENCY 1 / 750.0f
+
+/** The color of the selection outline */
+#define DK_MAP_OUTLINE_COLOR 0.8f, 0.9f, 1.0f
+
+/** Offset for outline to not intersect with map blocks */
+#define DK_MAP_OUTLINE_OFFSET 0.05f
+
 ///////////////////////////////////////////////////////////////////////////////
 // Camera
 ///////////////////////////////////////////////////////////////////////////////
