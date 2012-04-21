@@ -254,7 +254,6 @@ static void update_ai(DK_Unit* unit) {
                 --idle->delay;
                 break;
             }
-            idle->delay = DK_AI_IDLE_DELAY / 2 + (rand() * DK_AI_IDLE_DELAY / 2 / RAND_MAX);
 
             // Find the unit something to do.
             if (unit->type == DK_UNIT_IMP) {
@@ -354,40 +353,46 @@ static void update_ai(DK_Unit* unit) {
                     unit->ty = move->path[0].y * DK_BLOCK_SIZE;
                     move->path_index = 1;
                     unit->ai_count += 2;
-                } else if (idle->wander_delay > 0) {
-                    --idle->wander_delay;
                 } else {
-                    // Just walk around dumbly.
-                    int i;
-                    for (i = 0; i < DK_AI_WANDER_TRIES; ++i) {
-                        float wx = unit->x + (rand() / (float) RAND_MAX - 0.5f) * DK_BLOCK_SIZE;
-                        float wy = unit->y + (rand() / (float) RAND_MAX - 0.5f) * DK_BLOCK_SIZE;
-                        // Make sure the coordinates are in bounds. This is
-                        // expecially important for the interval of [-1, 0],
-                        // because those get rounded to 0 when casting to int,
-                        // resulting in a seemingly valid block.
-                        if (wx < 0.2f) {
-                            wx = 0.2f;
+                    if (idle->wander_delay > 0) {
+                        --idle->wander_delay;
+                    } else {
+                        // Just walk around dumbly.
+                        int i;
+                        for (i = 0; i < DK_AI_WANDER_TRIES; ++i) {
+                            float wx = unit->x + (rand() / (float) RAND_MAX - 0.5f) * DK_BLOCK_SIZE;
+                            float wy = unit->y + (rand() / (float) RAND_MAX - 0.5f) * DK_BLOCK_SIZE;
+                            // Make sure the coordinates are in bounds. This is
+                            // expecially important for the interval of [-1, 0],
+                            // because those get rounded to 0 when casting to int,
+                            // resulting in a seemingly valid block.
+                            if (wx < 0.2f) {
+                                wx = 0.2f;
+                            }
+                            if (wx > DK_map_size * DK_BLOCK_SIZE - 0.2f) {
+                                wx = DK_map_size * DK_BLOCK_SIZE - 0.2f;
+                            }
+                            if (wy < 0.2f) {
+                                wy = 0.2f;
+                            }
+                            if (wy > DK_map_size * DK_BLOCK_SIZE - 0.2f) {
+                                wy = DK_map_size * DK_BLOCK_SIZE - 0.2f;
+                            }
+                            if (DK_block_is_passable(DK_block_at((int) (wx / DK_BLOCK_SIZE), (int) (wy / DK_BLOCK_SIZE)))) {
+                                // TODO: avoid getting too close to walls
+                                unit->tx = wx;
+                                unit->ty = wy;
+                                break;
+                            }
                         }
-                        if (wx > DK_map_size * DK_BLOCK_SIZE - 0.2f) {
-                            wx = DK_map_size * DK_BLOCK_SIZE - 0.2f;
-                        }
-                        if (wy < 0.2f) {
-                            wy = 0.2f;
-                        }
-                        if (wy > DK_map_size * DK_BLOCK_SIZE - 0.2f) {
-                            wy = DK_map_size * DK_BLOCK_SIZE - 0.2f;
-                        }
-                        if (DK_block_is_passable(DK_block_at((int) (wx / DK_BLOCK_SIZE), (int) (wy / DK_BLOCK_SIZE)))) {
-                            // TODO: avoid getting too close to walls
-                            unit->tx = wx;
-                            unit->ty = wy;
-                            break;
-                        }
+
+                        // Wait a bit before trying again.
+                        idle->wander_delay = DK_AI_WANDER_DELAY;
                     }
 
-                    // Wait a bit before trying again.
-                    idle->wander_delay = DK_AI_WANDER_DELAY;
+                    // Update delay. Don't update it if we found a job, to allow
+                    // looking for a job again, directly after finishing the last.
+                    idle->delay = DK_AI_IDLE_DELAY / 2 + (rand() * DK_AI_IDLE_DELAY / 2 / RAND_MAX);
                 }
             }
             break;
@@ -568,7 +573,7 @@ unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, u
 
     ++total_unit_count;
     ++unit_count[player];
-    
+
     return 1;
 }
 

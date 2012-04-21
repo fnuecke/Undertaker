@@ -116,13 +116,16 @@
 #define DK_BLOCK_GOLD_PER_HEALTH 10
 
 /** The base strength of a normal dirt block */
-#define DK_BLOCK_DIRT_STRENGTH 160
+#define DK_BLOCK_DIRT_STRENGTH 200
+
+/** The base strength of a normal dirt block */
+#define DK_BLOCK_DIRT_OWNED_STRENGTH 600
 
 /** The base strength of an empty block */
 #define DK_BLOCK_NONE_STRENGTH 80
 
 /** The base strength of an owned empty block */
-#define DK_BLOCK_OWNED_STRENGTH 320
+#define DK_BLOCK_NONE_OWNED_STRENGTH 250
 
 ///////////////////////////////////////////////////////////////////////////////
 // Textures
@@ -165,6 +168,9 @@
 /** Y offset of tiles to render (due to camera looking slightly forward) */
 #define DK_RENDER_AREA_Y_OFFSET 3
 
+/** Size of the border to allocate around the actual map vertices to render out of range area */
+#define DK_MAP_BORDER (DK_RENDER_AREA_X * 2)
+
 ///////////////////////////////////////////////////////////////////////////////
 // Camera
 ///////////////////////////////////////////////////////////////////////////////
@@ -199,9 +205,6 @@
 
 /** Factor in surroundings for terrain noise (empty blocks, owned blocks) */
 #define DK_D_USE_NOISE_OFFSET 1
-
-/** Cache the global noise instead of recomputing it on the fly */
-#define DK_D_CACHE_NOISE 1
 
 /** Render unit paths */
 #define DK_D_DRAW_PATHS 1

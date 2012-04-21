@@ -153,7 +153,7 @@ void DK_init() {
     DK_init_gl();
 
     // Initialize a test map.
-    DK_init_map(16);
+    DK_init_map(128);
     DK_init_selection();
     DK_init_a_star();
     DK_init_units();
@@ -162,20 +162,20 @@ void DK_init() {
     for (i = 0; i < 7; ++i) {
         for (j = 0; j < 7; ++j) {
             if (i <= 1 || j <= 1) {
-                DK_block_at(4 + i, 5 + j)->owner = DK_PLAYER_RED;
+                DK_block_set_owner(DK_block_at(4 + i, 5 + j), DK_PLAYER_RED);
             }
             if (i > 0 && j > 0 && i < 6 && j < 6) {
-                DK_block_at(4 + i, 5 + j)->type = DK_BLOCK_NONE;
+                DK_block_set_type(DK_block_at(4 + i, 5 + j), DK_BLOCK_NONE);
             }
         }
     }
 
-    DK_block_at(7, 8)->type = DK_BLOCK_DIRT;
-    DK_block_at(8, 8)->type = DK_BLOCK_DIRT;
+    DK_block_set_type(DK_block_at(7, 8), DK_BLOCK_DIRT);
+    DK_block_set_type(DK_block_at(8, 8), DK_BLOCK_DIRT);
 
-    DK_block_at(10, 8)->type = DK_BLOCK_WATER;
-    DK_block_at(11, 8)->type = DK_BLOCK_WATER;
-    DK_block_at(11, 9)->type = DK_BLOCK_WATER;
+    DK_block_set_type(DK_block_at(10, 8), DK_BLOCK_WATER);
+    DK_block_set_type(DK_block_at(11, 8), DK_BLOCK_WATER);
+    DK_block_set_type(DK_block_at(11, 9), DK_BLOCK_WATER);
     //DK_block_at(9, 8)->owner = DK_PLAYER_RED;
 
     DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);

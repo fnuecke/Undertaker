@@ -89,6 +89,15 @@ int DK_block_damage(DK_Block* block, unsigned int damage);
 /** Apply conversion to a block (dirt, wall, empty); return 1 if successful */
 int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player);
 
+/** Change the type of a block */
+void DK_block_set_type(DK_Block* block, DK_BlockType type);
+
+/** Change the owner of a block */
+void DK_block_set_owner(DK_Block* block, DK_Player player);
+
+/** Update the map model for the block at the specified coordinates */
+void DK_block_update(unsigned short x, unsigned short y);
+
 #ifdef	__cplusplus
 }
 #endif

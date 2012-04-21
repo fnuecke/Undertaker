@@ -16,6 +16,17 @@
 #include "picking.h"
 
 ///////////////////////////////////////////////////////////////////////////////
+// Macros
+///////////////////////////////////////////////////////////////////////////////
+
+#define XYZD2I(x, y, z, dx, dy) (((z) * (dx) * (dy)) + (y) * (dy) + (x))
+#define XYZ2IF(x, y, z) XYZD2I(x, y, z, vertices_count_full, vertices_count_full)
+#define XYZ2IH(x, y, z) XYZD2I(x, y, z, vertices_count_full, vertices_count_semi)
+
+#define DK_NEQ(a, b) (fabs(b - (a + 0.5)) < 0.01f)
+#define DK_NLT(a, b) (b - (a + 0.5) > 0)
+
+///////////////////////////////////////////////////////////////////////////////
 // Internal variables
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -30,9 +41,6 @@ static DK_Block* map = 0;
 
 /** Current map size */
 unsigned short DK_map_size = 0;
-
-/** Cache of map noise */
-static double* map_noise = 0;
 
 /** Currently hovered block coordinates */
 static int cursor_x = 0, cursor_y = 0;
@@ -71,37 +79,20 @@ static const float z_coords[5] = {
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-// Internal rendering stuff
+// Picking
 ///////////////////////////////////////////////////////////////////////////////
 
-/** Get cached noise for the specified offset */
-static inline double* noise_at_index(int x, int y, int z, int k) {
-    return &map_noise[((k * 3 + z) * 3 + y) * (DK_map_size + 1) + x];
+inline static GLuint pick_block(int x, int y) {
+    GLuint result;
+    picking = 1;
+    result = DK_pick(x, y, &DK_render_map);
+    picking = 0;
+    return result;
 }
 
-/** Noise at the specified world coordinates (same args as for snoise4) */
-static double noise_at(double x, double y, double z, int k) {
-    int i = (int) round((x * 2) / DK_BLOCK_SIZE),
-            j = (int) round((y * 2) / DK_BLOCK_SIZE),
-            l = (int) round((z * 2) / DK_BLOCK_HEIGHT);
-
-    // Wrap for off-the-grid terrain (rocks outside actual map)
-    while (i < 0) {
-        i += DK_map_size;
-    }
-    while (i > DK_map_size * 2 + 1) {
-        i -= DK_map_size * 2;
-    }
-    while (j < 0) {
-        j += DK_map_size;
-    }
-    while (j > DK_map_size * 2 + 1) {
-        j -= DK_map_size * 2;
-    }
-
-    // Lookup noise.
-    return *noise_at_index(i, j, l, k);
-}
+///////////////////////////////////////////////////////////////////////////////
+// Map model updating: vertices
+///////////////////////////////////////////////////////////////////////////////
 
 /** Used to differentiate how blocks effect offsetting */
 typedef enum {
@@ -123,21 +114,17 @@ static double noise_factor_block(DK_Offset* offset, const DK_Block* block) {
     return 1;
 }
 
-#define DK_NEQ(a, b) (fabs(b - (a + 0.5)) < 0.01f)
-#define DK_NLT(a, b) (b - (a + 0.5) > 0)
-
 /**
  * Gets noise factor (amplitude) based on neighboring blocks.
  * Also gets a directed offset based on where the neighboring block are (away
  * from empty blocks).
  */
-static double noise_factor(double* offset, double x, double y) {
+static float compute_offset(float* offset, float x, float y) {
     DK_Offset offset_type;
-    double offset_reduction[2] = {1, 1};
+    float offset_reduction[2] = {1, 1};
 
     // Get full coordinate for our doubles (which might be at half coordinates.
-    //const int i = ((int) (x * 2)) >> 1, j = ((int) (y * 2)) >> 1;
-    const int i = (int) (x + 0.1), j = (int) (y + 0.1);
+    const int i = (int) (x + 0.1f), j = (int) (y + 0.1f);
 
     // Find out what kind of point this is, among the following:
     // +---+---+---+
@@ -152,18 +139,18 @@ static double noise_factor(double* offset, double x, double y) {
     // want all. Note that i,j for (1,2,3) will always equal (x,y) for 0.
     int x_begin = i - 1, y_begin = j - 1;
     int x_end, y_end;
-    double normalizer;
+    float normalizer;
     if (fabs(x - i - 0.5f) < 0.01f) {
         // X is halfway, so we're at 1 or 3.
         x_end = i + 1;
         if (fabs(y - j - 0.5f) < 0.01f) {
             // Y is halfway, so we're at 3, the most expensive case.
             y_end = j + 1;
-            normalizer = 9.0;
+            normalizer = 9.0f;
         } else {
             // Y is full, so we're at 1.
             y_end = j;
-            normalizer = 6.0;
+            normalizer = 6.0f;
         }
     } else {
         // X is full, so we're at 0 or 2.
@@ -171,11 +158,11 @@ static double noise_factor(double* offset, double x, double y) {
         if (fabs(y - j - 0.5f) < 0.01f) {
             // Y is halfway, so we're at 2.
             y_end = j + 1;
-            normalizer = 6.0;
+            normalizer = 6.0f;
         } else {
             // Y is full, so we're at 0.
             y_end = j;
-            normalizer = 4.0;
+            normalizer = 4.0f;
         }
     }
 
@@ -193,7 +180,7 @@ static double noise_factor(double* offset, double x, double y) {
     }
 
     // Walk all the block necessary.
-    double factor = 0;
+    float factor = 0;
     int k, l;
     for (k = x_begin; k <= x_end; ++k) {
         for (l = y_begin; l <= y_end; ++l) {
@@ -226,275 +213,46 @@ static double noise_factor(double* offset, double x, double y) {
         const float len = sqrt(offset[0] * offset[0] + offset[1] * offset[1]);
         if (len > 1) {
             offset[0] /= len;
-            offset[1] *= len;
+            offset[1] /= len;
         }
     }
+
+    offset[0] *= DK_BLOCK_MAX_NOISE_OFFSET;
+    offset[1] *= DK_BLOCK_MAX_NOISE_OFFSET;
 
     return factor / normalizer;
 }
 
-#undef DK_NEQ
-#undef DK_NLT
-
-/** Get the actual vertex for a "clean" world coordinate (point) */
-static void get_vertex(double* v, const double* points, int point) {
-    const double* p = &points[point * 3];
+static void update_vertices(int x, int y) {
+    unsigned int z;
+    for (z = 0; z < 5; ++z) {
+        v3f* v = &vertices[XYZ2IF(x, y, z)];
+        const float vx = (x - DK_MAP_BORDER) / 2.0f * DK_BLOCK_SIZE;
+        const float vy = (y - DK_MAP_BORDER) / 2.0f * DK_BLOCK_SIZE;
+        const float vz = z_coords[z];
 #if DK_D_TERRAIN_NOISE
-    double offset[2] = {0, 0};
+        float offset[2] = {0, 0};
+        float factor = 1.0f;
 #if DK_D_USE_NOISE_OFFSET
-    const double factor = noise_factor(offset, p[0] / DK_BLOCK_SIZE, p[1] / DK_BLOCK_SIZE);
-#else
-    const double factor = 1.0;
+        factor = compute_offset(offset, (x - DK_MAP_BORDER) / 2.0f, (y - DK_MAP_BORDER) / 2.0f);
+        const float offset_factor = (0.25f - (fabs(fabs(z / 4.0f - 0.5f) - 0.25f) - 0.25f)) * 3;
+        offset[0] *= offset_factor;
+        offset[1] *= offset_factor;
 #endif
-    const double offset_factor = 2 * (0.75 - fabs(p[2] / DK_BLOCK_HEIGHT - 0.5));
-    offset[0] *= offset_factor;
-    offset[1] *= offset_factor;
-    offset[0] *= DK_BLOCK_MAX_NOISE_OFFSET;
-    offset[1] *= DK_BLOCK_MAX_NOISE_OFFSET;
-#if DK_D_CACHE_NOISE
-    v[0] = p[0] + factor * noise_at(p[0], p[1], p[2], 0) + offset[0];
-    v[1] = p[1] + factor * noise_at(p[0], p[1], p[2], 1) + offset[1];
-    v[2] = p[2] + noise_at(p[0], p[1], p[2], 2);
+        v->x = vx + factor * snoise4(vx, vy, vz, 0) + offset[0];
+        v->y = vy + factor * snoise4(vx, vy, vz, 1) + offset[1];
+        v->z = vz + snoise4(vx, vy, vz, 2);
 #else
-    v[0] = p[0] + factor * snoise4(p[0], p[1], p[2], 0) + offset[0];
-    v[1] = p[1] + factor * snoise4(p[0], p[1], p[2], 1) + offset[1];
-    v[2] = p[2] + snoise4(p[0], p[1], p[2], 2);
+        v->x = vx;
+        v->y = vy;
+        v->z = vz;
 #endif
-#else
-    v[0] = p[0];
-    v[1] = p[1];
-    v[2] = p[2];
-#endif
-}
-
-/** Set a vertex in opengl */
-inline static void set_vertex(const double* points, int point) {
-    get_vertex(last_vertex, points, point);
-    glVertex3dv(last_vertex);
-}
-
-/** Computes the cross product of two 3d vectors */
-inline static void cross(double* cross, const double* v0, const double* v1) {
-    cross[0] = v0[1] * v1[2] - v0[2] * v1[1];
-    cross[1] = v0[2] * v1[0] - v0[0] * v1[2];
-    cross[2] = v0[0] * v1[1] - v0[1] * v1[0];
-}
-
-/** Sets normal for a vertex (base don four neighboring vertices) */
-static void set_normal(const double* points, int i0, int i1, int i2, int i3, int i4, int snap) {
-    if (picking) {
-        return;
     }
-    double p0[3], p1[3], p2[3], p3[3], p4[3];
-    get_vertex(p0, points, i0);
-    get_vertex(p1, points, i1);
-    get_vertex(p2, points, i2);
-    get_vertex(p3, points, i3);
-    get_vertex(p4, points, i4);
-    const double a[] = {
-        p1[0] - p0[0],
-        p1[1] - p0[1],
-        p1[2] - p0[2]
-    };
-    const double b[] = {
-        p2[0] - p0[0],
-        p2[1] - p0[1],
-        p2[2] - p0[2]
-    };
-    const double c[] = {
-        p3[0] - p0[0],
-        p3[1] - p0[1],
-        p3[2] - p0[2]
-    };
-    const double d[] = {
-        p4[0] - p0[0],
-        p4[1] - p0[1],
-        p4[2] - p0[2]
-    };
-
-    double* n = last_normal;
-    double t0[3], t1[3];
-    cross(t0, a, b);
-    cross(t1, b, c);
-    cross(n, c, d);
-    n[0] = (n[0] + t0[0] + t1[0]) / 3.0;
-    n[1] = (n[1] + t0[1] + t1[0]) / 3.0;
-    n[2] = (n[2] + t0[2] + t1[0]) / 3.0;
-
-    if (snap) {
-        // Determine dominant axis.
-        if (fabs(n[0]) > fabs(n[1]) && fabs(n[0]) > fabs(n[2])) {
-            n[0] = n[0] > 0.0 ? 1.0 : -1.0;
-            n[1] = 0.0;
-            n[2] = 0.0;
-        } else if (fabs(n[1]) > fabs(n[2])) {
-            n[0] = 0.0;
-            n[1] = n[1] > 0.0 ? 1.0 : -1.0;
-            n[2] = 0.0;
-        } else {
-            n[0] = 0.0;
-            n[1] = 0.0;
-            n[2] = n[2] > 0.0 ? 1.0 : -1.0;
-        }
-    } else {
-        // Normalize it.
-        const double len = sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
-        n[0] /= len;
-        n[1] /= len;
-        n[2] /= len;
-    }
-
-    glNormal3dv(n);
-}
-
-/**
- * Draw a quad subdivided into 4 quads like so:
- * 
- * 0 - 1 - 2
- * | / | / |
- * 3 - 4 - 5
- * | / | / |
- * 6 - 7 - 8
- * 
- * Where the points argument must contain these 3d positions in the specified
- * order.
- */
-static void draw_4quad(DK_Texture texture, double* points) {
-    // Set surface texture.
-    if (!picking) {
-        const unsigned int variation = (unsigned int) ((snoise2(points[0], points[1] + points[2]) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
-        glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
-    }
-
-    // Top two quads (0 through 5).
-    glBegin(GL_QUAD_STRIP);
-    {
-        // Set normal to predominant axis.
-        set_normal(points, 4, 0, 6, 8, 2, 1);
-
-        glTexCoord2d(0, 0);
-        set_vertex(points, 0);
-
-        glTexCoord2d(0, 0.5);
-        set_vertex(points, 3);
-
-        glTexCoord2d(0.5, 0);
-        set_vertex(points, 1);
-
-        // Center vertex, set average normal.
-        set_normal(points, 4, 0, 6, 8, 2, 0);
-
-        glTexCoord2d(0.5, 0.5);
-        set_vertex(points, 4);
-
-        // And back to predominant one.
-        set_normal(points, 4, 0, 6, 8, 2, 1);
-
-        glTexCoord2d(1, 0);
-        set_vertex(points, 2);
-
-        glTexCoord2d(1, 0.5);
-        set_vertex(points, 5);
-
-    }
-    glEnd();
-
-    // Bottom two quads (3 through 8).
-    glBegin(GL_QUAD_STRIP);
-    {
-        glTexCoord2d(0, 0.5);
-        set_vertex(points, 3);
-
-        glTexCoord2d(0, 1);
-        set_vertex(points, 6);
-
-        // Center vertex, set average normal.
-        set_normal(points, 4, 0, 6, 8, 2, 0);
-
-        glTexCoord2d(0.5, 0.5);
-        set_vertex(points, 4);
-
-        // And back to predominant one.
-        set_normal(points, 4, 0, 6, 8, 2, 1);
-
-        glTexCoord2d(0.5, 1);
-        set_vertex(points, 7);
-
-        glTexCoord2d(1, 0.5);
-        set_vertex(points, 5);
-
-        glTexCoord2d(1, 1);
-        set_vertex(points, 8);
-    }
-    glEnd();
-}
-
-static void draw_outline(double* points) {
-    // Store state.
-    glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT);
-    glPushMatrix();
-
-    // Set up for line drawing.
-    glLineWidth(3.0f);
-    glTranslatef(0, 0, 0.1f);
-    glColor4f(0.5f, 0.5f, 1.0f, 0.5f);
-    glDisable(GL_LIGHTING);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    glBegin(GL_LINES);
-    {
-        set_vertex(points, 0);
-        set_vertex(points, 1);
-        set_vertex(points, 1);
-        set_vertex(points, 2);
-        set_vertex(points, 2);
-        set_vertex(points, 5);
-        set_vertex(points, 5);
-        set_vertex(points, 8);
-        set_vertex(points, 8);
-        set_vertex(points, 7);
-        set_vertex(points, 7);
-        set_vertex(points, 6);
-        set_vertex(points, 6);
-        set_vertex(points, 3);
-        set_vertex(points, 3);
-        set_vertex(points, 0);
-    }
-    glEnd();
-
-    // Reset stuff.
-    glPopMatrix();
-    glPopAttrib();
-}
-
-/** Set a point in a point list to the specified values */
-inline static void set_points(double* points, int point, double x, double y, double z) {
-    points[point * 3] = x;
-    points[point * 3 + 1] = y;
-    points[point * 3 + 2] = z;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Picking
+// Map model updating: normals
 ///////////////////////////////////////////////////////////////////////////////
-
-inline static GLuint pick_block(int x, int y) {
-    GLuint result;
-    picking = 1;
-    result = DK_pick(x, y, &DK_render_map);
-    picking = 0;
-    return result;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Map model computation
-///////////////////////////////////////////////////////////////////////////////
-
-#define XYZD2I(x, y, z, dx, dy) (((z) * (dx) * (dy)) + (y) * (dy) + (x))
-#define XYZ2IF(x, y, z) XYZD2I(x, y, z, vertices_count_full, vertices_count_full)
-#define XYZ2IH(x, y, z) XYZD2I(x, y, z, vertices_count_full, vertices_count_semi)
 
 inline static void crossv3f(v3f* cross, const v3f* a, const v3f* b) {
     cross->x = a->y * b->z - a->z * b->y;
@@ -557,7 +315,7 @@ static void interpolate_normal(v3f* n, const v3f* v0,
     idivsv3f(n, lenv3f(n));
 }
 
-static void recompute_normals(unsigned int x, unsigned int y) {
+static void update_normals(int x, int y) {
     unsigned int z;
     for (z = 1; z < 4; ++z) {
         if ((x & 1) == 0) {
@@ -625,8 +383,63 @@ static void recompute_normals(unsigned int x, unsigned int y) {
     }
 }
 
-static void recompute_offsets(unsigned int x, unsigned int y) {
+///////////////////////////////////////////////////////////////////////////////
+// Block updating
+///////////////////////////////////////////////////////////////////////////////
 
+void update_block(DK_Block* block) {
+    // Ignore requests for invalid blocks.
+    if (!block) {
+        return;
+    }
+
+    unsigned short x, y;
+    if (!DK_block_coordinates(&x, &y, block)) {
+        // Out of bounds, ignore.
+        return;
+    }
+
+    // Update values.
+    if (block->owner == DK_PLAYER_NONE) {
+        if (block->type == DK_BLOCK_DIRT) {
+            block->strength = DK_BLOCK_DIRT_STRENGTH;
+            block->health = DK_BLOCK_DIRT_HEALTH;
+        } else if (block->type == DK_BLOCK_NONE) {
+            block->strength = DK_BLOCK_NONE_STRENGTH;
+        }
+    } else {
+        if (block->type == DK_BLOCK_DIRT) {
+            block->strength = DK_BLOCK_DIRT_OWNED_STRENGTH;
+            block->health = DK_BLOCK_DIRT_HEALTH;
+        } else if (block->type == DK_BLOCK_NONE) {
+            block->strength = DK_BLOCK_NONE_OWNED_STRENGTH;
+        }
+    }
+
+    // Update model.
+    int start_x = x * 2 - 1 + DK_MAP_BORDER;
+    int start_y = y * 2 - 1 + DK_MAP_BORDER;
+    int end_x = x * 2 + 3 + DK_MAP_BORDER;
+    int end_y = y * 2 + 3 + DK_MAP_BORDER;
+
+    int lx, ly;
+    for (lx = start_x; lx < end_x; ++lx) {
+        for (ly = start_y; ly < end_y; ++ly) {
+            update_vertices(lx, ly);
+        }
+    }
+
+    for (lx = start_x; lx < end_x; ++lx) {
+        for (ly = start_y; ly < end_y; ++ly) {
+            update_normals(lx, ly);
+        }
+    }
+
+    // Update jobs for this block by deselecting it.
+    int i;
+    for (i = 0; i < DK_PLAYER_COUNT; ++i) {
+        DK_block_deselect(i, x, y);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -634,6 +447,9 @@ static void recompute_offsets(unsigned int x, unsigned int y) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static void draw_top(int x, int y, unsigned int z, DK_Texture texture, int outline) {
+    x += DK_MAP_BORDER / 2;
+    y += DK_MAP_BORDER / 2;
+
     const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
     glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
 
@@ -778,6 +594,9 @@ static void draw_top(int x, int y, unsigned int z, DK_Texture texture, int outli
 }
 
 static void draw_east(int x, int y, unsigned int z, DK_Texture texture, int outline) {
+    x += DK_MAP_BORDER / 2;
+    y += DK_MAP_BORDER / 2;
+
     const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
     glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
 
@@ -930,6 +749,9 @@ static void draw_east(int x, int y, unsigned int z, DK_Texture texture, int outl
 }
 
 static void draw_west(int x, int y, unsigned int z, DK_Texture texture, int outline) {
+    x += DK_MAP_BORDER / 2;
+    y += DK_MAP_BORDER / 2;
+
     const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
     glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
 
@@ -1074,6 +896,9 @@ static void draw_west(int x, int y, unsigned int z, DK_Texture texture, int outl
 }
 
 static void draw_north(int x, int y, unsigned int z, DK_Texture texture, int outline) {
+    x += DK_MAP_BORDER / 2;
+    y += DK_MAP_BORDER / 2;
+
     const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
     glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
 
@@ -1218,6 +1043,9 @@ static void draw_north(int x, int y, unsigned int z, DK_Texture texture, int out
 }
 
 static void draw_south(int x, int y, unsigned int z, DK_Texture texture, int outline) {
+    x += DK_MAP_BORDER / 2;
+    y += DK_MAP_BORDER / 2;
+
     const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
     glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
 
@@ -1362,14 +1190,6 @@ static void draw_south(int x, int y, unsigned int z, DK_Texture texture, int out
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Miscellaneous
-///////////////////////////////////////////////////////////////////////////////
-
-inline static int block_index_valid(int x, int y) {
-    return x >= 0 && y >= 0 && x < DK_map_size && y < DK_map_size;
-}
-
-///////////////////////////////////////////////////////////////////////////////
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1392,8 +1212,8 @@ void DK_init_map(unsigned short size) {
         free(normals_z);
 
         // Allocate new map model data.
-        vertices_count_full = size * 2 + 1;
-        vertices_count_semi = size + 1;
+        vertices_count_full = (size + DK_MAP_BORDER) * 2 + 1;
+        vertices_count_semi = (size + DK_MAP_BORDER) + 1;
         vertices = calloc(vertices_count_full * vertices_count_full * 5, sizeof (v3f));
         normals_x = calloc(vertices_count_semi * vertices_count_full * 5, sizeof (v3f));
         normals_y = calloc(vertices_count_semi * vertices_count_full * 5, sizeof (v3f));
@@ -1406,7 +1226,7 @@ void DK_init_map(unsigned short size) {
     }
 
     // Initialize map data.
-    unsigned int x, y, z;
+    int x, y, z;
     for (x = 0; x < size; ++x) {
         for (y = 0; y < size; ++y) {
             DK_Block* block = &map[x + y * size];
@@ -1417,21 +1237,20 @@ void DK_init_map(unsigned short size) {
         }
     }
 
+    // Remember new map size (needed *now* for offset computation).
+    DK_map_size = size;
+
     // Initialize map model data.
 
     // Pass 1: set vertex positions.
     for (x = 0; x < vertices_count_full; ++x) {
         for (y = 0; y < vertices_count_full; ++y) {
-            for (z = 0; z < 5; ++z) {
-                v3f* v = &vertices[XYZ2IF(x, y, z)];
-                const float vx = x * DK_BLOCK_SIZE / 2.0f;
-                const float vy = y * DK_BLOCK_SIZE / 2.0f;
-                const float vz = z_coords[z];
-                v->x = vx + snoise4(vx, vy, vz, 0);
-                v->y = vy + snoise4(vx, vy, vz, 1);
-                v->z = vz + snoise4(vx, vy, vz, 2);
+            update_vertices(x, y);
 
-                // Initialize normals to defaults.
+            // Initialize normals to defaults (especially the border cases, i.e.
+            // at 0 and max, because those aren't computed dynamically to avoid
+            // having to check the border cases).
+            for (z = 0; z < 5; ++z) {
                 if ((x & 1) == 0) {
                     // Compute x normals.
                     v3f* n = &normals_x[XYZ2IH(x / 2, y, z)];
@@ -1459,27 +1278,9 @@ void DK_init_map(unsigned short size) {
     // Pass 2: compute normals.
     for (x = 1; x < vertices_count_full - 1; ++x) {
         for (y = 1; y < vertices_count_full - 1; ++y) {
-            recompute_normals(x, y);
+            update_normals(x, y);
         }
     }
-
-#if DK_D_CACHE_NOISE
-    free(map_noise);
-    map_noise = calloc((size * 2 + 1) * (size * 2 + 1) * 3 * 3, sizeof (double));
-    int l;
-    for (x = 0; x < size * 2 + 1; ++x) {
-        for (y = 0; y < size * 2 + 1; ++y) {
-            for (z = 0; z < 3; ++z) {
-                for (l = 0; l < 3; ++l) {
-                    *noise_at_index(x, y, z, l) = snoise4(x * DK_BLOCK_SIZE / 2.0, y * DK_BLOCK_SIZE / 2.0, z / 2.0 * DK_BLOCK_HEIGHT, l);
-                }
-            }
-        }
-    }
-#endif
-
-    // Remember new map size.
-    DK_map_size = size;
 }
 
 void DK_update_map() {
@@ -1498,11 +1299,7 @@ void DK_render_map() {
     int x, y, z;
 
     for (x = x_begin; x < x_end; ++x) {
-        float x_coord = x * (DK_BLOCK_SIZE);
-
         for (y = y_begin; y < y_end; ++y) {
-            float y_coord = y * (DK_BLOCK_SIZE);
-
             // Mark for select mode, coordinates of that block.
             if (picking) {
                 glLoadName(((unsigned short) y << 16) | (unsigned short) x);
@@ -1582,8 +1379,6 @@ void DK_render_map() {
                 }
             }
 
-            if (x < 0 || x >= DK_map_size || y < 0 || y >= DK_map_size) continue;
-
             //draw_4quad(texture_top, points);
             draw_top(x, y, z, texture_top, should_outline);
 
@@ -1651,7 +1446,7 @@ void DK_render_map() {
 }
 
 DK_Block* DK_block_at(int x, int y) {
-    if (block_index_valid(x, y)) {
+    if (x >= 0 && y >= 0 && x < DK_map_size && y < DK_map_size) {
         return &map[y * DK_map_size + x];
     }
     return NULL;
@@ -1699,13 +1494,8 @@ int DK_block_damage(DK_Block* block, unsigned int damage) {
     block->owner = DK_PLAYER_NONE;
     block->strength = DK_BLOCK_NONE_STRENGTH;
 
-    unsigned short x, y;
-    DK_block_coordinates(&x, &y, block);
-
-    int i;
-    for (i = 0; i < DK_PLAYER_COUNT; ++i) {
-        DK_block_deselect(i, x, y);
-    }
+    // Update visual representation of the surroundings.
+    update_block(block);
 
     return 1;
 }
@@ -1721,11 +1511,11 @@ int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
         }
     } else {
         // Owned by this player, repair it.
-        if (block->strength + strength < DK_BLOCK_OWNED_STRENGTH) {
+        if (block->strength + strength < DK_BLOCK_NONE_OWNED_STRENGTH) {
             block->strength += strength;
             return 0;
         } else {
-            block->strength = DK_BLOCK_OWNED_STRENGTH;
+            block->strength = DK_BLOCK_NONE_OWNED_STRENGTH;
             DK_block_coordinates(&x, &y, block);
             DK_update_jobs(player, x, y);
             return 1;
@@ -1733,7 +1523,7 @@ int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
     }
 
     // Block is completely converted.
-    block->strength = DK_BLOCK_OWNED_STRENGTH;
+    block->strength = DK_BLOCK_NONE_OWNED_STRENGTH;
     block->owner = player;
     DK_block_coordinates(&x, &y, block);
 
@@ -1742,5 +1532,25 @@ int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
         DK_block_deselect(i, x, y);
     }
 
+    // Update visual representation of the surroundings.
+    update_block(block);
+
     return 1;
 }
+
+void DK_block_set_type(DK_Block* block, DK_BlockType type) {
+    block->type = type;
+    update_block(block);
+}
+
+void DK_block_set_owner(DK_Block* block, DK_Player player) {
+    block->owner = player;
+    update_block(block);
+}
+
+#undef XYZD2I
+#undef XYZ2IF
+#undef XYZ2IH
+
+#undef DK_NEQ
+#undef DK_NLT
