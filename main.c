@@ -185,54 +185,9 @@ void DK_init(void) {
     DK_block_set_type(DK_block_at(11, 9), DK_BLOCK_WATER);
     //DK_block_at(9, 8)->owner = DK_PLAYER_RED;
 
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 9);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 8);
-    DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
+    for (i = 0; i < 2; ++i) {
+        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+    }
 }
 
 static void init_lighting(void) {

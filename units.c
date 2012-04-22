@@ -108,13 +108,19 @@ typedef struct {
     DK_Job* job;
 
     /** The path the unit currently follows (if moving) */
-    AStar_Waypoint path[DK_AI_PATH_MAX];
+    AStar_Waypoint path[DK_AI_PATH_MAX + 2];
 
     /** The total depth of the path (number of nodes) */
     unsigned int path_depth;
 
     /** The current node of the path */
     unsigned int path_index;
+
+    /** Distance to next node in the path */
+    float path_distance;
+
+    /** Distance already traveled to the next node */
+    float path_traveled;
 
     /** Enemy the unit currently attacks */
     unsigned int enemy;
@@ -129,12 +135,6 @@ struct DK_Unit {
 
     /** Current position of the unit */
     float x, y;
-
-    /** Target position the unit is moving to */
-    float tx, ty;
-
-    /** The unit's movement speed */
-    float ms;
 
     /** Cooldowns for unit abilities */
     unsigned int cooldowns[DK_UNITS_MAX_ABILITIES];
@@ -172,52 +172,10 @@ static unsigned int unit_count[DK_PLAYER_COUNT] = {0};
 // Internal update methods
 ///////////////////////////////////////////////////////////////////////////////
 
-static void update_position(DK_Unit* unit) {
-    // Get unit vector to target.
-    const float dx = unit->tx - unit->x;
-    const float dy = unit->ty - unit->y;
-    if (fabs(dx) > 0.001f || fabs(dy) > 0.001f) {
-        const float l = sqrt(dx * dx + dy * dy);
-
-        if (l <= unit->ms) {
-            // This step will get us to our target position.
-            unit->x = unit->tx;
-            unit->y = unit->ty;
-        } else {
-            // Still have some way to go, normalize deltas and apply movement speed
-            // to update the position.
-            /*
-                        const float pdx = unit->px - unit->x;
-                        const float pdy = unit->py - unit->y;
-                        const float pl = sqrt(pdx * pdx + pdy * pdy);
-
-                        const float s = l / pl; // scale s to go from 0 to 1
-                        const float s2 = s + s;
-                        const float s3 = s2 + s;
-                        const float sp2 = s * s;
-                        const float sp3 = s * s * s;
-                        const float s2p3 = s2 * s2*s2;
-                        const float s3p2 = s3 * s3;
-                        const float h1 = s2p3 - s3p2 + 1; // calculate basis function 1
-                        const float h2 = s3p2 - s2p3; // calculate basis function 2
-                        const float h3 = sp3 - 2 * sp2 + s; // calculate basis function 3
-                        const float h4 = sp3 - sp2; // calculate basis function 4
-                        const float px = h1 * unit->px + h2 * unit->tx + h3 * unit->tx + h;
-                        vector p = h1 * P1 + // multiply and sum all funtions
-                                h2 * P2 + // together to build the interpolated
-                                h3 * T1 + // point along the curve.
-                                h4*T2;
-             */
-
-            const float factor = unit->ms / l;
-            unit->x += dx * factor;
-            unit->y += dy * factor;
-        }
-    } else {
-        // Pretty much at target, set directly.
-        unit->x = unit->tx;
-        unit->y = unit->ty;
-    }
+static float catmull_rom(float p0, float p1, float p2, float p3, float t) {
+    const float m1 = DK_AI_CATMULL_ROM_T * (p2 - p0);
+    const float m2 = DK_AI_CATMULL_ROM_T * (p3 - p1);
+    return (2 * p1 - 2 * p2 + m1 + m2) * t * t * t + (-3 * p1 + 3 * p2 - 2 * m1 - m2) * t * t + m1 * t + p1;
 }
 
 static void update_ai(DK_Unit* unit) {
@@ -314,8 +272,27 @@ static void update_ai(DK_Unit* unit) {
                             best_distance = distance;
                             best_penalty = penalty;
                             best_job = job;
-                            memcpy(moveNode->path, path, depth * sizeof (AStar_Waypoint));
+                            memcpy(&moveNode->path[1], path, depth * sizeof (AStar_Waypoint));
                             moveNode->path_depth = depth;
+                            // Generate endpoints for catmull-rom spline; just
+                            // extend the path in the direction of the last two
+                            // nodes before that end.
+                            {
+                                const float dlx = moveNode->path[1].x - moveNode->path[2].x;
+                                const float dly = moveNode->path[1].y - moveNode->path[2].y;
+                                const float l = sqrtf(dlx * dlx + dly * dly);
+                                moveNode->path[0].x = moveNode->path[1].x + dlx / l;
+                                moveNode->path[0].y = moveNode->path[1].y + dly / l;
+                            }
+                            {
+                                const float dlx = moveNode->path[depth].x - moveNode->path[depth - 1].x;
+                                const float dly = moveNode->path[depth].y - moveNode->path[depth - 1].y;
+                                const float l = sqrtf(dlx * dlx + dly * dly);
+                                moveNode->path[depth + 1].x = moveNode->path[depth].x + dlx / l;
+                                moveNode->path[depth + 1].y = moveNode->path[depth].y + dly / l;
+                            }
+
+                            // Save the job type.
                             switch (job->type) {
                                 case DK_JOB_DIG:
                                     jobNode->state = DK_AI_IMP_DIG;
@@ -324,6 +301,8 @@ static void update_ai(DK_Unit* unit) {
                                     jobNode->state = DK_AI_IMP_CONVERT;
                                     break;
                             }
+
+                            // And the job.
                             jobNode->job = job;
                         }
                     }
@@ -333,9 +312,14 @@ static void update_ai(DK_Unit* unit) {
                     // We found work, reserve it for ourselves and active the
                     // two jobs (work + move).
                     best_job->worker = unit;
-                    unit->tx = moveNode->path[0].x;
-                    unit->ty = moveNode->path[0].y;
+
+                    // Trigger computation of the next segment by setting the
+                    // distance to zero.
                     moveNode->path_index = 1;
+                    moveNode->path_distance = 0;
+                    moveNode->path_traveled = 0;
+
+                    // Remember we extended the stack.
                     unit->ai_count += 2;
                 } else {
                     if (ai->wander_delay > 0) {
@@ -363,9 +347,21 @@ static void update_ai(DK_Unit* unit) {
                                 wy = DK_map_size - 0.2f;
                             }
                             if (DK_block_is_passable(DK_block_at((int) wx, (int) wy), unit)) {
-                                // TODO: avoid getting too close to walls
-                                unit->tx = wx;
-                                unit->ty = wy;
+                                // OK, move.
+                                moveNode = &unit->ai[unit->ai_count++];
+                                moveNode->state = DK_AI_MOVE;
+                                moveNode->path[0].x = 2 * unit->x - wx;
+                                moveNode->path[0].y = 2 * unit->y - wy;
+                                moveNode->path[1].x = unit->x;
+                                moveNode->path[1].y = unit->y;
+                                moveNode->path[2].x = wx;
+                                moveNode->path[2].y = wy;
+                                moveNode->path[3].x = 2 * wx - unit->x;
+                                moveNode->path[3].y = 2 * wy - unit->y;
+                                moveNode->path_depth = 2;
+                                moveNode->path_index = 1;
+                                moveNode->path_distance = 0;
+                                moveNode->path_traveled = 0;
                                 break;
                             }
                         }
@@ -383,19 +379,52 @@ static void update_ai(DK_Unit* unit) {
         }
         case DK_AI_MOVE:
         {
-            // AI is moving, check if we're there yet.
-            if (fabs(unit->tx - unit->x) < 0.01f &&
-                    fabs(unit->ty - unit->y) < 0.01f) {
-                // Reached local checkpoint, see if we're at our final goal.
-                if (ai->path_index == ai->path_depth) {
-                    // Yes, we reached our goal, pop the state.
+            // AI is moving. Apply movement.
+            ai->path_traveled += move_speeds[unit->type];
+
+            // Test if we reached the waypoint.
+            if (ai->path_traveled > ai->path_distance) {
+                // Yes, try to advance to the next one.
+                ++ai->path_index;
+                if (ai->path_index > ai->path_depth) {
+                    // Reached final node, we're done.
+                    unit->x = ai->path[ai->path_index - 1].x;
+                    unit->y = ai->path[ai->path_index - 1].y;
                     --unit->ai_count;
+                    break;
                 } else {
-                    // Not yet, set the next waypoint.
-                    unit->tx = ai->path[ai->path_index].x;
-                    unit->ty = ai->path[ai->path_index].y;
-                    ++ai->path_index;
+
+                    // Subtract length of previous to carry surplus movement.
+                    ai->path_traveled -= ai->path_distance;
+                    // Update to new distance.
+                    if (DK_AI_PATH_INTERPOLATE) {
+                        int e;
+                        float x, y, dx, dy;
+                        float lx = ai->path[ai->path_index - 1].x;
+                        float ly = ai->path[ai->path_index - 1].y;
+                        ai->path_distance = 0;
+                        for (e = 1; e <= DK_AI_PATH_INTERPOLATION; ++e) {
+                            const float t = e / (float) DK_AI_PATH_INTERPOLATION;
+                            x = catmull_rom(ai->path[ai->path_index - 2].x, ai->path[ai->path_index - 1].x, ai->path[ai->path_index].x, ai->path[ai->path_index + 1].x, t);
+                            y = catmull_rom(ai->path[ai->path_index - 2].y, ai->path[ai->path_index - 1].y, ai->path[ai->path_index].y, ai->path[ai->path_index + 1].y, t);
+                            dx = x - lx;
+                            dy = y - ly;
+                            lx = x;
+                            ly = y;
+                            ai->path_distance += sqrtf(dx * dx + dy * dy);
+                        }
+                    } else {
+                        const float dx = ai->path[ai->path_index].x - ai->path[ai->path_index - 1].x;
+                        const float dy = ai->path[ai->path_index].y - ai->path[ai->path_index - 1].y;
+                        ai->path_distance = sqrtf(dx * dx + dy * dy);
+                    }
                 }
+            }
+            // Compute actual position of the unit.
+            {
+                const float t = ai->path_traveled / ai->path_distance;
+                unit->x = catmull_rom(ai->path[ai->path_index - 2].x, ai->path[ai->path_index - 1].x, ai->path[ai->path_index].x, ai->path[ai->path_index + 1].x, t);
+                unit->y = catmull_rom(ai->path[ai->path_index - 2].y, ai->path[ai->path_index - 1].y, ai->path[ai->path_index].y, ai->path[ai->path_index + 1].y, t);
             }
             break;
         }
@@ -465,7 +494,6 @@ void DK_update_units(void) {
     for (i = 0; i < total_unit_count; ++i) {
         DK_Unit* unit = &units[i];
 
-        update_position(unit);
         update_ai(unit);
     }
 }
@@ -518,15 +546,29 @@ void DK_render_units(void) {
                 glDisable(GL_LIGHTING);
                 glBegin(GL_LINES);
                 {
-                    glVertex3f(unit->x * DK_BLOCK_SIZE, unit->y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
-                    glVertex3f(unit->tx * DK_BLOCK_SIZE, unit->ty * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
-
-                    for (j = ai->path_index - 1; j < ai->path_depth - 1; ++j) {
-                        glVertex3f(ai->path[j].x * DK_BLOCK_SIZE, ai->path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
-                        glVertex3f(ai->path[j + 1].x * DK_BLOCK_SIZE, ai->path[j + 1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                    glVertex3f(ai->path[1].x * DK_BLOCK_SIZE, ai->path[1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                    for (j = 2; j <= ai->path_depth; ++j) {
+                        // Somewhere in the middle, smooth the path.
+                        int k;
+                        for (k = 1; k < 20; ++k) {
+                            const float t = k / 20.0f;
+                            const float x = catmull_rom(ai->path[j - 2].x, ai->path[j - 1].x, ai->path[j].x, ai->path[j + 1].x, t);
+                            const float y = catmull_rom(ai->path[j - 2].y, ai->path[j - 1].y, ai->path[j].y, ai->path[j + 1].y, t);
+                            glVertex3f(x * DK_BLOCK_SIZE, y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                            glVertex3f(x * DK_BLOCK_SIZE, y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                        }
                     }
+                    glVertex3f(ai->path[j - 1].x * DK_BLOCK_SIZE, ai->path[j - 1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
                 }
                 glEnd();
+
+                glColor3f(0.8f, 0.4f, 0.4f);
+                for (j = 1; j <= ai->path_depth; ++j) {
+                    glPushMatrix();
+                    glTranslatef(ai->path[j].x * DK_BLOCK_SIZE, ai->path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                    gluSphere(quadratic, 0.5f, 8, 8);
+                    glPopMatrix();
+                }
                 glPopAttrib();
             }
         }
@@ -546,9 +588,6 @@ unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, u
         unit->owner = player;
         unit->x = (x + 0.5f);
         unit->y = (y + 0.5f);
-        unit->tx = unit->x;
-        unit->ty = unit->y;
-        unit->ms = move_speeds[type];
 
         ++total_unit_count;
         ++unit_count[player];
@@ -566,11 +605,7 @@ void DK_unit_cancel_job(DK_Unit* unit) {
                 // It wasn't canceled yet.
                 ai->job->worker = 0;
                 ai->job = 0;
-                // Do *not* stop! Looks more natural and will avoid units
-                // jittering in the middle of nowhere because all their jobs
-                // get stolen :P
-                //unit->tx = unit->x;
-                //unit->ty = unit->y;
+                // TODO don't interrupt other tasks higher on the ai stack
             }
             // Remember how much we had to pop.
             unit->ai_count -= backtrack - 1;

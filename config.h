@@ -96,6 +96,15 @@ int DK_use_fog;
 /** Maximum path length a unit can keep track of */
 #define DK_AI_PATH_MAX 32
 
+/** Whether to use interpolation for estimating path segment lengths */
+#define DK_AI_PATH_INTERPOLATE 1
+
+/** Factor to use for catmull rom path smoothing */
+#define DK_AI_CATMULL_ROM_T 0.4f
+
+/** Interpolation steps to compute when estimating a path segment's length */
+#define DK_AI_PATH_INTERPOLATION 4
+
 /** Bonus accounted to a worker that's already on a job when checking if closer */
 #define DK_AI_ALREADY_WORKING_BONUS 0.5
 
