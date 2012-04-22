@@ -54,10 +54,10 @@ int DK_use_fog;
 #define DK_JOB_DIG_PRIORITY 0
 
 /** Priority for converting floor tiles */
-#define DK_JOB_CONVERT_FLOOR_PRIORITY DK_BLOCK_SIZE * 8
+#define DK_JOB_CONVERT_FLOOR_PRIORITY 8
 
 /** Priority for converting walls */
-#define DK_JOB_CONVERT_WALL_PRIORITY DK_BLOCK_SIZE * 16
+#define DK_JOB_CONVERT_WALL_PRIORITY 16
 
 ///////////////////////////////////////////////////////////////////////////////
 // Path finding
@@ -97,7 +97,7 @@ int DK_use_fog;
 #define DK_AI_PATH_MAX 32
 
 /** Bonus accounted to a worker that's already on a job when checking if closer */
-#define DK_AI_ALREADY_WORKING_BONUS DK_BLOCK_SIZE / 2
+#define DK_AI_ALREADY_WORKING_BONUS 0.5
 
 /** Defines how capacity of lists grows when exceeded */
 #define DK_AI_JOB_CAPACITY_GROWTH(old_capacity) (old_capacity * 2 + 16)

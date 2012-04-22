@@ -95,11 +95,18 @@ typedef enum {
 } AI_Job;
 
 typedef struct {
-    unsigned int delay;
-    unsigned int wander_delay;
-} AIJob_Idle;
+    /** The type of this AI entry */
+    AI_Job state;
 
-typedef struct {
+    /** Delay for idling (before next check if there's something to do) */
+    unsigned int delay;
+
+    /** Delay (in number of idle updates) before wandering around again */
+    unsigned int wander_delay;
+
+    /** The job the unit currently performs */
+    DK_Job* job;
+
     /** The path the unit currently follows (if moving) */
     AStar_Waypoint path[DK_AI_PATH_MAX];
 
@@ -108,33 +115,9 @@ typedef struct {
 
     /** The current node of the path */
     unsigned int path_index;
-} AIJob_Move;
 
-typedef struct {
-    /** The actual job this task represents */
-    DK_Job* job;
-} AIJob_DigConvert;
-
-typedef struct {
     /** Enemy the unit currently attacks */
     unsigned int enemy;
-
-} AIJob_Attack;
-
-/** Get size of largest info struct */
-#define SIZE0 sizeof(AIJob_Idle)
-#define SIZE1 sizeof(AIJob_Move)
-#define SIZE2 sizeof(AIJob_DigConvert)
-#define SIZE3 sizeof(AIJob_Attack)
-#define MAX(A, B) ((A) > (B) ? (A) : (B))
-#define MAX_JOB_SIZE MAX(MAX(MAX(SIZE0, SIZE1), SIZE2), SIZE3)
-
-typedef struct {
-    /** The type of this AI entry */
-    AI_Job state;
-
-    /** Statically allocated data for this AI entry */
-    char info[MAX_JOB_SIZE];
 } AI_Node;
 
 struct DK_Unit {
@@ -241,10 +224,10 @@ static void update_ai(DK_Unit* unit) {
     AI_Node* ai;
     if (unit->ai_count == 0) {
         // Switch to idle state if there is none set.
-        AIJob_Idle* idle = (AIJob_Idle*) unit->ai[0].info;
-        unit->ai[0].state = DK_AI_IDLE;
-        idle->delay = DK_AI_IDLE_DELAY / 2 + (rand() * DK_AI_IDLE_DELAY / 2 / RAND_MAX);
-        idle->wander_delay = DK_AI_WANDER_DELAY;
+        ai = &unit->ai[0];
+        ai->state = DK_AI_IDLE;
+        ai->delay = DK_AI_IDLE_DELAY / 2 + (rand() * DK_AI_IDLE_DELAY / 2 / RAND_MAX);
+        ai->wander_delay = DK_AI_WANDER_DELAY;
 
         unit->ai_count = 1;
     }
@@ -252,10 +235,9 @@ static void update_ai(DK_Unit* unit) {
     switch (ai->state) {
         case DK_AI_IDLE:
         {
-            AIJob_Idle* idle = (AIJob_Idle*) ai->info;
-            if (idle->delay > 0) {
+            if (ai->delay > 0) {
                 // Still waiting, skip for now.
-                --idle->delay;
+                --ai->delay;
                 break;
             }
 
@@ -272,7 +254,6 @@ static void update_ai(DK_Unit* unit) {
                 // the actual work task, one for getting there.
                 AI_Node* jobNode = &unit->ai[unit->ai_count];
                 AI_Node* moveNode = &unit->ai[unit->ai_count + 1];
-                AIJob_Move* move = (AIJob_Move*) moveNode->info;
                 moveNode->state = DK_AI_MOVE;
 
                 for (; job_count > 0; --job_count) {
@@ -333,8 +314,8 @@ static void update_ai(DK_Unit* unit) {
                             best_distance = distance;
                             best_penalty = penalty;
                             best_job = job;
-                            memcpy(move->path, path, depth * sizeof (AStar_Waypoint));
-                            move->path_depth = depth;
+                            memcpy(moveNode->path, path, depth * sizeof (AStar_Waypoint));
+                            moveNode->path_depth = depth;
                             switch (job->type) {
                                 case DK_JOB_DIG:
                                     jobNode->state = DK_AI_IMP_DIG;
@@ -343,7 +324,7 @@ static void update_ai(DK_Unit* unit) {
                                     jobNode->state = DK_AI_IMP_CONVERT;
                                     break;
                             }
-                            ((AIJob_DigConvert*) jobNode->info)->job = job;
+                            jobNode->job = job;
                         }
                     }
                 }
@@ -352,13 +333,13 @@ static void update_ai(DK_Unit* unit) {
                     // We found work, reserve it for ourselves and active the
                     // two jobs (work + move).
                     best_job->worker = unit;
-                    unit->tx = move->path[0].x;
-                    unit->ty = move->path[0].y;
-                    move->path_index = 1;
+                    unit->tx = moveNode->path[0].x;
+                    unit->ty = moveNode->path[0].y;
+                    moveNode->path_index = 1;
                     unit->ai_count += 2;
                 } else {
-                    if (idle->wander_delay > 0) {
-                        --idle->wander_delay;
+                    if (ai->wander_delay > 0) {
+                        --ai->wander_delay;
                     } else {
                         // Just walk around dumbly.
                         int i;
@@ -390,12 +371,12 @@ static void update_ai(DK_Unit* unit) {
                         }
 
                         // Wait a bit before trying again.
-                        idle->wander_delay = DK_AI_WANDER_DELAY;
+                        ai->wander_delay = DK_AI_WANDER_DELAY;
                     }
 
                     // Update delay. Don't update it if we found a job, to allow
                     // looking for a job again, directly after finishing the last.
-                    idle->delay = DK_AI_IDLE_DELAY / 2 + (rand() * DK_AI_IDLE_DELAY / 2 / RAND_MAX);
+                    ai->delay = DK_AI_IDLE_DELAY / 2 + (rand() * DK_AI_IDLE_DELAY / 2 / RAND_MAX);
                 }
             }
             break;
@@ -406,15 +387,14 @@ static void update_ai(DK_Unit* unit) {
             if (fabs(unit->tx - unit->x) < 0.01f &&
                     fabs(unit->ty - unit->y) < 0.01f) {
                 // Reached local checkpoint, see if we're at our final goal.
-                AIJob_Move* info = (AIJob_Move*) ai->info;
-                if (info->path_index == info->path_depth) {
+                if (ai->path_index == ai->path_depth) {
                     // Yes, we reached our goal, pop the state.
                     --unit->ai_count;
                 } else {
                     // Not yet, set the next waypoint.
-                    unit->tx = info->path[info->path_index].x;
-                    unit->ty = info->path[info->path_index].y;
-                    ++info->path_index;
+                    unit->tx = ai->path[ai->path_index].x;
+                    unit->ty = ai->path[ai->path_index].y;
+                    ++ai->path_index;
                 }
             }
             break;
@@ -422,8 +402,7 @@ static void update_ai(DK_Unit* unit) {
         case DK_AI_IMP_DIG:
         {
             // Stop if the job got voided.
-            AIJob_DigConvert* info = (AIJob_DigConvert*) ai->info;
-            if (!info->job) {
+            if (!ai->job) {
                 --unit->ai_count;
                 break;
             }
@@ -437,7 +416,7 @@ static void update_ai(DK_Unit* unit) {
             // Else attack the dirt! Update cooldown and apply damage.
             unit->cooldowns[DK_ABILITY_IMP_ATTACK] =
                     cooldowns[DK_UNIT_IMP][DK_ABILITY_IMP_ATTACK];
-            if (DK_block_damage(info->job->block, damage[DK_UNIT_IMP][DK_ABILITY_IMP_ATTACK])) {
+            if (DK_block_damage(ai->job->block, damage[DK_UNIT_IMP][DK_ABILITY_IMP_ATTACK])) {
                 // Block was destroyed! Job done.
                 --unit->ai_count;
             }
@@ -446,8 +425,7 @@ static void update_ai(DK_Unit* unit) {
         case DK_AI_IMP_CONVERT:
         {
             // Stop if the job got voided.
-            AIJob_DigConvert* info = (AIJob_DigConvert*) ai->info;
-            if (!info->job) {
+            if (!ai->job) {
                 --unit->ai_count;
                 break;
             }
@@ -461,7 +439,7 @@ static void update_ai(DK_Unit* unit) {
             // Else hoyoyo! Update cooldown and apply conversion.
             unit->cooldowns[DK_ABILITY_IMP_CONVERT] =
                     cooldowns[DK_UNIT_IMP][DK_ABILITY_IMP_CONVERT];
-            if (DK_block_convert(info->job->block, damage[DK_UNIT_IMP][DK_ABILITY_IMP_CONVERT], unit->owner)) {
+            if (DK_block_convert(ai->job->block, damage[DK_UNIT_IMP][DK_ABILITY_IMP_CONVERT], unit->owner)) {
                 // Block was destroyed! Job done.
                 --unit->ai_count;
             }
@@ -503,12 +481,13 @@ void DK_render_units(void) {
 
     for (i = 0; i < total_unit_count; ++i) {
         DK_Unit* unit = &units[i];
+        AI_Node* ai = &unit->ai[unit->ai_count - 1];
         switch (unit->type) {
             default:
                 // Push name of the unit.
                 glLoadName(i);
                 glDisable(GL_LIGHTING);
-                switch (unit->ai[unit->ai_count - 1].state) {
+                switch (ai->state) {
                     case DK_AI_MOVE:
                         glColor3f(0.9f, 0.9f, 0.9f);
                         break;
@@ -531,7 +510,7 @@ void DK_render_units(void) {
         }
 
         if (DK_d_draw_paths) {
-            if (unit->ai[unit->ai_count - 1].state == DK_AI_MOVE) {
+            if (ai->state == DK_AI_MOVE) {
                 glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT);
 
                 glColor3f(0.8f, 0.8f, 0.9f);
@@ -539,14 +518,12 @@ void DK_render_units(void) {
                 glDisable(GL_LIGHTING);
                 glBegin(GL_LINES);
                 {
-                    AIJob_Move* info = (AIJob_Move*) unit->ai[unit->ai_count - 1].info;
-
                     glVertex3f(unit->x * DK_BLOCK_SIZE, unit->y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
                     glVertex3f(unit->tx * DK_BLOCK_SIZE, unit->ty * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
 
-                    for (j = info->path_index - 1; j < info->path_depth - 1; ++j) {
-                        glVertex3f(info->path[j].x * DK_BLOCK_SIZE, info->path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
-                        glVertex3f(info->path[j + 1].x * DK_BLOCK_SIZE, info->path[j + 1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                    for (j = ai->path_index - 1; j < ai->path_depth - 1; ++j) {
+                        glVertex3f(ai->path[j].x * DK_BLOCK_SIZE, ai->path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                        glVertex3f(ai->path[j + 1].x * DK_BLOCK_SIZE, ai->path[j + 1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
                     }
                 }
                 glEnd();
@@ -585,11 +562,10 @@ void DK_unit_cancel_job(DK_Unit* unit) {
         AI_Node* ai = &unit->ai[unit->ai_count - backtrack];
         if (ai->state == DK_AI_IMP_DIG || ai->state == DK_AI_IMP_CONVERT) {
             // Found the job we want to cancel.
-            AIJob_DigConvert* info = (AIJob_DigConvert*) ai->info;
-            if (info->job) {
+            if (ai->job) {
                 // It wasn't canceled yet.
-                info->job->worker = 0;
-                info->job = 0;
+                ai->job->worker = 0;
+                ai->job = 0;
                 // Do *not* stop! Looks more natural and will avoid units
                 // jittering in the middle of nowhere because all their jobs
                 // get stolen :P
