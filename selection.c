@@ -113,8 +113,9 @@ void DK_selection_end(void) {
 int DK_block_is_selectable(DK_Player player, int x, int y) {
     const DK_Block* block = DK_block_at(x, y);
     return block &&
-            block->type != DK_BLOCK_ROCK &&
-            !DK_block_is_passable(block) &&
+            (block->type == DK_BLOCK_DIRT ||
+            block->type == DK_BLOCK_GOLD ||
+            block->type == DK_BLOCK_GEM) &&
             (block->owner == DK_PLAYER_NONE || block->owner == player);
 }
 

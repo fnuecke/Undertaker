@@ -35,8 +35,8 @@ enum {
 
 /** Must be in same order as unit definitions in unit type enum */
 static float move_speeds[] = {
-    [DK_UNIT_IMP] = 0.6f,
-    [DK_UNIT_WIZARD] = 0.4f
+    [DK_UNIT_IMP] = 0.03f,
+    [DK_UNIT_WIZARD] = 0.02f
 };
 
 /** Cooldowns for different abilities */
@@ -137,7 +137,7 @@ typedef struct {
     char info[MAX_JOB_SIZE];
 } AI_Node;
 
-typedef struct DK_Unit {
+struct DK_Unit {
     /** The player this unit belongs to */
     DK_Player owner;
 
@@ -159,12 +159,15 @@ typedef struct DK_Unit {
     /** Level of the unit, as a float to account for "experience" */
     float level;
 
+    /** Flag whether this unit is immune to lava */
+    int immune_to_lava;
+
     /** Depth of the AI state stack */
     unsigned int ai_count;
 
     /** AI info stack */
     AI_Node ai[DK_AI_JOB_STACK_MAX];
-} DK_Unit;
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 // Global variables
@@ -282,8 +285,8 @@ static void update_ai(DK_Unit* unit) {
 
                     // Test direct distance; if that's longer than our best we
                     // can safely skip this one.
-                    const float dx = unit->x - job->x * DK_BLOCK_SIZE;
-                    const float dy = unit->y - job->y * DK_BLOCK_SIZE;
+                    const float dx = unit->x - job->x;
+                    const float dy = unit->y - job->y;
                     float distance = sqrt(dx * dx + dy * dy);
                     if (distance >= best_distance + best_penalty) {
                         continue;
@@ -291,11 +294,8 @@ static void update_ai(DK_Unit* unit) {
 
                     // Find a path to it. Use temporary output data to avoid
                     // overriding existing path that may be shorter.
-                    if (DK_a_star(unit->x / DK_BLOCK_SIZE, unit->y / DK_BLOCK_SIZE, job->x, job->y, path, &depth, &distance)) {
+                    if (DK_a_star(unit, job->x, job->y, path, &depth, &distance)) {
                         float penalty = 0;
-
-                        // Scale to world units.
-                        distance *= DK_BLOCK_SIZE;
 
                         // Factor in priorities.
                         switch (job->type) {
@@ -303,7 +303,7 @@ static void update_ai(DK_Unit* unit) {
                                 penalty = DK_JOB_DIG_PRIORITY;
                                 break;
                             case DK_JOB_CONVERT:
-                                if (DK_block_is_passable(job->block)) {
+                                if (DK_block_is_open(job->block)) {
                                     penalty = DK_JOB_CONVERT_FLOOR_PRIORITY;
                                 } else {
                                     penalty = DK_JOB_CONVERT_WALL_PRIORITY;
@@ -318,8 +318,8 @@ static void update_ai(DK_Unit* unit) {
                             // only take it if our path is better than the
                             // direct distance to the occupant.
                             if (job->worker) {
-                                const float cdx = job->worker->x - job->x * DK_BLOCK_SIZE;
-                                const float cdy = job->worker->y - job->y * DK_BLOCK_SIZE;
+                                const float cdx = job->worker->x - job->x;
+                                const float cdy = job->worker->y - job->y;
                                 const float current_distance = sqrt(cdx * cdx + cdy * cdy);
                                 if (current_distance <= distance + DK_AI_ALREADY_WORKING_BONUS) {
                                     // The one that's on it is closer, ignore.
@@ -352,8 +352,8 @@ static void update_ai(DK_Unit* unit) {
                     // We found work, reserve it for ourselves and active the
                     // two jobs (work + move).
                     best_job->worker = unit;
-                    unit->tx = move->path[0].x * DK_BLOCK_SIZE;
-                    unit->ty = move->path[0].y * DK_BLOCK_SIZE;
+                    unit->tx = move->path[0].x;
+                    unit->ty = move->path[0].y;
                     move->path_index = 1;
                     unit->ai_count += 2;
                 } else {
@@ -363,8 +363,8 @@ static void update_ai(DK_Unit* unit) {
                         // Just walk around dumbly.
                         int i;
                         for (i = 0; i < DK_AI_WANDER_TRIES; ++i) {
-                            float wx = unit->x + (rand() / (float) RAND_MAX - 0.5f) * DK_BLOCK_SIZE;
-                            float wy = unit->y + (rand() / (float) RAND_MAX - 0.5f) * DK_BLOCK_SIZE;
+                            float wx = unit->x + (rand() / (float) RAND_MAX - 0.5f);
+                            float wy = unit->y + (rand() / (float) RAND_MAX - 0.5f);
                             // Make sure the coordinates are in bounds. This is
                             // expecially important for the interval of [-1, 0],
                             // because those get rounded to 0 when casting to int,
@@ -372,16 +372,16 @@ static void update_ai(DK_Unit* unit) {
                             if (wx < 0.2f) {
                                 wx = 0.2f;
                             }
-                            if (wx > DK_map_size * DK_BLOCK_SIZE - 0.2f) {
-                                wx = DK_map_size * DK_BLOCK_SIZE - 0.2f;
+                            if (wx > DK_map_size - 0.2f) {
+                                wx = DK_map_size - 0.2f;
                             }
                             if (wy < 0.2f) {
                                 wy = 0.2f;
                             }
-                            if (wy > DK_map_size * DK_BLOCK_SIZE - 0.2f) {
-                                wy = DK_map_size * DK_BLOCK_SIZE - 0.2f;
+                            if (wy > DK_map_size - 0.2f) {
+                                wy = DK_map_size - 0.2f;
                             }
-                            if (DK_block_is_passable(DK_block_at((int) (wx / DK_BLOCK_SIZE), (int) (wy / DK_BLOCK_SIZE)))) {
+                            if (DK_block_is_passable(DK_block_at((int) wx, (int) wy), unit)) {
                                 // TODO: avoid getting too close to walls
                                 unit->tx = wx;
                                 unit->ty = wy;
@@ -403,8 +403,8 @@ static void update_ai(DK_Unit* unit) {
         case DK_AI_MOVE:
         {
             // AI is moving, check if we're there yet.
-            if (fabs(unit->tx - unit->x) < 0.1f &&
-                    fabs(unit->ty - unit->y) < 0.1f) {
+            if (fabs(unit->tx - unit->x) < 0.01f &&
+                    fabs(unit->ty - unit->y) < 0.01f) {
                 // Reached local checkpoint, see if we're at our final goal.
                 AIJob_Move* info = (AIJob_Move*) ai->info;
                 if (info->path_index == info->path_depth) {
@@ -412,8 +412,8 @@ static void update_ai(DK_Unit* unit) {
                     --unit->ai_count;
                 } else {
                     // Not yet, set the next waypoint.
-                    unit->tx = info->path[info->path_index].x * DK_BLOCK_SIZE;
-                    unit->ty = info->path[info->path_index].y * DK_BLOCK_SIZE;
+                    unit->tx = info->path[info->path_index].x;
+                    unit->ty = info->path[info->path_index].y;
                     ++info->path_index;
                 }
             }
@@ -523,7 +523,7 @@ void DK_render_units(void) {
                         break;
                 }
                 glPushMatrix();
-                glTranslatef(unit->x, unit->y, 4);
+                glTranslatef(unit->x * DK_BLOCK_SIZE, unit->y * DK_BLOCK_SIZE, 4);
                 gluSphere(quadratic, DK_BLOCK_SIZE / 6.0f, 8, 8);
                 glPopMatrix();
                 glEnable(GL_LIGHTING);
@@ -541,8 +541,8 @@ void DK_render_units(void) {
                 {
                     AIJob_Move* info = (AIJob_Move*) unit->ai[unit->ai_count - 1].info;
 
-                    glVertex3f(unit->x, unit->y, DK_D_DRAW_PATH_HEIGHT);
-                    glVertex3f(unit->tx, unit->ty, DK_D_DRAW_PATH_HEIGHT);
+                    glVertex3f(unit->x * DK_BLOCK_SIZE, unit->y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                    glVertex3f(unit->tx * DK_BLOCK_SIZE, unit->ty * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
 
                     for (j = info->path_index - 1; j < info->path_depth - 1; ++j) {
                         glVertex3f(info->path[j].x * DK_BLOCK_SIZE, info->path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
@@ -560,15 +560,15 @@ unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, u
     if (total_unit_count > DK_PLAYER_COUNT * DK_UNITS_MAX_PER_PLAYER) {
         // TODO
         return 0;
-    } else if (!DK_block_is_passable(DK_block_at(x, y))) {
+    } else if (!DK_block_is_open(DK_block_at(x, y))) {
         // TODO
         return 0;
     } else {
         DK_Unit* unit = &units[total_unit_count];
         unit->type = type;
         unit->owner = player;
-        unit->x = (x + 0.5f) * DK_BLOCK_SIZE;
-        unit->y = (y + 0.5f) * DK_BLOCK_SIZE;
+        unit->x = (x + 0.5f);
+        unit->y = (y + 0.5f);
         unit->tx = unit->x;
         unit->ty = unit->y;
         unit->ms = move_speeds[type];
@@ -602,4 +602,21 @@ void DK_unit_cancel_job(DK_Unit* unit) {
         }
         ++backtrack;
     }
+}
+
+int DK_unit_position(const DK_Unit* unit, float* x, float* y) {
+    if (unit) {
+        *x = unit->x;
+        *y = unit->y;
+        return 1;
+    }
+    return 0;
+}
+
+int DK_unit_immune_to_lava(const DK_Unit* unit) {
+    return unit && unit->immune_to_lava;
+}
+
+DK_Player DK_unit_owner(const DK_Unit* unit) {
+    return unit ? unit->owner : DK_PLAYER_NONE;
 }

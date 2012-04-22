@@ -15,7 +15,7 @@ typedef enum {
     DK_UNIT_WIZARD
 } DK_UnitType;
 
-struct DK_Unit;
+typedef struct DK_Unit DK_Unit;
 
 #ifdef	__cplusplus
 extern "C" {
@@ -34,7 +34,16 @@ void DK_render_units(void);
 unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, unsigned short y);
 
 /** Make a unit (imp) cancel it's current job */
-void DK_unit_cancel_job(struct DK_Unit* unit);
+void DK_unit_cancel_job(DK_Unit* unit);
+
+/** Get the current position of the specified unit; returns 1 on success, 0 on failure (null pointer) */
+int DK_unit_position(const DK_Unit* unit, float* x, float* y);
+
+/** Test whether the specified unit is immune to lava */
+int DK_unit_immune_to_lava(const DK_Unit* unit);
+
+/** Get the owner of the specified unit */
+DK_Player DK_unit_owner(const DK_Unit* unit);
 
 #ifdef	__cplusplus
 }

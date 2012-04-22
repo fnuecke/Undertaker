@@ -103,7 +103,7 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
             DK_Block* b;
             if (!(existing_jobs & WEST) &&
                     (b = DK_block_at(x - 1, y)) &&
-                    DK_block_is_passable(b)) {
+                    DK_block_is_open(b)) {
                 // Left is valid.
                 DK_Job* job = get_job(player);
                 job->block = block;
@@ -114,7 +114,7 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
             }
             if (!(existing_jobs & EAST) &&
                     (b = DK_block_at(x + 1, y)) &&
-                    DK_block_is_passable(b)) {
+                    DK_block_is_open(b)) {
                 // Right is valid.
                 DK_Job* job = get_job(player);
                 job->block = block;
@@ -125,7 +125,7 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
             }
             if (!(existing_jobs & NORTH) &&
                     (b = DK_block_at(x, y - 1)) &&
-                    DK_block_is_passable(b)) {
+                    DK_block_is_open(b)) {
                 // Top is valid.
                 DK_Job* job = get_job(player);
                 job->block = block;
@@ -136,7 +136,7 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
             }
             if (!(existing_jobs & SOUTH) &&
                     (b = DK_block_at(x, y + 1)) &&
-                    DK_block_is_passable(b)) {
+                    DK_block_is_open(b)) {
                 // Bottom is valid.
                 DK_Job* job = get_job(player);
                 job->block = block;
@@ -151,7 +151,7 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
             DK_Block* b;
             if (!(existing_jobs & WEST) &&
                     (b = DK_block_at(x - 1, y)) &&
-                    DK_block_is_passable(b) &&
+                    DK_block_is_open(b) &&
                     b->owner == player) {
                 // Left is valid.
                 DK_Job* job = get_job(player);
@@ -163,7 +163,7 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
             }
             if (!(existing_jobs & EAST) &&
                     (b = DK_block_at(x + 1, y)) &&
-                    DK_block_is_passable(b) &&
+                    DK_block_is_open(b) &&
                     b->owner == player) {
                 // Right is valid.
                 DK_Job* job = get_job(player);
@@ -175,7 +175,7 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
             }
             if (!(existing_jobs & NORTH) &&
                     (b = DK_block_at(x, y - 1)) &&
-                    DK_block_is_passable(b) &&
+                    DK_block_is_open(b) &&
                     b->owner == player) {
                 // Top is valid.
                 DK_Job* job = get_job(player);
@@ -187,7 +187,7 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
             }
             if (!(existing_jobs & SOUTH) &&
                     (b = DK_block_at(x, y + 1)) &&
-                    DK_block_is_passable(b) &&
+                    DK_block_is_open(b) &&
                     b->owner == player) {
                 // Bottom is valid.
                 DK_Job* job = get_job(player);
@@ -205,19 +205,19 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
         // Check if a neighboring tile is owned by the same player.
         DK_Block* b;
         if (((b = DK_block_at(x - 1, y)) &&
-                DK_block_is_passable(b) &&
+                DK_block_is_open(b) &&
                 b->owner == player) ||
 
                 ((b = DK_block_at(x + 1, y)) &&
-                DK_block_is_passable(b) &&
+                DK_block_is_open(b) &&
                 b->owner == player) ||
 
                 ((b = DK_block_at(x, y - 1)) &&
-                DK_block_is_passable(b) &&
+                DK_block_is_open(b) &&
                 b->owner == player) ||
 
                 ((b = DK_block_at(x, y + 1)) &&
-                DK_block_is_passable(b) &&
+                DK_block_is_open(b) &&
                 b->owner == player)) {
             DK_Job* job = get_job(player);
             job->block = block;

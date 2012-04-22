@@ -14,6 +14,7 @@
 #include "selection.h"
 #include "simplexnoise.h"
 #include "textures.h"
+#include "units.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Macros
@@ -98,7 +99,7 @@ typedef enum {
 /** Get influence of a specific block on noise */
 static double noise_factor_block(DK_Offset* offset, const DK_Block* block) {
     *offset = OFFSET_NONE;
-    if (DK_block_is_passable(block) && block->owner == DK_PLAYER_NONE) {
+    if (DK_block_is_open(block) && block->owner == DK_PLAYER_NONE) {
         *offset = OFFSET_INCREASE;
         return 1.5;
     } else if (block->owner != DK_PLAYER_NONE) {
@@ -927,7 +928,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
             }
 
             // Draw north outline.
-            if (y == end_y || DK_block_is_passable(DK_block_at(map_x, map_y + 1))) {
+            if (y == end_y || DK_block_is_open(DK_block_at(map_x, map_y + 1))) {
                 glPushMatrix();
                 glTranslatef(0, DK_MAP_OUTLINE_OFFSET, DK_MAP_OUTLINE_OFFSET);
 
@@ -944,7 +945,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                 }
                 glEnd();
 
-                if (DK_block_is_passable(DK_block_at(map_x, map_y + 1))) {
+                if (DK_block_is_open(DK_block_at(map_x, map_y + 1))) {
                     glBegin(GL_LINES);
                     {
                         idx = XYZ2IF(x * 2, y * 2 + 2, 2);
@@ -960,12 +961,12 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                 }
 
                 if (x == start_x ?
-                        (DK_block_is_passable(DK_block_at(map_x, map_y + 1)) ||
-                        DK_block_is_passable(DK_block_at(map_x - 1, map_y)))
+                        (DK_block_is_open(DK_block_at(map_x, map_y + 1)) ||
+                        DK_block_is_open(DK_block_at(map_x - 1, map_y)))
                         :
-                        ((DK_block_is_passable(DK_block_at(map_x, map_y + 1)) ^
-                        DK_block_is_passable(DK_block_at(map_x - 1, map_y + 1))) ||
-                        DK_block_is_passable(DK_block_at(map_x - 1, map_y)))) {
+                        ((DK_block_is_open(DK_block_at(map_x, map_y + 1)) ^
+                        DK_block_is_open(DK_block_at(map_x - 1, map_y + 1))) ||
+                        DK_block_is_open(DK_block_at(map_x - 1, map_y)))) {
                     // Draw north west top-to-bottom line.
                     glTranslatef(-DK_MAP_OUTLINE_OFFSET, 0, 0);
                     glBegin(GL_LINES);
@@ -983,12 +984,12 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                     glTranslatef(DK_MAP_OUTLINE_OFFSET, 0, 0);
                 }
                 if (x == end_x ?
-                        (DK_block_is_passable(DK_block_at(map_x, map_y + 1)) ||
-                        DK_block_is_passable(DK_block_at(map_x + 1, map_y)))
+                        (DK_block_is_open(DK_block_at(map_x, map_y + 1)) ||
+                        DK_block_is_open(DK_block_at(map_x + 1, map_y)))
                         :
-                        ((DK_block_is_passable(DK_block_at(map_x, map_y + 1)) ^
-                        DK_block_is_passable(DK_block_at(map_x + 1, map_y + 1))) ||
-                        DK_block_is_passable(DK_block_at(map_x + 1, map_y)))) {
+                        ((DK_block_is_open(DK_block_at(map_x, map_y + 1)) ^
+                        DK_block_is_open(DK_block_at(map_x + 1, map_y + 1))) ||
+                        DK_block_is_open(DK_block_at(map_x + 1, map_y)))) {
                     // Draw north east top-to-bottom line.
                     glTranslatef(DK_MAP_OUTLINE_OFFSET, 0, 0);
                     glBegin(GL_LINES);
@@ -1010,7 +1011,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
             }
 
             // Draw south outline.
-            if (y == start_y || DK_block_is_passable(DK_block_at(map_x, map_y - 1))) {
+            if (y == start_y || DK_block_is_open(DK_block_at(map_x, map_y - 1))) {
                 glPushMatrix();
                 glTranslatef(0, -DK_MAP_OUTLINE_OFFSET, DK_MAP_OUTLINE_OFFSET);
 
@@ -1027,7 +1028,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                 }
                 glEnd();
 
-                if (DK_block_is_passable(DK_block_at(map_x, map_y - 1))) {
+                if (DK_block_is_open(DK_block_at(map_x, map_y - 1))) {
                     glBegin(GL_LINES);
                     {
                         idx = XYZ2IF(x * 2, y * 2, 2);
@@ -1043,12 +1044,12 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                 }
 
                 if (x == start_x ?
-                        (DK_block_is_passable(DK_block_at(map_x, map_y - 1)) ||
-                        DK_block_is_passable(DK_block_at(map_x - 1, map_y)))
+                        (DK_block_is_open(DK_block_at(map_x, map_y - 1)) ||
+                        DK_block_is_open(DK_block_at(map_x - 1, map_y)))
                         :
-                        ((DK_block_is_passable(DK_block_at(map_x, map_y - 1)) ^
-                        DK_block_is_passable(DK_block_at(map_x - 1, map_y - 1))) ||
-                        DK_block_is_passable(DK_block_at(map_x - 1, map_y)))) {
+                        ((DK_block_is_open(DK_block_at(map_x, map_y - 1)) ^
+                        DK_block_is_open(DK_block_at(map_x - 1, map_y - 1))) ||
+                        DK_block_is_open(DK_block_at(map_x - 1, map_y)))) {
                     // Draw south west top-to-bottom line.
                     glTranslatef(-DK_MAP_OUTLINE_OFFSET, 0, 0);
                     glBegin(GL_LINES);
@@ -1066,12 +1067,12 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                     glTranslatef(DK_MAP_OUTLINE_OFFSET, 0, 0);
                 }
                 if (x == end_x ?
-                        (DK_block_is_passable(DK_block_at(map_x, map_y - 1)) ||
-                        DK_block_is_passable(DK_block_at(map_x + 1, map_y)))
+                        (DK_block_is_open(DK_block_at(map_x, map_y - 1)) ||
+                        DK_block_is_open(DK_block_at(map_x + 1, map_y)))
                         :
-                        ((DK_block_is_passable(DK_block_at(map_x, map_y - 1)) ^
-                        DK_block_is_passable(DK_block_at(map_x + 1, map_y - 1))) ||
-                        DK_block_is_passable(DK_block_at(map_x + 1, map_y)))) {
+                        ((DK_block_is_open(DK_block_at(map_x, map_y - 1)) ^
+                        DK_block_is_open(DK_block_at(map_x + 1, map_y - 1))) ||
+                        DK_block_is_open(DK_block_at(map_x + 1, map_y)))) {
                     // Draw south east top-to-bottom line.
                     glTranslatef(DK_MAP_OUTLINE_OFFSET, 0, 0);
                     glBegin(GL_LINES);
@@ -1093,7 +1094,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
             }
 
             // Draw west outline.
-            if (x == start_x || DK_block_is_passable(DK_block_at(map_x - 1, map_y))) {
+            if (x == start_x || DK_block_is_open(DK_block_at(map_x - 1, map_y))) {
                 glPushMatrix();
                 glTranslatef(-DK_MAP_OUTLINE_OFFSET, 0, DK_MAP_OUTLINE_OFFSET);
 
@@ -1110,7 +1111,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                 }
                 glEnd();
 
-                if (DK_block_is_passable(DK_block_at(map_x - 1, map_y))) {
+                if (DK_block_is_open(DK_block_at(map_x - 1, map_y))) {
                     glBegin(GL_LINES);
                     {
                         idx = XYZ2IF(x * 2, y * 2, 2);
@@ -1129,7 +1130,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
             }
 
             // Draw east outline.
-            if (x == end_x || DK_block_is_passable(DK_block_at(map_x + 1, map_y))) {
+            if (x == end_x || DK_block_is_open(DK_block_at(map_x + 1, map_y))) {
                 glPushMatrix();
                 glTranslatef(DK_MAP_OUTLINE_OFFSET, 0, DK_MAP_OUTLINE_OFFSET);
 
@@ -1146,7 +1147,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                 }
                 glEnd();
 
-                if (DK_block_is_passable(DK_block_at(map_x + 1, map_y))) {
+                if (DK_block_is_open(DK_block_at(map_x + 1, map_y))) {
                     glBegin(GL_LINES);
                     {
                         idx = XYZ2IF(x * 2 + 2, y * 2, 2);
@@ -1387,22 +1388,22 @@ void DK_render_map(void) {
             // Check if we need to render walls.
             if (z == 4) {
                 // North wall.
-                if (y + 1 < DK_map_size && DK_block_is_passable(&map[x + (y + 1) * DK_map_size])) {
+                if (y + 1 < DK_map_size && DK_block_is_open(&map[x + (y + 1) * DK_map_size])) {
                     draw_north(x, y + 1, 2, texture_side);
                 }
 
                 // South wall.
-                if (y > 0 && DK_block_is_passable(&map[x + (y - 1) * DK_map_size])) {
+                if (y > 0 && DK_block_is_open(&map[x + (y - 1) * DK_map_size])) {
                     draw_south(x, y, 2, texture_side);
                 }
 
                 // West wall.
-                if (x > 0 && DK_block_is_passable(&map[(x - 1) + y * DK_map_size])) {
+                if (x > 0 && DK_block_is_open(&map[(x - 1) + y * DK_map_size])) {
                     draw_west(x, y, 2, texture_side);
                 }
 
                 // East wall.
-                if (x + 1 < DK_map_size && DK_block_is_passable(&map[(x + 1) + y * DK_map_size])) {
+                if (x + 1 < DK_map_size && DK_block_is_open(&map[(x + 1) + y * DK_map_size])) {
                     draw_east(x + 1, y, 2, texture_side);
                 }
             }
@@ -1466,8 +1467,32 @@ int DK_block_is_fluid(const DK_Block* block) {
     return block && (block->type == DK_BLOCK_LAVA || block->type == DK_BLOCK_WATER);
 }
 
-int DK_block_is_passable(const DK_Block* block) {
+int DK_block_is_wall(const DK_Block* block, DK_Player player) {
+    return block && (block->type == DK_BLOCK_DIRT) && (block->owner == player);
+}
+
+int DK_block_is_open(const DK_Block* block) {
     return block && (block->type == DK_BLOCK_NONE || DK_block_is_fluid(block));
+}
+
+int DK_block_is_passable(const DK_Block* block, const DK_Unit* unit) {
+    if (block) {
+        switch (block->type) {
+            case DK_BLOCK_WATER:
+                return 1;
+            case DK_BLOCK_LAVA:
+                return DK_unit_immune_to_lava(unit);
+            case DK_BLOCK_NONE:
+                if (block->room == DK_ROOM_DOOR) {
+                    return block->owner == DK_unit_owner(unit) && !block->closed;
+                } else {
+                    return 1;
+                }
+            default:
+                break;
+        }
+    }
+    return 0;
 }
 
 int DK_block_damage(DK_Block* block, unsigned int damage) {

@@ -53,6 +53,9 @@ static unsigned int closed_capacity = 0;
 static unsigned int open_count = 0;
 static unsigned int closed_count = 0;
 
+/** The unit we're currently checking for */
+static const DK_Unit* current_unit;
+
 ///////////////////////////////////////////////////////////////////////////////
 // Allocation
 ///////////////////////////////////////////////////////////////////////////////
@@ -156,7 +159,7 @@ inline static float to_map_space(unsigned int node_coordinate) {
 
 /** Checks if a block is passable, using local coordinates */
 inline static int is_passable(unsigned int node_x, unsigned int node_y) {
-    return DK_block_is_passable(DK_block_at(node_x / DK_ASTAR_GRANULARITY, node_y / DK_ASTAR_GRANULARITY));
+    return DK_block_is_passable(DK_block_at(node_x / DK_ASTAR_GRANULARITY, node_y / DK_ASTAR_GRANULARITY), current_unit);
 }
 
 /** Tests if a neighbor should be skipped due to it already having a better score */
@@ -348,15 +351,20 @@ void DK_init_a_star(void) {
     a_star_closed_set = BS_alloc(a_star_grid_size * a_star_grid_size);
 }
 
-int DK_a_star(float start_x, float start_y, float goal_x, float goal_y, AStar_Waypoint* path, unsigned int* depth, float* length) {
+int DK_a_star(const DK_Unit* unit, float goal_x, float goal_y, AStar_Waypoint* path, unsigned int* depth, float* length) {
     unsigned int gx, gy, begin_x, begin_y, end_x, end_y, neighbor_x, neighbor_y;
     int x, y;
-    float gscore, fscore;
+    float start_x, start_y, gscore, fscore;
     AStar_Node *current, *node;
+    
+    current_unit = unit;
 
+    // Get the unit's current position.
+    DK_unit_position(unit, &start_x, &start_y);
+    
     // Check if the start and target position are valid (passable).
-    if (!DK_block_is_passable(DK_block_at((int) start_x, (int) start_y)) ||
-            !DK_block_is_passable(DK_block_at((int) goal_x, (int) goal_y))) {
+    if (!DK_block_is_passable(DK_block_at((int) start_x, (int) start_y), unit) ||
+            !DK_block_is_passable(DK_block_at((int) goal_x, (int) goal_y), unit)) {
         return 0;
     }
 
