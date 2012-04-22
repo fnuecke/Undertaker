@@ -15,16 +15,19 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /** Screen resolution along the x axis */
-#define DK_RESOLUTION_X 1280
+int DK_resolution_x;
 
 /** Screen resolution along the y axis */
-#define DK_RESOLUTION_Y 1024
+int DK_resolution_y;
 
 /** The screen aspect ratio */
-#define DK_ASPECT_RATIO ((float)DK_RESOLUTION_X / (float)DK_RESOLUTION_Y)
+#define DK_ASPECT_RATIO ((float)DK_resolution_x / (float)DK_resolution_y)
+
+/** The field of view to use */
+int DK_field_of_view;
 
 /** Whether to use anti aliasing or not */
-#define DK_USE_ANTIALIASING 1
+int DK_use_antialiasing;
 
 /** Target framerate */
 #define DK_FRAMERATE 60
@@ -160,7 +163,7 @@ int DK_use_fog;
 #define DK_OWNED_NOISE_REDUCTION 0.8
 
 /** The horizontal number of blocks to render around the camera position */
-#define DK_RENDER_AREA_X 20
+#define DK_RENDER_AREA_X (((int)(22 * DK_ASPECT_RATIO)) + (((int)(22 * DK_ASPECT_RATIO)) & 1))
 
 /** The vertical number of blocks to render around the camera position */
 #define DK_RENDER_AREA_Y 16
@@ -169,7 +172,7 @@ int DK_use_fog;
 #define DK_RENDER_AREA_Y_OFFSET 3
 
 /** Size of the border to allocate around the actual map vertices to render out of range area */
-#define DK_MAP_BORDER (DK_RENDER_AREA_X * 2)
+#define DK_MAP_BORDER DK_RENDER_AREA_X
 
 /** The color of the selection outline */
 #define DK_MAP_SELECTED_COLOR(intensity) 0.6f * intensity, 0.7f * intensity, 0.7f * intensity
@@ -202,7 +205,7 @@ int DK_use_fog;
 #define DK_CAMERA_ZOOM_STEP (1.0f / 3.0f)
 
 /** Maximum camera zoom amount */
-#define DK_CAMERA_MAX_ZOOM 4 * DK_BLOCK_SIZE
+#define DK_CAMERA_MAX_ZOOM 3 * DK_BLOCK_SIZE
 
 ///////////////////////////////////////////////////////////////////////////////
 // Debugging

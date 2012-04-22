@@ -26,6 +26,12 @@
 /** Main screen we use */
 static SDL_Surface* screen;
 
+/** Accumulated load since last output */
+static float load_accumulator = 0;
+
+/** Number of accumulated frame loads */
+static int load_counter = 0;
+
 /** Whether the game is still running; if set to 0 the game will exit */
 static int running = 1;
 
@@ -72,10 +78,14 @@ int main(int argc, char** argv) {
         // Wait to get a constant frame rate.
         delay = 1000.0f / DK_FRAMERATE - (end - start);
         if (delay > 0) {
-            const float load = (end - start) * DK_FRAMERATE / 1000.0f;
-            char title[32] = {0};
-            sprintf(title, "Undertaker - Load: %.2f", load);
-            SDL_WM_SetCaption(title, NULL);
+            load_accumulator += (end - start) * DK_FRAMERATE / 1000.0f;
+            if (load_counter++ > DK_FRAMERATE) {
+                char title[32] = {0};
+                sprintf(title, "Undertaker - Load: %.2f", load_accumulator / DK_FRAMERATE);
+                SDL_WM_SetCaption(title, NULL);
+                load_counter = 0;
+                load_accumulator = 0;
+            }
             SDL_Delay(delay);
         }
     }
@@ -110,7 +120,7 @@ void DK_init(void) {
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 0);
-    if (DK_USE_ANTIALIASING) {
+    if (DK_use_antialiasing) {
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
     }
@@ -119,7 +129,7 @@ void DK_init(void) {
     fprintf(stdout, "Starting up video...\n");
 
     // Set up video.
-    screen = SDL_SetVideoMode(DK_RESOLUTION_X, DK_RESOLUTION_Y, 16, SDL_HWSURFACE | SDL_OPENGL);
+    screen = SDL_SetVideoMode(DK_resolution_x, DK_resolution_y, 16, SDL_HWSURFACE | SDL_OPENGL);
     if (screen == NULL) {
         fprintf(stderr, "Unable to set video: %s\n", SDL_GetError());
         exit(EXIT_FAILURE);
@@ -266,15 +276,15 @@ void DK_init_gl(void) {
     glClearDepth(1.0f);
 
     // Define our viewport as the size of our window.
-    glViewport(0, 0, DK_RESOLUTION_X, DK_RESOLUTION_Y);
+    glViewport(0, 0, DK_resolution_x, DK_resolution_y);
 
     // Set our projection matrix to match our viewport.
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(80.0, DK_ASPECT_RATIO, 0.1, 1000.0);
+    gluPerspective(DK_field_of_view, DK_ASPECT_RATIO, 0.1, 1000.0);
 
     // Anti-alias?
-    if (DK_USE_ANTIALIASING) {
+    if (DK_use_antialiasing) {
         glEnable(GL_MULTISAMPLE);
     }
 

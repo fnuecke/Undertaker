@@ -32,7 +32,7 @@ void DK_update_cursor(void) {
 
     // Get window mouse coordinates.
     SDL_GetMouseState(&mouseX, &mouseY);
-    mouseY = DK_RESOLUTION_Y - mouseY;
+    mouseY = DK_resolution_y - mouseY;
 
     // Get near plane.
     gluUnProject(mouseX, mouseY, 0, model, proj, view, &objXn, &objYn, &objZn);

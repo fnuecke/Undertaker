@@ -29,7 +29,7 @@ GLuint DK_pick(int x, int y, void(*render)(void)) {
         GLint view[4];
         glGetIntegerv(GL_VIEWPORT, view);
         gluPickMatrix(x, y, 1.0, 1.0, view);
-        gluPerspective(80.0, DK_ASPECT_RATIO, 0.1, 1000.0);
+        gluPerspective(DK_field_of_view, DK_ASPECT_RATIO, 0.1, 1000.0);
 
         render();
     }

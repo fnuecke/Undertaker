@@ -344,7 +344,6 @@ static void update_ai(DK_Unit* unit) {
                                     break;
                             }
                             ((AIJob_DigConvert*) jobNode->info)->job = job;
-
                         }
                     }
                 }

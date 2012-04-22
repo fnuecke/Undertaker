@@ -1272,7 +1272,7 @@ void DK_update_map(void) {
     GLuint selected_name;
 
     SDL_GetMouseState(&mouse_x, &mouse_y);
-    selected_name = pick_block(mouse_x, DK_RESOLUTION_Y - mouse_y);
+    selected_name = pick_block(mouse_x, DK_resolution_y - mouse_y);
     cursor_x = (short) (selected_name & 0xFFFF);
     cursor_y = (short) (selected_name >> 16);
 }
@@ -1496,7 +1496,7 @@ int DK_block_damage(DK_Block* block, unsigned int damage) {
 
 int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
     // Get the actual coordinates.
-    unsigned short x, y;
+    unsigned short x = 0, y = 0;
     DK_block_coordinates(&x, &y, block);
 
     // First reduce any enemy influence.
