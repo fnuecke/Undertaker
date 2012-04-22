@@ -100,10 +100,10 @@ int DK_use_fog;
 #define DK_AI_PATH_INTERPOLATE 1
 
 /** Factor to use for catmull rom path smoothing */
-#define DK_AI_CATMULL_ROM_T 0.4f
+#define DK_AI_CATMULL_ROM_T 0.3f
 
 /** Interpolation steps to compute when estimating a path segment's length */
-#define DK_AI_PATH_INTERPOLATION 3
+#define DK_AI_PATH_INTERPOLATION 5
 
 /** Bonus accounted to a worker that's already on a job when checking if closer */
 #define DK_AI_ALREADY_WORKING_BONUS 0.5
