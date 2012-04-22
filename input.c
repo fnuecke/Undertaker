@@ -19,6 +19,8 @@ void DK_key_down(const SDL_Event* e) {
         case SDLK_RIGHT:
             DK_camera_set_direction(DK_CAMD_EAST);
             break;
+        default:
+            break;
     }
 }
 
@@ -45,6 +47,8 @@ void DK_key_up(const SDL_Event* e) {
         case SDLK_F3:
             DK_d_draw_jobs = 1 - DK_d_draw_jobs;
             break;
+        default:
+            break;
     }
 }
 
@@ -64,6 +68,8 @@ void DK_mouse_down(const SDL_Event* e) {
                 break;
             }
             break;
+        default:
+            break;
     }
 }
 
@@ -71,6 +77,8 @@ void DK_mouse_up(const SDL_Event* e) {
     switch (e->button.button) {
         case SDL_BUTTON_LEFT:
             DK_selection_end();
+            break;
+        default:
             break;
     }
 }

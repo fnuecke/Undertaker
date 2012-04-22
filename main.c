@@ -34,32 +34,32 @@ static int running = 1;
 ///////////////////////////////////////////////////////////////////////////////
 
 /** Initialize SDL and game data */
-void DK_init();
+void DK_init(void);
 
 /** (Re)initialize openGL and load textures */
-void DK_init_gl();
+void DK_init_gl(void);
 
 /** Handle user input */
-void DK_events();
+void DK_events(void);
 
 /** Update logic */
-void DK_update();
+void DK_update(void);
 
 /** Render to screen */
-void DK_render();
+void DK_render(void);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Program entry
 ///////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char** argv) {
+    Uint32 start, end;
+    int delay;
 
     // Initialize basics, such as SDL and data.
     DK_init();
 
     // Start the main loop.
-    Uint32 start, end;
-    int delay;
     while (running) {
         start = SDL_GetTicks();
 
@@ -87,7 +87,8 @@ int main(int argc, char** argv) {
 // Main logic implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_init() {
+void DK_init(void) {
+    int i, j;
 
     fprintf(stdout, "------------------------------------------------------------\n");
 
@@ -155,7 +156,6 @@ void DK_init() {
     DK_init_a_star();
     DK_init_units();
 
-    int i, j;
     for (i = 0; i < 7; ++i) {
         for (j = 0; j < 7; ++j) {
             if (i <= 1 || j <= 1) {
@@ -225,13 +225,7 @@ void DK_init() {
     DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 7);
 }
 
-static void init_lighting() {
-    // Set up global ambient lighting.
-    glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
-    glEnable(GL_LIGHTING);
-    glShadeModel(GL_SMOOTH);
-    glEnable(GL_COLOR_MATERIAL);
-
+static void init_lighting(void) {
     // Light colors.
     GLfloat darkness[] = {0.0f, 0.0f, 0.0f, 1.0f};
     GLfloat ambient_global[] = {0.1f, 0.1f, 0.1f, 1.0f};
@@ -240,6 +234,12 @@ static void init_lighting() {
 
     // And directions.
     GLfloat ambient_direction[] = {-1.0f, 1.0f, 1.0f, 0.0f};
+
+    // Set up global ambient lighting.
+    glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
+    glEnable(GL_LIGHTING);
+    glShadeModel(GL_SMOOTH);
+    glEnable(GL_COLOR_MATERIAL);
 
     // Ambient overall light.
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambient_global);
@@ -260,7 +260,7 @@ static void init_lighting() {
     glEnable(GL_LIGHT1);
 }
 
-void DK_init_gl() {
+void DK_init_gl(void) {
     // Clear to black.
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClearDepth(1.0f);
@@ -296,22 +296,22 @@ void DK_init_gl() {
 
     init_lighting();
 
-#if DK_USE_FOG
-    GLfloat fog_color[] = {0.0f, 0.0f, 0.0f, 1.0f};
-    glFogi(GL_FOG_MODE, GL_LINEAR);
-    glFogfv(GL_FOG_COLOR, fog_color);
-    glFogf(GL_FOG_DENSITY, 0.1f);
-    glHint(GL_FOG_HINT, GL_DONT_CARE);
-    glFogf(GL_FOG_START, DK_CAMERA_HEIGHT + DK_BLOCK_SIZE);
-    glFogf(GL_FOG_END, DK_CAMERA_HEIGHT + DK_BLOCK_SIZE * 4);
-    glEnable(GL_FOG);
-#endif
+    if (DK_use_fog) {
+        GLfloat fog_color[] = {0.0f, 0.0f, 0.0f, 1.0f};
+        glFogi(GL_FOG_MODE, GL_LINEAR);
+        glFogfv(GL_FOG_COLOR, fog_color);
+        glFogf(GL_FOG_DENSITY, 0.1f);
+        glHint(GL_FOG_HINT, GL_DONT_CARE);
+        glFogf(GL_FOG_START, DK_CAMERA_HEIGHT + DK_BLOCK_SIZE);
+        glFogf(GL_FOG_END, DK_CAMERA_HEIGHT + DK_BLOCK_SIZE * 4);
+        glEnable(GL_FOG);
+    }
 
     // Load all textures we may need.
     DK_opengl_textures();
 }
 
-void DK_events() {
+void DK_events(void) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
@@ -330,17 +330,21 @@ void DK_events() {
             case SDL_MOUSEBUTTONUP:
                 DK_mouse_up(&event);
                 break;
+            default:
+                break;
         }
     }
 }
 
-void DK_update() {
+void DK_update(void) {
     DK_update_camera();
     DK_update_units();
     DK_update_map();
 }
 
-void DK_render() {
+void DK_render(void) {
+    float x, y;
+
     // Clear screen.
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -355,10 +359,11 @@ void DK_render() {
     DK_update_cursor();
 
     // Get cursor position and update hand light accordingly.
-    float x, y;
     DK_cursor(&x, &y);
-    GLfloat light_position[] = {x, y, DK_BLOCK_HEIGHT * 2, 1};
-    glLightfv(GL_LIGHT1, GL_POSITION, light_position);
+    {
+        GLfloat light_position[] = {x, y, DK_BLOCK_HEIGHT * 2, 1};
+        glLightfv(GL_LIGHT1, GL_POSITION, light_position);
+    }
 
     // Render game components.
     DK_render_map();

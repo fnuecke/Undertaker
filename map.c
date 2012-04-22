@@ -30,12 +30,6 @@
 // Internal variables
 ///////////////////////////////////////////////////////////////////////////////
 
-/** Last normal that was set */
-static double last_normal[3] = {0, 0, 0};
-
-/** Last vertex that was set */
-static double last_vertex[3] = {0, 0, 0};
-
 /** The current map */
 static DK_Block* map = 0;
 
@@ -138,8 +132,8 @@ static float compute_offset(float* offset, float x, float y) {
     // check A,B,D and E, for 1 A,B,C,D,E,F, for 2 A,B,D,E,G and H, for 3 we
     // want all. Note that i,j for (1,2,3) will always equal (x,y) for 0.
     int x_begin = i - 1, y_begin = j - 1;
-    int x_end, y_end;
-    float normalizer;
+    int x_end, y_end, k, l;
+    float normalizer, factor;
     if (fabs(x - i - 0.5f) < 0.01f) {
         // X is halfway, so we're at 1 or 3.
         x_end = i + 1;
@@ -180,8 +174,7 @@ static float compute_offset(float* offset, float x, float y) {
     }
 
     // Walk all the block necessary.
-    float factor = 0;
-    int k, l;
+    factor = 0;
     for (k = x_begin; k <= x_end; ++k) {
         for (l = y_begin; l <= y_end; ++l) {
             factor += noise_factor_block(&offset_type, &map[k + l * DK_map_size]);
@@ -207,10 +200,11 @@ static float compute_offset(float* offset, float x, float y) {
         }
     }
 
-    if (offset[0] != 0 || offset[1] != 0) {
+    if (fabsf(offset[0]) > 0.001f || fabsf(offset[1]) > 0.001f) {
+        float len;
         offset[0] *= offset_reduction[0] / normalizer;
         offset[1] *= offset_reduction[1] / normalizer;
-        const float len = sqrt(offset[0] * offset[0] + offset[1] * offset[1]);
+        len = sqrt(offset[0] * offset[0] + offset[1] * offset[1]);
         if (len > 1) {
             offset[0] /= len;
             offset[1] /= len;
@@ -233,9 +227,10 @@ static void update_vertices(int x, int y) {
 #if DK_D_TERRAIN_NOISE
         float offset[2] = {0, 0};
         float factor = 1.0f;
+        float offset_factor;
 #if DK_D_USE_NOISE_OFFSET
         factor = compute_offset(offset, (x - DK_MAP_BORDER) / 2.0f, (y - DK_MAP_BORDER) / 2.0f);
-        const float offset_factor = (0.25f - (fabs(fabs(z / 4.0f - 0.5f) - 0.25f) - 0.25f)) * 3;
+        offset_factor = (0.25f - (fabs(fabs(z / 4.0f - 0.5f) - 0.25f) - 0.25f)) * 3;
         offset[0] *= offset_factor;
         offset[1] *= offset_factor;
 #endif
@@ -282,7 +277,7 @@ inline static void idivsv3f(v3f* v, float s) {
     v->z /= s;
 }
 
-static void normal(v3f* normal, const v3f* v0, const v3f* v1, const v3f* v2) {
+static void normalv3f(v3f* normal, const v3f* v0, const v3f* v1, const v3f* v2) {
     v3f a, b;
     subv3f(&a, v1, v0);
     subv3f(&b, v2, v0);
@@ -297,21 +292,21 @@ static void interpolate_normal(v3f* n, const v3f* v0,
     n->x = 0;
     n->y = 0;
     n->z = 0;
-    normal(&tmp, v0, v1, v2);
+    normalv3f(&tmp, v0, v1, v2);
     iaddv3f(n, &tmp);
-    normal(&tmp, v0, v2, v3);
+    normalv3f(&tmp, v0, v2, v3);
     iaddv3f(n, &tmp);
-    normal(&tmp, v0, v3, v4);
+    normalv3f(&tmp, v0, v3, v4);
     iaddv3f(n, &tmp);
-    normal(&tmp, v0, v4, v5);
+    normalv3f(&tmp, v0, v4, v5);
     iaddv3f(n, &tmp);
-    normal(&tmp, v0, v5, v6);
+    normalv3f(&tmp, v0, v5, v6);
     iaddv3f(n, &tmp);
-    normal(&tmp, v0, v6, v7);
+    normalv3f(&tmp, v0, v6, v7);
     iaddv3f(n, &tmp);
-    normal(&tmp, v0, v7, v8);
+    normalv3f(&tmp, v0, v7, v8);
     iaddv3f(n, &tmp);
-    normal(&tmp, v0, v8, v1);
+    normalv3f(&tmp, v0, v8, v1);
     iaddv3f(n, &tmp);
 
     // Then normalize.
@@ -390,13 +385,14 @@ static void update_normals(int x, int y) {
 // Block updating
 ///////////////////////////////////////////////////////////////////////////////
 
-void update_block(DK_Block* block) {
+static void update_block(DK_Block* block) {
+    unsigned short x, y;
+
     // Ignore requests for invalid blocks.
     if (!block) {
         return;
     }
 
-    unsigned short x, y;
     if (!DK_block_coordinates(&x, &y, block)) {
         // Out of bounds, ignore.
         return;
@@ -420,28 +416,32 @@ void update_block(DK_Block* block) {
     }
 
     // Update model.
-    int start_x = x * 2 - 1 + DK_MAP_BORDER;
-    int start_y = y * 2 - 1 + DK_MAP_BORDER;
-    int end_x = x * 2 + 3 + DK_MAP_BORDER;
-    int end_y = y * 2 + 3 + DK_MAP_BORDER;
+    {
+        int start_x = x * 2 - 1 + DK_MAP_BORDER;
+        int start_y = y * 2 - 1 + DK_MAP_BORDER;
+        int end_x = x * 2 + 3 + DK_MAP_BORDER;
+        int end_y = y * 2 + 3 + DK_MAP_BORDER;
 
-    int lx, ly;
-    for (lx = start_x; lx < end_x; ++lx) {
-        for (ly = start_y; ly < end_y; ++ly) {
-            update_vertices(lx, ly);
+        int lx, ly;
+        for (lx = start_x; lx < end_x; ++lx) {
+            for (ly = start_y; ly < end_y; ++ly) {
+                update_vertices(lx, ly);
+            }
         }
-    }
 
-    for (lx = start_x; lx < end_x; ++lx) {
-        for (ly = start_y; ly < end_y; ++ly) {
-            update_normals(lx, ly);
+        for (lx = start_x; lx < end_x; ++lx) {
+            for (ly = start_y; ly < end_y; ++ly) {
+                update_normals(lx, ly);
+            }
         }
     }
 
     // Update jobs for this block by deselecting it.
-    int i;
-    for (i = 0; i < DK_PLAYER_COUNT; ++i) {
-        DK_block_deselect(i, x, y);
+    {
+        int i;
+        for (i = 0; i < DK_PLAYER_COUNT; ++i) {
+            DK_block_deselect(i, x, y);
+        }
     }
 }
 
@@ -450,13 +450,14 @@ void update_block(DK_Block* block) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static void draw_top(int x, int y, unsigned int z, DK_Texture texture) {
+    unsigned int variation, idx;
+
     x += DK_MAP_BORDER / 2;
     y += DK_MAP_BORDER / 2;
 
-    const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
+    variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
     glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
 
-    unsigned int idx;
     glBegin(GL_QUAD_STRIP);
     {
         glTexCoord2d(0, 0);
@@ -539,13 +540,14 @@ static void draw_top(int x, int y, unsigned int z, DK_Texture texture) {
 }
 
 static void draw_east(int x, int y, unsigned int z, DK_Texture texture) {
+    unsigned int variation, idx;
+
     x += DK_MAP_BORDER / 2;
     y += DK_MAP_BORDER / 2;
 
-    const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
+    variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
     glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
 
-    unsigned int idx;
     glBegin(GL_QUAD_STRIP);
     {
         glTexCoord2d(0, 0);
@@ -628,13 +630,14 @@ static void draw_east(int x, int y, unsigned int z, DK_Texture texture) {
 }
 
 static void draw_west(int x, int y, unsigned int z, DK_Texture texture) {
+    unsigned int variation, idx;
+
     x += DK_MAP_BORDER / 2;
     y += DK_MAP_BORDER / 2;
 
-    const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
+    variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
     glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
 
-    unsigned int idx;
     glBegin(GL_QUAD_STRIP);
     {
         glTexCoord2d(0, 0);
@@ -717,13 +720,14 @@ static void draw_west(int x, int y, unsigned int z, DK_Texture texture) {
 }
 
 static void draw_north(int x, int y, unsigned int z, DK_Texture texture) {
+    unsigned int variation, idx;
+
     x += DK_MAP_BORDER / 2;
     y += DK_MAP_BORDER / 2;
 
-    const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
+    variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
     glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
 
-    unsigned int idx;
     glBegin(GL_QUAD_STRIP);
     {
         glTexCoord2d(0, 0);
@@ -806,13 +810,14 @@ static void draw_north(int x, int y, unsigned int z, DK_Texture texture) {
 }
 
 static void draw_south(int x, int y, unsigned int z, DK_Texture texture) {
+    unsigned int variation, idx;
+
     x += DK_MAP_BORDER / 2;
     y += DK_MAP_BORDER / 2;
 
-    const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
+    variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
     glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
 
-    unsigned int idx;
     glBegin(GL_QUAD_STRIP);
     {
         glTexCoord2d(0, 0);
@@ -895,6 +900,8 @@ static void draw_south(int x, int y, unsigned int z, DK_Texture texture) {
 }
 
 static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned int end_x, unsigned int end_y) {
+    unsigned int x, y, map_x, map_y, idx;
+
     start_x += DK_MAP_BORDER / 2;
     start_y += DK_MAP_BORDER / 2;
     end_x += DK_MAP_BORDER / 2;
@@ -911,7 +918,6 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
     glLineWidth(3.0f + DK_camera_zoom() * 3.0f);
     glColor4f(DK_MAP_OUTLINE_COLOR, 0.5f);
 
-    unsigned int x, y, map_x, map_y, idx;
     for (x = start_x; x <= end_x; ++x) {
         map_x = x - DK_MAP_BORDER / 2;
         for (y = start_y; y <= end_y; ++y) {
@@ -1171,6 +1177,8 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
 ///////////////////////////////////////////////////////////////////////////////
 
 void DK_init_map(unsigned short size) {
+    unsigned int x, y, z;
+
     // Reallocate data only if the size changed.
     if (size != DK_map_size) {
         // Free old map data.
@@ -1203,7 +1211,6 @@ void DK_init_map(unsigned short size) {
     }
 
     // Initialize map data.
-    int x, y, z;
     for (x = 0; x < size; ++x) {
         for (y = 0; y < size; ++y) {
             DK_Block* block = &map[x + y * size];
@@ -1260,20 +1267,25 @@ void DK_init_map(unsigned short size) {
     }
 }
 
-void DK_update_map() {
+void DK_update_map(void) {
     int mouse_x, mouse_y;
+    GLuint selected_name;
+
     SDL_GetMouseState(&mouse_x, &mouse_y);
-    GLuint selected_name = pick_block(mouse_x, DK_RESOLUTION_Y - mouse_y);
+    selected_name = pick_block(mouse_x, DK_RESOLUTION_Y - mouse_y);
     cursor_x = (short) (selected_name & 0xFFFF);
     cursor_y = (short) (selected_name >> 16);
 }
 
-void DK_render_map() {
+#define M_PI 3.14159265358979323846
+
+void DK_render_map(void) {
     int x_begin = (int) (DK_camera_position()[0] / DK_BLOCK_SIZE) - DK_RENDER_AREA_X / 2;
     int y_begin = (int) (DK_camera_position()[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA_Y_OFFSET;
     int x_end = x_begin + DK_RENDER_AREA_X;
     int y_end = y_begin + DK_RENDER_AREA_Y;
     int x, y, z;
+    DK_Texture texture_top, texture_side, texture_top_wall, texture_top_owner;
 
     for (x = x_begin; x < x_end; ++x) {
         for (y = y_begin; y < y_end; ++y) {
@@ -1288,7 +1300,8 @@ void DK_render_map() {
                 glColor3f(1.0f, 1.0f, 1.0f);
             }
 
-            DK_Texture texture_top, texture_side, texture_top_wall = 0, texture_top_owner = 0;
+            texture_top_wall = 0;
+            texture_top_owner = 0;
             if (x < 0 || y < 0 || x >= DK_map_size || y >= DK_map_size) {
                 // Solid rock when out of bounds.
                 z = 4;
@@ -1299,8 +1312,8 @@ void DK_render_map() {
 
                 // Selected by the local player?
                 if (!picking && DK_block_is_selected(DK_PLAYER_RED, x, y)) {
-                    glColorMaterial(GL_FRONT, GL_EMISSION);
                     const float intensity = 0.6f + sinf(SDL_GetTicks() * M_PI * (DK_MAP_SELECTED_PULSE_FREQUENCY)) * 0.3f;
+                    glColorMaterial(GL_FRONT, GL_EMISSION);
                     glColor3f(DK_MAP_SELECTED_COLOR(intensity));
                 }
 
@@ -1348,6 +1361,8 @@ void DK_render_map() {
                             texture_top = DK_TEX_ROCK_TOP;
                             texture_side = DK_TEX_ROCK_SIDE;
                             break;
+                        default:
+                            continue;
                     }
                 }
             }
@@ -1432,13 +1447,13 @@ DK_Block* DK_block_at(int x, int y) {
 }
 
 int DK_block_coordinates(unsigned short* x, unsigned short* y, const DK_Block* block) {
-    if (!block) {
-        return 0;
+    if (block) {
+        unsigned int idx = block - map;
+        *x = idx % DK_map_size;
+        *y = idx / DK_map_size;
+        return 1;
     }
-    unsigned int idx = block - map;
-    *x = idx % DK_map_size;
-    *y = idx / DK_map_size;
-    return 1;
+    return 0;
 }
 
 DK_Block* DK_block_under_cursor(int* block_x, int* block_y) {
@@ -1480,40 +1495,132 @@ int DK_block_damage(DK_Block* block, unsigned int damage) {
 }
 
 int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
+    // Get the actual coordinates.
     unsigned short x, y;
+    DK_block_coordinates(&x, &y, block);
 
     // First reduce any enemy influence.
     if (block->owner != player) {
+        // Not this player's, reduce strength.
         if (block->strength > strength) {
             block->strength -= strength;
             return 0;
         }
+
+        // Block is completely converted.
+        DK_block_set_owner(block, player);
+
+        // See if we're now cornering a neutral block. In that case we automatically
+        // convert that one, too.
+        if (block->type == DK_BLOCK_DIRT) {
+
+            enum {
+                TOP_LEFT,
+                TOP,
+                TOP_RIGHT,
+                LEFT,
+                RIGHT,
+                BOTTOM_LEFT,
+                BOTTOM,
+                BOTTOM_RIGHT
+            };
+
+            DK_Block * neighbors[8] = {
+                [TOP_LEFT] = DK_block_at(x - 1, y - 1),
+                [TOP] = DK_block_at(x, y - 1),
+                [TOP_RIGHT] = DK_block_at(x + 1, y - 1),
+                [LEFT] = DK_block_at(x - 1, y),
+                [RIGHT] = DK_block_at(x + 1, y),
+                [BOTTOM_LEFT] = DK_block_at(x - 1, y + 1),
+                [BOTTOM] = DK_block_at(x, y + 1),
+                [BOTTOM_RIGHT] = DK_block_at(x + 1, y + 1),
+            };
+
+            if (neighbors[TOP_LEFT] &&
+                    neighbors[TOP_LEFT]->type == DK_BLOCK_DIRT &&
+                    neighbors[TOP_LEFT]->owner == player) {
+                // Top left already owned.
+                if (neighbors[TOP]->type == DK_BLOCK_NONE &&
+                        neighbors[TOP]->owner == player &&
+                        neighbors[LEFT]->type == DK_BLOCK_DIRT &&
+                        neighbors[LEFT]->owner == DK_PLAYER_NONE) {
+                    DK_block_set_owner(neighbors[LEFT], player);
+                }
+                if (neighbors[LEFT]->type == DK_BLOCK_NONE &&
+                        neighbors[LEFT]->owner == player &&
+                        neighbors[TOP]->type == DK_BLOCK_DIRT &&
+                        neighbors[TOP]->owner == DK_PLAYER_NONE) {
+                    DK_block_set_owner(neighbors[TOP], player);
+                }
+            }
+            if (neighbors[TOP_RIGHT] &&
+                    neighbors[TOP_RIGHT]->type == DK_BLOCK_DIRT &&
+                    neighbors[TOP_RIGHT]->owner == player) {
+                // Top left already owned.
+                if (neighbors[TOP]->type == DK_BLOCK_NONE &&
+                        neighbors[TOP]->owner == player &&
+                        neighbors[RIGHT]->type == DK_BLOCK_DIRT &&
+                        neighbors[RIGHT]->owner == DK_PLAYER_NONE) {
+                    DK_block_set_owner(neighbors[RIGHT], player);
+                }
+                if (neighbors[RIGHT]->type == DK_BLOCK_NONE &&
+                        neighbors[RIGHT]->owner == player &&
+                        neighbors[TOP]->type == DK_BLOCK_DIRT &&
+                        neighbors[TOP]->owner == DK_PLAYER_NONE) {
+                    DK_block_set_owner(neighbors[TOP], player);
+                }
+            }
+            if (neighbors[BOTTOM_LEFT] &&
+                    neighbors[BOTTOM_LEFT]->type == DK_BLOCK_DIRT &&
+                    neighbors[BOTTOM_LEFT]->owner == player) {
+                // Top left already owned.
+                if (neighbors[BOTTOM]->type == DK_BLOCK_NONE &&
+                        neighbors[BOTTOM]->owner == player &&
+                        neighbors[LEFT]->type == DK_BLOCK_DIRT &&
+                        neighbors[LEFT]->owner == DK_PLAYER_NONE) {
+                    DK_block_set_owner(neighbors[LEFT], player);
+                }
+                if (neighbors[LEFT]->type == DK_BLOCK_NONE &&
+                        neighbors[LEFT]->owner == player &&
+                        neighbors[BOTTOM]->type == DK_BLOCK_DIRT &&
+                        neighbors[BOTTOM]->owner == DK_PLAYER_NONE) {
+                    DK_block_set_owner(neighbors[BOTTOM], player);
+                }
+            }
+            if (neighbors[BOTTOM_RIGHT] &&
+                    neighbors[BOTTOM_RIGHT]->type == DK_BLOCK_DIRT &&
+                    neighbors[BOTTOM_RIGHT]->owner == player) {
+                // Top left already owned.
+                if (neighbors[BOTTOM]->type == DK_BLOCK_NONE &&
+                        neighbors[BOTTOM]->owner == player &&
+                        neighbors[RIGHT]->type == DK_BLOCK_DIRT &&
+                        neighbors[RIGHT]->owner == DK_PLAYER_NONE) {
+                    DK_block_set_owner(neighbors[RIGHT], player);
+                }
+                if (neighbors[RIGHT]->type == DK_BLOCK_NONE &&
+                        neighbors[RIGHT]->owner == player &&
+                        neighbors[BOTTOM]->type == DK_BLOCK_DIRT &&
+                        neighbors[BOTTOM]->owner == DK_PLAYER_NONE) {
+                    DK_block_set_owner(neighbors[BOTTOM], player);
+                }
+            }
+        }
     } else {
         // Owned by this player, repair it.
-        if (block->strength + strength < DK_BLOCK_NONE_OWNED_STRENGTH) {
+        const unsigned int max_strength = block->type == DK_BLOCK_DIRT ?
+                DK_BLOCK_DIRT_OWNED_STRENGTH :
+                DK_BLOCK_NONE_OWNED_STRENGTH;
+        if (block->strength + strength < max_strength) {
             block->strength += strength;
             return 0;
-        } else {
-            block->strength = DK_BLOCK_NONE_OWNED_STRENGTH;
-            DK_block_coordinates(&x, &y, block);
-            DK_update_jobs(player, x, y);
-            return 1;
         }
+
+        // Completely repaired.
+        block->strength = max_strength;
+
+        // Update jobs nearby.
+        DK_update_jobs(player, x, y);
     }
-
-    // Block is completely converted.
-    block->strength = DK_BLOCK_NONE_OWNED_STRENGTH;
-    block->owner = player;
-    DK_block_coordinates(&x, &y, block);
-
-    int i;
-    for (i = 0; i < DK_PLAYER_COUNT; ++i) {
-        DK_block_deselect(i, x, y);
-    }
-
-    // Update visual representation of the surroundings.
-    update_block(block);
-
     return 1;
 }
 

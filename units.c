@@ -174,7 +174,7 @@ typedef struct DK_Unit {
 static GLUquadric* quadratic = 0;
 
 /** Units in the game, must be ensured to be non-sparse */
-static DK_Unit units[DK_PLAYER_COUNT * DK_UNITS_MAX_PER_PLAYER] = {0};
+static DK_Unit units[DK_PLAYER_COUNT * DK_UNITS_MAX_PER_PLAYER];
 
 /** Total number of units */
 static unsigned int total_unit_count = 0;
@@ -235,16 +235,17 @@ static void update_position(DK_Unit* unit) {
 }
 
 static void update_ai(DK_Unit* unit) {
+    AI_Node* ai;
     if (unit->ai_count == 0) {
         // Switch to idle state if there is none set.
-        unit->ai[0].state = DK_AI_IDLE;
         AIJob_Idle* idle = (AIJob_Idle*) unit->ai[0].info;
+        unit->ai[0].state = DK_AI_IDLE;
         idle->delay = DK_AI_IDLE_DELAY / 2 + (rand() * DK_AI_IDLE_DELAY / 2 / RAND_MAX);
         idle->wander_delay = DK_AI_WANDER_DELAY;
 
         unit->ai_count = 1;
     }
-    const AI_Node* ai = &unit->ai[unit->ai_count - 1];
+    ai = &unit->ai[unit->ai_count - 1];
     switch (ai->state) {
         case DK_AI_IDLE:
         {
@@ -261,6 +262,8 @@ static void update_ai(DK_Unit* unit) {
                 float best_distance = FLT_MAX;
                 float best_penalty = 0;
                 DK_Job* best_job = NULL;
+                unsigned int job_count;
+                DK_Job** jobs = DK_jobs(unit->owner, &job_count);
 
                 // Assuming we'll find work we'll want to add two jobs, one for
                 // the actual work task, one for getting there.
@@ -269,11 +272,13 @@ static void update_ai(DK_Unit* unit) {
                 AIJob_Move* move = (AIJob_Move*) moveNode->info;
                 moveNode->state = DK_AI_MOVE;
 
-                unsigned int job_count;
-                DK_Job** jobs = DK_jobs(unit->owner, &job_count);
                 for (; job_count > 0; --job_count) {
                     // Current workplace we're checking.
                     DK_Job* job = jobs[job_count - 1];
+
+                    // For path finding results.
+                    AStar_Waypoint path[DK_AI_PATH_MAX];
+                    unsigned int depth = DK_AI_PATH_MAX;
 
                     // Test direct distance; if that's longer than our best we
                     // can safely skip this one.
@@ -286,14 +291,13 @@ static void update_ai(DK_Unit* unit) {
 
                     // Find a path to it. Use temporary output data to avoid
                     // overriding existing path that may be shorter.
-                    AStar_Waypoint path[DK_AI_PATH_MAX] = {0};
-                    unsigned int depth = DK_AI_PATH_MAX;
                     if (DK_a_star(unit->x / DK_BLOCK_SIZE, unit->y / DK_BLOCK_SIZE, job->x, job->y, path, &depth, &distance)) {
+                        float penalty = 0;
+
                         // Scale to world units.
                         distance *= DK_BLOCK_SIZE;
 
                         // Factor in priorities.
-                        float penalty = 0;
                         switch (job->type) {
                             case DK_JOB_DIG:
                                 penalty = DK_JOB_DIG_PRIORITY;
@@ -339,8 +343,8 @@ static void update_ai(DK_Unit* unit) {
                                     jobNode->state = DK_AI_IMP_CONVERT;
                                     break;
                             }
-                            AIJob_DigConvert* info = (AIJob_DigConvert*) jobNode->info;
-                            info->job = job;
+                            ((AIJob_DigConvert*) jobNode->info)->job = job;
+
                         }
                     }
                 }
@@ -471,7 +475,7 @@ static void update_ai(DK_Unit* unit) {
     }
 }
 
-void DK_init_units() {
+void DK_init_units(void) {
     int i;
     for (i = 0; i < DK_PLAYER_COUNT; ++i) {
         unit_count[i] = 0;
@@ -479,8 +483,8 @@ void DK_init_units() {
     total_unit_count = 0;
 }
 
-void DK_update_units() {
-    int i;
+void DK_update_units(void) {
+    unsigned int i;
     for (i = 0; i < total_unit_count; ++i) {
         DK_Unit* unit = &units[i];
 
@@ -489,16 +493,17 @@ void DK_update_units() {
     }
 }
 
-void DK_render_units() {
+void DK_render_units(void) {
+    unsigned int i, j;
+
     if (!quadratic) {
         quadratic = gluNewQuadric();
     }
 
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    int i;
     for (i = 0; i < total_unit_count; ++i) {
-        const DK_Unit* unit = &units[i];
+        DK_Unit* unit = &units[i];
         switch (unit->type) {
             default:
                 // Push name of the unit.
@@ -528,23 +533,25 @@ void DK_render_units() {
 
         if (DK_d_draw_paths) {
             if (unit->ai[unit->ai_count - 1].state == DK_AI_MOVE) {
+                glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT);
+
                 glColor3f(0.8f, 0.8f, 0.9f);
-                glLineWidth(1.52f);
+                glLineWidth(1.25f);
                 glDisable(GL_LIGHTING);
                 glBegin(GL_LINES);
+                {
+                    AIJob_Move* info = (AIJob_Move*) unit->ai[unit->ai_count - 1].info;
 
-                glVertex3f(unit->x, unit->y, DK_D_DRAW_PATH_HEIGHT);
-                glVertex3f(unit->tx, unit->ty, DK_D_DRAW_PATH_HEIGHT);
+                    glVertex3f(unit->x, unit->y, DK_D_DRAW_PATH_HEIGHT);
+                    glVertex3f(unit->tx, unit->ty, DK_D_DRAW_PATH_HEIGHT);
 
-                AIJob_Move* info = (AIJob_Move*) unit->ai[unit->ai_count - 1].info;
-                int j;
-                for (j = info->path_index - 1; j < info->path_depth - 1; ++j) {
-                    glVertex3f(info->path[j].x * DK_BLOCK_SIZE, info->path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
-                    glVertex3f(info->path[j + 1].x * DK_BLOCK_SIZE, info->path[j + 1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                    for (j = info->path_index - 1; j < info->path_depth - 1; ++j) {
+                        glVertex3f(info->path[j].x * DK_BLOCK_SIZE, info->path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                        glVertex3f(info->path[j + 1].x * DK_BLOCK_SIZE, info->path[j + 1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                    }
                 }
-
                 glEnd();
-                glEnable(GL_LIGHTING);
+                glPopAttrib();
             }
         }
     }
@@ -554,35 +561,30 @@ unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, u
     if (total_unit_count > DK_PLAYER_COUNT * DK_UNITS_MAX_PER_PLAYER) {
         // TODO
         return 0;
-    }
-
-    // Check if the block is valid.
-    if (!DK_block_is_passable(DK_block_at(x, y))) {
+    } else if (!DK_block_is_passable(DK_block_at(x, y))) {
         // TODO
         return 0;
+    } else {
+        DK_Unit* unit = &units[total_unit_count];
+        unit->type = type;
+        unit->owner = player;
+        unit->x = (x + 0.5f) * DK_BLOCK_SIZE;
+        unit->y = (y + 0.5f) * DK_BLOCK_SIZE;
+        unit->tx = unit->x;
+        unit->ty = unit->y;
+        unit->ms = move_speeds[type];
+
+        ++total_unit_count;
+        ++unit_count[player];
     }
-
-    DK_Unit* unit = &units[total_unit_count];
-    unit->type = type;
-    unit->owner = player;
-    unit->x = (x + 0.5f) * DK_BLOCK_SIZE;
-    unit->y = (y + 0.5f) * DK_BLOCK_SIZE;
-    unit->tx = unit->x;
-    unit->ty = unit->y;
-    unit->ms = move_speeds[type];
-
-    ++total_unit_count;
-    ++unit_count[player];
-
     return 1;
 }
 
 void DK_unit_cancel_job(DK_Unit* unit) {
-    int backtrack = 1;
+    unsigned int backtrack = 1;
     while (unit->ai_count > backtrack) {
         AI_Node* ai = &unit->ai[unit->ai_count - backtrack];
         if (ai->state == DK_AI_IMP_DIG || ai->state == DK_AI_IMP_CONVERT) {
-            unit->ai_count -= backtrack - 1;
             // Found the job we want to cancel.
             AIJob_DigConvert* info = (AIJob_DigConvert*) ai->info;
             if (info->job) {
@@ -595,6 +597,8 @@ void DK_unit_cancel_job(DK_Unit* unit) {
                 //unit->tx = unit->x;
                 //unit->ty = unit->y;
             }
+            // Remember how much we had to pop.
+            unit->ai_count -= backtrack - 1;
             return;
         }
         ++backtrack;

@@ -24,7 +24,7 @@ inline static int block_index_valid(int x, int y) {
     return x >= 0 && y >= 0 && x < DK_map_size && y < DK_map_size;
 }
 
-void DK_init_selection() {
+void DK_init_selection(void) {
     int i;
     for (i = 0; i < DK_PLAYER_COUNT; ++i) {
         BS_free(selection[i]);
@@ -53,7 +53,7 @@ void DK_selection(int* start_x, int* start_y, int* end_x, int* end_y) {
     }
 }
 
-void DK_selection_begin() {
+void DK_selection_begin(void) {
     DK_block_under_cursor(&selection_x, &selection_y);
     if (DK_block_is_selectable(DK_PLAYER_RED, selection_x, selection_y)) {
         // OK, if it's selectable, start selection.
@@ -67,7 +67,7 @@ void DK_selection_begin() {
     }
 }
 
-int DK_selection_cancel() {
+int DK_selection_cancel(void) {
     if (mode != MODE_NONE) {
         // Reset mode.
         mode = MODE_NONE;
@@ -76,10 +76,10 @@ int DK_selection_cancel() {
     return 0;
 }
 
-void DK_selection_end() {
+void DK_selection_end(void) {
     if (mode != MODE_NONE) {
         // Find the block we released over.
-        int end_x = selection_x, end_y = selection_y;
+        int x, y, end_x = selection_x, end_y = selection_y;
         DK_block_under_cursor(&end_x, &end_y);
 
         // Swap corners if necessary.
@@ -95,7 +95,6 @@ void DK_selection_end() {
         }
 
         // Set selection for the drawn area.
-        int x, y;
         for (x = selection_x; x <= end_x; ++x) {
             for (y = selection_y; y <= end_y; ++y) {
                 if (mode == MODE_SELECT) {

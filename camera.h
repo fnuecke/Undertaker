@@ -28,19 +28,19 @@ void DK_camera_set_direction(DK_CameraDirection direction);
 void DK_camera_unset_direction(DK_CameraDirection direction);
 
 /** Zoom the camera in (closer to the map) */
-void DK_camera_zoom_in();
+void DK_camera_zoom_in(void);
 
 /** Zoom the camera out (further away from the map) */
-void DK_camera_zoom_out();
+void DK_camera_zoom_out(void);
 
 /** Updates camera position and speed based on set movement direction */
-void DK_update_camera();
+void DK_update_camera(void);
 
 /** Get the current camera position as (x, y) */
-const float* DK_camera_position();
+const float* DK_camera_position(void);
 
 /** Get the current camera zoom */
-float DK_camera_zoom();
+float DK_camera_zoom(void);
 
 #ifdef	__cplusplus
 }

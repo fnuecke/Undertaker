@@ -63,10 +63,10 @@ extern "C" {
 void DK_init_map(unsigned short size);
 
 /** Update map data such as currently hovered block */
-void DK_update_map();
+void DK_update_map(void);
 
 /** Render the current map (blocks) */
-void DK_render_map();
+void DK_render_map(void);
 
 /** Get the map block at the specified coordinate */
 DK_Block* DK_block_at(int x, int y);

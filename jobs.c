@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <malloc.h>
 #include <stdio.h>
 #include <string.h>
@@ -26,6 +25,8 @@ static unsigned int jobs_count[DK_PLAYER_COUNT] = {0};
 
 /** Allocate a job and track it in our list */
 static DK_Job* get_job(DK_Player player) {
+    DK_Job* job;
+
     // Ensure we have the capacity to add the job.
     if (jobs_count[player] + 1 > jobs_capacity[player]) {
         jobs_capacity[player] = DK_AI_JOB_CAPACITY_GROWTH(jobs_capacity[player]);
@@ -36,7 +37,7 @@ static DK_Job* get_job(DK_Player player) {
     }
 
     // Allocate the actual job.
-    DK_Job* job = calloc(1, sizeof (DK_Job));
+    job = calloc(1, sizeof (DK_Job));
     if (!job) {
         fprintf(stderr, "Out of memory while allocating a job.\n");
         exit(EXIT_FAILURE);
@@ -47,10 +48,7 @@ static DK_Job* get_job(DK_Player player) {
 }
 
 /** Delete a job that is no longer used */
-static void delete_job(DK_Player player, int job_index) {
-    assert(job_index >= 0);
-    assert(job_index < jobs_count[player]);
-
+static void delete_job(DK_Player player, unsigned int job_index) {
     // Free the actual memory.
     free(jobs[player][job_index]);
 
@@ -235,7 +233,7 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_init_jobs() {
+void DK_init_jobs(void) {
     int player, job_index;
     for (player = 0; player < DK_PLAYER_COUNT; ++player) {
         for (job_index = jobs_count[player] - 1; job_index >= 0; --job_index) {
@@ -277,9 +275,9 @@ void DK_update_jobs(DK_Player player, unsigned short x, unsigned short y) {
     }
 }
 
-void DK_render_jobs() {
+void DK_render_jobs(void) {
     if (DK_d_draw_jobs) {
-        int i;
+        unsigned int i;
         for (i = 0; i < jobs_count[DK_PLAYER_RED]; ++i) {
             const DK_Job* job = jobs[DK_PLAYER_RED][i];
 

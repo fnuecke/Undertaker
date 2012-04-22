@@ -19,29 +19,29 @@ void DK_camera_unset_direction(DK_CameraDirection direction) {
     camera_direction &= ~direction;
 }
 
-void DK_camera_zoom_in() {
+void DK_camera_zoom_in(void) {
     camera_zoom_target += DK_CAMERA_ZOOM_STEP;
     if (camera_zoom_target > 1.0f) {
         camera_zoom_target = 1.0f;
     }
 }
 
-void DK_camera_zoom_out() {
+void DK_camera_zoom_out(void) {
     camera_zoom_target -= DK_CAMERA_ZOOM_STEP;
     if (camera_zoom_target < 0) {
         camera_zoom_target = 0;
     }
 }
 
-const float* DK_camera_position() {
+const float* DK_camera_position(void) {
     return camera_position;
 }
 
-float DK_camera_zoom() {
+float DK_camera_zoom(void) {
     return camera_zoom;
 }
 
-void DK_update_camera() {
+void DK_update_camera(void) {
     if (camera_direction & DK_CAMD_NORTH) {
         camera_velocity[1] = DK_CAMERA_SPEED;
     }

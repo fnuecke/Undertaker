@@ -20,7 +20,7 @@ extern "C" {
 #endif
 
 /** (Re)Initializes data structures after a map change */
-void DK_init_a_star();
+void DK_init_a_star(void);
 
 /**
  * Performs an A* path search using JPS.

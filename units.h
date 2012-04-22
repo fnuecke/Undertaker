@@ -22,13 +22,13 @@ extern "C" {
 #endif
 
 /** (Re)Initialize unit logic after a map change */
-void DK_init_units();
+void DK_init_units(void);
 
 /** Update unit logic, i.e. run ai and update positions */
-void DK_update_units();
+void DK_update_units(void);
 
 /** Render units to screen */
-void DK_render_units();
+void DK_render_units(void);
 
 /** Add a unit for a player at the specified block coordinates */
 unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, unsigned short y);

@@ -13,10 +13,10 @@ extern "C" {
 #endif
 
 /** Update the cursor coordinate (i.e. where it is on the X/Y plane) */
-void DK_update_cursor();
+void DK_update_cursor(void);
 
 /** Get the current cursor coordinate */
-float DK_cursor(float* x, float* y);
+void DK_cursor(float* x, float* y);
 
 #ifdef	__cplusplus
 }

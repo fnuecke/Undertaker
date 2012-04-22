@@ -36,7 +36,7 @@ typedef struct {
 ///////////////////////////////////////////////////////////////////////////////
 
 /** Number of cells in the grid used for our A* algorithm */
-static unsigned int a_star_grid_size = 0;
+static int a_star_grid_size = 0;
 
 /** Bitset for quick lookup of closed set in A* */
 static char* a_star_closed_set = 0;
@@ -59,6 +59,8 @@ static unsigned int closed_count = 0;
 
 /** Get a new node for the open queue, at the specified sort key */
 static AStar_Node* get_open(float key) {
+    unsigned int low = 0, high = open_count;
+
     // Ensure we have the capacity to add the node.
     if (open_count + 1 >= open_capacity) {
         open_capacity = DK_ASTAR_CAPACITY_GROWTH(open_capacity);
@@ -70,7 +72,6 @@ static AStar_Node* get_open(float key) {
 
     // Find where to insert; we want to keep this list sorted, so that the entry
     // with the lowest score is first.
-    unsigned int low = 0, high = open_count;
     while (high > low) {
         unsigned mid = (low + high) / 2;
         if (open[mid].fscore < key) {
@@ -93,7 +94,7 @@ static AStar_Node* get_open(float key) {
 }
 
 /** Move the first entry in the open queue to the closed set and return it */
-static AStar_Node* pop_to_closed() {
+static AStar_Node* pop_to_closed(void) {
     // Ensure we have the capacity to add the node.
     if (closed_count + 1 >= closed_capacity) {
         closed_capacity = DK_ASTAR_CAPACITY_GROWTH(closed_capacity);
@@ -138,6 +139,8 @@ inline static float h(unsigned int from_x, unsigned int from_y, unsigned int to_
     const int dy = to_y - from_y;
     return sqrtf(dx * dx + dy * dy);
 }
+
+#define M_SQRT2 1.41421356237309504880
 
 /** Computes the heuristic */
 inline static float f(unsigned int node_x, unsigned int node_y, unsigned int goal_x, unsigned int goal_y) {
@@ -190,7 +193,7 @@ static int should_skip(unsigned int x, unsigned int y, float gscore) {
  * @param gy goal y coordinate (so we don't jump past it).
  * @return whether the jump was successful or not.
  */
-static int jps(int* jx, int* jy, int dx, int dy, int sx, int sy, int gx, int gy) {
+static int jps(int* jx, int* jy, int dx, int dy, int sx, int sy, unsigned int gx, unsigned int gy) {
     // Don't go out of bounds.
     if (sx < 0 || sx >= a_star_grid_size ||
             sy < 0 || sy >= a_star_grid_size) {
@@ -218,18 +221,18 @@ static int jps(int* jx, int* jy, int dx, int dy, int sx, int sy, int gx, int gy)
     }
 
     // Have we reached the goal?
-    if (sx == gx && sy == gy) {
+    if ((unsigned int) sx == gx && (unsigned int) sy == gy) {
         return 1;
     }
 
     // Do we have to evaluate neighbors here and end our jump?
     if (
             // If we move along the x axis...
-            (dx &&
+            ((dx &&
             // ... and there's an obstacle above, blocking a passable tile...
             ((!is_passable(sx, sy - 1) && is_passable(sx + dx, sy - 1)) ||
             // ... or below us, blocking a passable tile...
-            (!is_passable(sx, sy + 1) && is_passable(sx + dx, sy + 1))) ||
+            (!is_passable(sx, sy + 1) && is_passable(sx + dx, sy + 1)))) ||
             // ... or we're moving along the y axis...
             (dy &&
             // ... and there's an obstacle to the left, blocking a passable tile...
@@ -302,8 +305,7 @@ static int is_goal(AStar_Waypoint* path, unsigned int* depth, float* length,
 
         // Push the remaining nodes' coordinates (in reverse walk order to
         // make it forward work order).
-        int i;
-        for (i = *depth - 1; i >= 0; --i) {
+        for (int i = *depth - 1; i >= 0; --i) {
             AStar_Waypoint* waypoint = &path[i];
             if (!node->came_from) {
                 // This is the start node, set it to the actual start
@@ -311,8 +313,8 @@ static int is_goal(AStar_Waypoint* path, unsigned int* depth, float* length,
                 waypoint->x = start_x;
                 waypoint->y = start_y;
             } else {
-                if (waypoint->x == local_goal_x &&
-                        waypoint->y == local_goal_y) {
+                if (node->x == local_goal_x &&
+                        node->y == local_goal_y) {
                     // Use the actual goal coordinates instead of those of the
                     // actual waypoint for the goal.
                     waypoint->x = goal_x;
@@ -340,13 +342,18 @@ static int is_goal(AStar_Waypoint* path, unsigned int* depth, float* length,
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_init_a_star() {
+void DK_init_a_star(void) {
     BS_free(a_star_closed_set);
     a_star_grid_size = DK_map_size * DK_ASTAR_GRANULARITY;
     a_star_closed_set = BS_alloc(a_star_grid_size * a_star_grid_size);
 }
 
 int DK_a_star(float start_x, float start_y, float goal_x, float goal_y, AStar_Waypoint* path, unsigned int* depth, float* length) {
+    unsigned int gx, gy, begin_x, begin_y, end_x, end_y, neighbor_x, neighbor_y;
+    int x, y;
+    float gscore, fscore;
+    AStar_Node *current, *node;
+
     // Check if the start and target position are valid (passable).
     if (!DK_block_is_passable(DK_block_at((int) start_x, (int) start_y)) ||
             !DK_block_is_passable(DK_block_at((int) goal_x, (int) goal_y))) {
@@ -361,24 +368,22 @@ int DK_a_star(float start_x, float start_y, float goal_x, float goal_y, AStar_Wa
     BS_reset(a_star_closed_set, a_star_grid_size * a_star_grid_size);
 
     // Get goal in local coordinates.
-    const unsigned int gx = (unsigned int) (goal_x * DK_ASTAR_GRANULARITY);
-    const unsigned int gy = (unsigned int) (goal_y * DK_ASTAR_GRANULARITY);
+    gx = (unsigned int) (goal_x * DK_ASTAR_GRANULARITY);
+    gy = (unsigned int) (goal_y * DK_ASTAR_GRANULARITY);
 
     // Initialize the first open node to the one we're starting from.
-    {
-        AStar_Node* start = get_open(0);
-        start->x = (unsigned int) (start_x * DK_ASTAR_GRANULARITY);
-        start->y = (unsigned int) (start_y * DK_ASTAR_GRANULARITY);
-        start->gscore = 0.0f;
-        start->fscore = 0.0f;
-        start->came_from = 0;
-        start->steps = 0;
-    }
+    current = get_open(0);
+    current->x = (unsigned int) (start_x * DK_ASTAR_GRANULARITY);
+    current->y = (unsigned int) (start_y * DK_ASTAR_GRANULARITY);
+    current->gscore = 0.0f;
+    current->fscore = 0.0f;
+    current->came_from = 0;
+    current->steps = 0;
 
     // Do the actual search.
     while (open_count > 0) {
         // Copy first (best) open entry to closed list.
-        const AStar_Node* current = pop_to_closed();
+        current = pop_to_closed();
 
         // Check if we're there yet.
         if (is_goal(path, depth, length, current, gx, gy, start_x, start_y, goal_x, goal_y)) {
@@ -387,10 +392,10 @@ int DK_a_star(float start_x, float start_y, float goal_x, float goal_y, AStar_Wa
 
         // Check our neighbors. Determine which neighbors we actually need to
         // check based on the direction we came from. Per default enable all.
-        unsigned int begin_x = clamp(current->x - 1),
-                begin_y = clamp(current->y - 1),
-                end_x = clamp(current->x + 1),
-                end_y = clamp(current->y + 1);
+        begin_x = clamp(current->x - 1);
+        begin_y = clamp(current->y - 1);
+        end_x = clamp(current->x + 1);
+        end_y = clamp(current->y + 1);
 
         // Check if we have a direction, i.e. we came from somewhere. The
         // exception is the start node, where we'll have to check all neighbors.
@@ -420,7 +425,6 @@ int DK_a_star(float start_x, float start_y, float goal_x, float goal_y, AStar_Wa
         }
 
         // Now work through all our selected neighbors.
-        unsigned int neighbor_x, neighbor_y;
         for (neighbor_x = begin_x; neighbor_x <= end_x; ++neighbor_x) {
             for (neighbor_y = begin_y; neighbor_y <= end_y; ++neighbor_y) {
                 // Skip self.
@@ -429,7 +433,7 @@ int DK_a_star(float start_x, float start_y, float goal_x, float goal_y, AStar_Wa
                 }
 
                 // The actual node to be inspected.
-                unsigned int x = neighbor_x, y = neighbor_y;
+                x = neighbor_x, y = neighbor_y;
 
 #if DK_ASTAR_JPS
                 // Try this direction using jump point search.
@@ -459,7 +463,7 @@ int DK_a_star(float start_x, float start_y, float goal_x, float goal_y, AStar_Wa
                 // neighbor. This is the actual traveled distance (Euclidean
                 // distance -- we do an actual computation here, because we
                 // might have skipped some tiles).
-                const float gscore = current->gscore +
+                gscore = current->gscore +
                         h(x, y, current->x, current->y);
 
                 // See if we can find that neighbor in the open set and should
@@ -470,10 +474,10 @@ int DK_a_star(float start_x, float start_y, float goal_x, float goal_y, AStar_Wa
 
                 // Compute the heuristic cost for a path with this waypoint.
                 // The factor in the end is used for tie breaking.
-                const float fscore = (gscore + f(x, y, gx, gy)) * 1.001f;
+                fscore = (gscore + f(x, y, gx, gy)) * 1.001f;
 
                 // Create new entry.
-                AStar_Node* node = get_open(fscore);
+                node = get_open(fscore);
 
                 // Store position of that node. Used for "contains" checks.
                 node->x = x;

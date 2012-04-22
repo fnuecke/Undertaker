@@ -30,7 +30,7 @@
 #define DK_FRAMERATE 60
 
 /** Use fog in the distance, to fade out to black */
-#define DK_USE_FOG 1
+int DK_use_fog;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Units

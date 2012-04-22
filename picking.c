@@ -7,7 +7,9 @@
 #include "picking.h"
 
 GLuint DK_pick(int x, int y, void(*render)(void)) {
-    GLuint buffer[64] = {0};
+    GLuint buffer[64] = {0}, closest;
+    GLint hits, hit;
+    unsigned int depth;
 
     // Store state.
     glPushAttrib(GL_TRANSFORM_BIT | GL_ENABLE_BIT | GL_CURRENT_BIT);
@@ -34,13 +36,13 @@ GLuint DK_pick(int x, int y, void(*render)(void)) {
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
 
-    GLint hits = glRenderMode(GL_RENDER);
+    hits = glRenderMode(GL_RENDER);
 
     // Restore state.
     glPopAttrib();
 
-    GLuint closest = 0;
-    unsigned int hit, depth = UINT32_MAX;
+    closest = 0;
+    depth = UINT32_MAX;
     for (hit = 0; hit < hits; ++hit) {
         if (buffer[hit * 4 + 3] && buffer[hit * 4 + 2] < depth) {
             closest = buffer[hit * 4 + 3];

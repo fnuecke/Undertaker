@@ -37,10 +37,10 @@ extern "C" {
 #endif
 
 /** (Re)Initialize data structures on map change */
-void DK_init_jobs();
+void DK_init_jobs(void);
 
 /** Display hints for job slots (e.g. debugging) */
-void DK_render_jobs();
+void DK_render_jobs(void);
 
 /** Update jobs at and surrounding the specified coordinate */
 void DK_update_jobs(DK_Player player, unsigned short x, unsigned short y);

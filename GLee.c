@@ -37,6 +37,14 @@
 	#pragma optimize( "g", off )
 #endif
 
+#ifdef _GCC
+        #pragma GCC diagnostic ignored "-Wall"
+        #pragma GCC diagnostic ignored "-Werror"
+        #pragma GCC diagnostic ignored "-pedantic"
+        #pragma GCC diagnostic ignored "-Wmissing-prototypes"
+        #pragma GCC diagnostic ignored "-Wcast-qual"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

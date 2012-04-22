@@ -45,49 +45,8 @@ GLuint DK_gl_test_texture;
 SDL_Surface* DK_textures[DK_TEX_COUNT][DK_TEX_MAX_VARIATIONS];
 GLuint DK_gl_textures[DK_TEX_COUNT][DK_TEX_MAX_VARIATIONS];
 
-GLuint DK_opengl_texture(DK_Texture texture, unsigned int hash) {
-    if (DK_d_draw_test_texture || !DK_num_textures[texture]) {
-        return DK_gl_test_texture;
-    } else {
-        return DK_gl_textures[texture][hash % DK_num_textures[texture]];
-    }
-}
-
-void DK_load_textures() {
-    int textureId;
-    char filename[64];
-    for (textureId = 0; textureId < DK_TEX_COUNT; ++textureId) {
-        int* count = &DK_num_textures[textureId];
-        *count = 0;
-        do {
-            // Generate file name.
-            sprintf(filename, "%s%s_%d%s", DK_TEX_DIR, DK_texture_names[textureId], *count, DK_TEX_FILETYPE);
-
-            // Try to load the texture.
-            SDL_Surface* texture = IMG_Load(filename);
-            if (texture == NULL) {
-                // Failed loading, assume the previous one was the last.
-                break;
-            }
-
-            // Success, store as surface and as openGL texture.
-            DK_textures[textureId][*count] = texture;
-
-            // Next slot.
-            ++(*count);
-        } while (*count < DK_TEX_MAX_VARIATIONS);
-
-        fprintf(stdout, "Found %d variations of texture '%s'.\n", *count, DK_texture_names[textureId]);
-    }
-
-    // Load test texture.
-    sprintf(filename, "%s%s%s", DK_TEX_DIR, "test", DK_TEX_FILETYPE);
-
-    DK_test_texture = IMG_Load(filename);
-}
-
 /** Generates an openGL texture from an SDL surface */
-GLuint DK_surface2glTex(const SDL_Surface* surface) {
+static GLuint surface2glTex(const SDL_Surface* surface) {
     // Generate a texture object and bind it.
     GLuint texture;
     glGenTextures(1, &texture);
@@ -115,14 +74,56 @@ GLuint DK_surface2glTex(const SDL_Surface* surface) {
     return texture;
 }
 
-void DK_opengl_textures() {
+void DK_load_textures(void) {
+    int textureId;
+    char filename[64];
+    SDL_Surface* texture;
+    for (textureId = 0; textureId < DK_TEX_COUNT; ++textureId) {
+        int* count = &DK_num_textures[textureId];
+        *count = 0;
+        do {
+            // Generate file name.
+            sprintf(filename, "%s%s_%d%s", DK_TEX_DIR, DK_texture_names[textureId], *count, DK_TEX_FILETYPE);
+
+            // Try to load the texture.
+            texture = IMG_Load(filename);
+            if (texture == NULL) {
+                // Failed loading, assume the previous one was the last.
+                break;
+            }
+
+            // Success, store as surface and as openGL texture.
+            DK_textures[textureId][*count] = texture;
+
+            // Next slot.
+            ++(*count);
+        } while (*count < DK_TEX_MAX_VARIATIONS);
+
+        fprintf(stdout, "Found %d variations of texture '%s'.\n", *count, DK_texture_names[textureId]);
+    }
+
+    // Load test texture.
+    sprintf(filename, "%s%s%s", DK_TEX_DIR, "test", DK_TEX_FILETYPE);
+
+    DK_test_texture = IMG_Load(filename);
+}
+
+void DK_opengl_textures(void) {
     int textureId;
     for (textureId = 0; textureId < DK_TEX_COUNT; ++textureId) {
         int count;
         for (count = DK_num_textures[textureId] - 1; count >= 0; --count) {
-            DK_gl_textures[textureId][count] = DK_surface2glTex(DK_textures[textureId][count]);
+            DK_gl_textures[textureId][count] = surface2glTex(DK_textures[textureId][count]);
         }
     }
 
-    DK_gl_test_texture = DK_surface2glTex(DK_test_texture);
+    DK_gl_test_texture = surface2glTex(DK_test_texture);
+}
+
+GLuint DK_opengl_texture(DK_Texture texture, unsigned int hash) {
+    if (DK_d_draw_test_texture || !DK_num_textures[texture]) {
+        return DK_gl_test_texture;
+    } else {
+        return DK_gl_textures[texture][hash % DK_num_textures[texture]];
+    }
 }
