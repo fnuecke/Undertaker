@@ -261,6 +261,40 @@ static int jps(int* jx, int* jy, int dx, int dy, int sx, int sy, unsigned int gx
     return jps(jx, jy, dx, dy, sx + dx, sy + dy, gx, gy);
 }
 
+/** Tests whether two nodes are visible to each other */
+static int line_of_sight(const AStar_Node* a, const AStar_Node* b) {
+    // We essentially draw a line from a to b and check if all the pixels we'd
+    // set would be on passable tiles. Algorithm from wikipedia:
+    // https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm#Simplification
+    const int dx = abs(b->x - a->x);
+    const int dy = abs(b->y - a->y);
+    const int sx = (a->x < b->x) ? 1 : -1;
+    const int sy = (a->y < b->y) ? 1 : -1;
+
+    int err = dx - dy;
+    unsigned int x = a->x, y = a->y;
+    while (1) {
+        if (!is_passable(x, y)) {
+            return 0;
+        }
+        if (x == b->x && y == b->y) {
+            return 1;
+        }
+        {
+            const int e2 = 2 * err;
+            if (e2 > -dy) {
+                err = err - dy;
+                x = x + sx;
+            }
+            if (e2 < dx) {
+                err = err + dx;
+                y = y + sy;
+            }
+        }
+    }
+    return 1;
+}
+
 /**
  * Tests if we have reached our goal and writes out result data if yes.
  * @param path the buffer to write the path to.
@@ -276,7 +310,7 @@ static int jps(int* jx, int* jy, int dx, int dy, int sx, int sy, unsigned int gx
  * @return whether the goal was reached or not.
  */
 static int is_goal(AStar_Waypoint* path, unsigned int* depth, float* length,
-        const AStar_Node* node,
+        AStar_Node* node,
         unsigned int local_goal_x, unsigned int local_goal_y,
         float start_x, float start_y,
         float goal_x, float goal_y) {
@@ -284,53 +318,91 @@ static int is_goal(AStar_Waypoint* path, unsigned int* depth, float* length,
     if (node->x == local_goal_x && node->y == local_goal_y) {
         // Done, follow the path back to the beginning to return the best
         // neighboring node.
+        AStar_Node *n0, *n1, *n2;
 
-        // Return the length of the returned array. This isn't 100% accurate,
-        // because we replace the start and end points with the search start
-        // and end coordinates, but it's close enough (because they're
-        // guaranteed to be in the same A* cell).
-        *length = node->gscore / DK_ASTAR_GRANULARITY;
+        // The capacity to what we actually need if we use the full path.
+        unsigned int real_depth = node->steps;
 
         // Make sure we can write something back.
-        if (*depth == 0) {
+        if (*depth < 2) {
             // Well that sucks :P
             return 1;
         }
 
-        // Follow the path until only as many nodes as we can fit into the
-        // specified buffer remain.
-        while (node->steps + 1 > *depth) {
-            node = &closed[node->came_from - 1];
+        // Do some path cleaning: throw out nodes that are between two other
+        // nodes that can "see" each other.
+        n1 = node;
+        if (n1->came_from) {
+            n0 = &closed[n1->came_from - 1];
+            while (n0->came_from) {
+                n2 = n1;
+                n1 = n0;
+                n0 = &closed[n0->came_from - 1]; // = n(-1)
+
+                // See if we can skip the middle one.
+                if (line_of_sight(n0, n2)) {
+                    // Yes, take out the middle-man.
+                    n2->came_from = n1->came_from;
+                    n1 = n2;
+                    --real_depth;
+                }
+            }
         }
 
-        // Then set the capacity to what we actually need.
-        *depth = node->steps + 1;
+        // Force minimum length of the path for start and end node (can be one
+        // if goal is in same cell as start otherwise).
+        if (real_depth < 2) {
+            real_depth = 2;
+        }
+        
+        // Follow the path until only as many nodes as we can fit into the
+        // specified buffer remain.
+        while (real_depth >= *depth) {
+            node = &closed[node->came_from - 1];
+            --real_depth;
+        }
+
+        // Set the depth we actually use.
+        *depth = real_depth;
+
+        // Set the start node to the actual start coordinates, instead of the
+        // ones of the waypoint.
+        path[0].x = start_x;
+        path[0].y = start_y;
+        // Same for the last one.
+        path[real_depth - 1].x = goal_x;
+        path[real_depth - 1].y = goal_y;
+        // And skip it, too.
+        node = &closed[node->came_from - 1];
 
         // Push the remaining nodes' coordinates (in reverse walk order to
         // make it forward work order).
-        for (int i = *depth - 1; i >= 0; --i) {
+        for (int i = real_depth - 2; i > 0; --i) {
             AStar_Waypoint* waypoint = &path[i];
-            if (!node->came_from) {
-                // This is the start node, set it to the actual start
-                // coordinates, instead of the ones of the waypoint.
-                waypoint->x = start_x;
-                waypoint->y = start_y;
+            if (node->x == local_goal_x &&
+                    node->y == local_goal_y) {
+                // Use the actual goal coordinates instead of those of the
+                // actual waypoint for the goal.
+                waypoint->x = goal_x;
+                waypoint->y = goal_y;
             } else {
-                if (node->x == local_goal_x &&
-                        node->y == local_goal_y) {
-                    // Use the actual goal coordinates instead of those of the
-                    // actual waypoint for the goal.
-                    waypoint->x = goal_x;
-                    waypoint->y = goal_y;
-                } else {
-                    // Normal waypoint, convert it to map space coordinates.
-                    waypoint->x = to_map_space(node->x);
-                    waypoint->y = to_map_space(node->y);
-                }
-
-                // Continue on with the next node.
-                node = &closed[node->came_from - 1];
+                // Normal waypoint, convert it to map space coordinates.
+                waypoint->x = to_map_space(node->x);
+                waypoint->y = to_map_space(node->y);
             }
+
+            // Continue on with the next node.
+            node = &closed[node->came_from - 1];
+        }
+
+        // Compute actual length of the path. We can't use the gscore because
+        // we might have pruned some of the path, which might alter the distance
+        // quite a bit.
+        *length = 0;
+        for (unsigned int i = 1; i < *depth; ++i) {
+            const float dx = path[i].x - path[i - 1].x;
+            const float dy = path[i].y - path[i - 1].y;
+            *length += sqrtf(dx * dx + dy * dy);
         }
 
         // Return success.
@@ -356,12 +428,12 @@ int DK_a_star(const DK_Unit* unit, float goal_x, float goal_y, AStar_Waypoint* p
     int x, y;
     float start_x, start_y, gscore, fscore;
     AStar_Node *current, *node;
-    
+
     current_unit = unit;
 
     // Get the unit's current position.
     DK_unit_position(unit, &start_x, &start_y);
-    
+
     // Check if the start and target position are valid (passable).
     if (!DK_block_is_passable(DK_block_at((int) start_x, (int) start_y), unit) ||
             !DK_block_is_passable(DK_block_at((int) goal_x, (int) goal_y), unit)) {
@@ -386,7 +458,7 @@ int DK_a_star(const DK_Unit* unit, float goal_x, float goal_y, AStar_Waypoint* p
     current->gscore = 0.0f;
     current->fscore = 0.0f;
     current->came_from = 0;
-    current->steps = 0;
+    current->steps = 1;
 
     // Do the actual search.
     while (open_count > 0) {

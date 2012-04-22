@@ -393,9 +393,9 @@ static void update_ai(DK_Unit* unit) {
                     --unit->ai_count;
                     break;
                 } else {
-
                     // Subtract length of previous to carry surplus movement.
                     ai->path_traveled -= ai->path_distance;
+
                     // Update to new distance.
                     if (DK_AI_PATH_INTERPOLATE) {
                         int e;

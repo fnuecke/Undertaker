@@ -66,7 +66,7 @@ int DK_use_fog;
 /**
  * How fine the overlayed block grid for A* is (higher = finer); also sets how
  * many imps can work on one wall at a time */
-#define DK_ASTAR_GRANULARITY 3
+#define DK_ASTAR_GRANULARITY 2
 
 /**
  * Use jumps point search, skipping distances where possible.
@@ -103,7 +103,7 @@ int DK_use_fog;
 #define DK_AI_CATMULL_ROM_T 0.4f
 
 /** Interpolation steps to compute when estimating a path segment's length */
-#define DK_AI_PATH_INTERPOLATION 4
+#define DK_AI_PATH_INTERPOLATION 3
 
 /** Bonus accounted to a worker that's already on a job when checking if closer */
 #define DK_AI_ALREADY_WORKING_BONUS 0.5
