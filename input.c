@@ -4,6 +4,7 @@
 #include "config.h"
 #include "input.h"
 #include "selection.h"
+#include "units.h"
 
 void DK_key_down(const SDL_Event* e) {
     switch (e->key.keysym.sym) {
@@ -46,6 +47,9 @@ void DK_key_up(const SDL_Event* e) {
             break;
         case SDLK_F3:
             DK_d_draw_jobs = 1 - DK_d_draw_jobs;
+            break;
+        case SDLK_F4:
+            DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
             break;
         default:
             break;

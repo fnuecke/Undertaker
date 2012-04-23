@@ -1211,19 +1211,19 @@ void DK_init_map(unsigned short size) {
         }
     }
 
+    // Remember new map size (needed *now* for offset computation).
+    DK_map_size = size;
+
     // Initialize map data.
     for (x = 0; x < size; ++x) {
         for (y = 0; y < size; ++y) {
-            DK_Block* block = &map[x + y * size];
+            DK_Block* block = DK_block_at(x, y);
             block->type = DK_BLOCK_DIRT;
             block->health = DK_BLOCK_DIRT_HEALTH;
             block->strength = DK_BLOCK_DIRT_STRENGTH;
             block->room = DK_ROOM_NONE;
         }
     }
-
-    // Remember new map size (needed *now* for offset computation).
-    DK_map_size = size;
 
     // Initialize map model data.
 
@@ -1309,7 +1309,7 @@ void DK_render_map(void) {
                 texture_top = DK_TEX_ROCK_TOP;
                 texture_side = DK_TEX_ROCK_SIDE;
             } else {
-                const DK_Block* block = &map[x + y * DK_map_size];
+                const DK_Block* block = DK_block_at(x, y);
 
                 // Selected by the local player?
                 if (!picking && DK_block_is_selected(DK_PLAYER_RED, x, y)) {
@@ -1368,7 +1368,6 @@ void DK_render_map(void) {
                 }
             }
 
-            //draw_4quad(texture_top, points);
             draw_top(x, y, z, texture_top);
 
             if (!picking && (texture_top_wall || texture_top_owner)) {
@@ -1388,22 +1387,22 @@ void DK_render_map(void) {
             // Check if we need to render walls.
             if (z == 4) {
                 // North wall.
-                if (y + 1 < DK_map_size && DK_block_is_open(&map[x + (y + 1) * DK_map_size])) {
+                if (y + 1 < DK_map_size && DK_block_is_open(DK_block_at(x, y + 1))) {
                     draw_north(x, y + 1, 2, texture_side);
                 }
 
                 // South wall.
-                if (y > 0 && DK_block_is_open(&map[x + (y - 1) * DK_map_size])) {
+                if (y > 0 && DK_block_is_open(DK_block_at(x, y - 1))) {
                     draw_south(x, y, 2, texture_side);
                 }
 
                 // West wall.
-                if (x > 0 && DK_block_is_open(&map[(x - 1) + y * DK_map_size])) {
+                if (x > 0 && DK_block_is_open(DK_block_at(x - 1, y))) {
                     draw_west(x, y, 2, texture_side);
                 }
 
                 // East wall.
-                if (x + 1 < DK_map_size && DK_block_is_open(&map[(x + 1) + y * DK_map_size])) {
+                if (x + 1 < DK_map_size && DK_block_is_open(DK_block_at(x + 1, y))) {
                     draw_east(x + 1, y, 2, texture_side);
                 }
             }
@@ -1411,22 +1410,22 @@ void DK_render_map(void) {
             // Check if we need to render water walls.
             if (z == 0) {
                 // North wall.
-                if (y + 1 < DK_map_size && !DK_block_is_fluid(&map[x + (y + 1) * DK_map_size])) {
+                if (y + 1 < DK_map_size && !DK_block_is_fluid(DK_block_at(x, y + 1))) {
                     draw_south(x, y + 1, 0, DK_TEX_FLUID_SIDE);
                 }
 
                 // South wall.
-                if (y > 0 && !DK_block_is_fluid(&map[x + (y - 1) * DK_map_size])) {
+                if (y > 0 && !DK_block_is_fluid(DK_block_at(x, y - 1))) {
                     draw_north(x, y, 0, DK_TEX_FLUID_SIDE);
                 }
 
                 // West wall.
-                if (x > 0 && !DK_block_is_fluid(&map[(x - 1) + y * DK_map_size])) {
+                if (x > 0 && !DK_block_is_fluid(DK_block_at(x - 1, y))) {
                     draw_east(x, y, 0, DK_TEX_FLUID_SIDE);
                 }
 
                 // East wall.
-                if (x + 1 < DK_map_size && !DK_block_is_fluid(&map[(x + 1) + y * DK_map_size])) {
+                if (x + 1 < DK_map_size && !DK_block_is_fluid(DK_block_at(x + 1, y))) {
                     draw_west(x + 1, y, 0, DK_TEX_FLUID_SIDE);
                 }
             }
