@@ -1,8 +1,8 @@
 #include <math.h>
 
 #include "camera.h"
-#include "map.h"
 #include "config.h"
+#include "map.h"
 
 DK_CameraDirection camera_direction;
 float camera_velocity[] = {0, 0};

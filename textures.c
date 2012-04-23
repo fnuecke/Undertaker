@@ -1,9 +1,8 @@
 #include <stdio.h>
 
-#include "GLee.h"
-
 #include <SDL/SDL.h>
 #include <SDL/SDL_image.h>
+#include <GL/glew.h>
 
 #include "config.h"
 #include "textures.h"

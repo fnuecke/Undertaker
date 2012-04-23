@@ -2,8 +2,8 @@
 #include <string.h>
 #include <malloc.h>
 
-#include "GLee.h"
 #include <SDL/SDL.h>
+#include <GL/glew.h>
 
 #include "bitset.h"
 #include "camera.h"

@@ -3,13 +3,11 @@
 #include <memory.h>
 #include <stdlib.h>
 
-#include "GLee.h"
-#include <GL/glu.h>
+#include <GL/glew.h>
 
 #include "astar.h"
 #include "bitset.h"
 #include "config.h"
-#include "units.h"
 #include "map.h"
 #include "jobs.h"
 

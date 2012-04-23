@@ -1,11 +1,11 @@
 #include <stdio.h>
 
 #include <SDL/SDL.h>
-
-#include "GLee.h"
+#include <GL/glew.h>
 
 #include "astar.h"
 #include "config.h"
+#include "init.h"
 #include "map.h"
 #include "render.h"
 #include "selection.h"
@@ -51,17 +51,7 @@ void DK_init(void) {
         exit(EXIT_FAILURE);
     }
 
-    fprintf(stdout, "Successfully started up video, querying capabilities...\n");
-
-    fprintf(stdout, "GleeInit result: %d\n", GLeeInit());
-    fprintf(stdout, "Supports OpenGL 1.2: %d\n", GLEE_VERSION_1_2);
-    fprintf(stdout, "Supports OpenGL 1.3: %d\n", GLEE_VERSION_1_3);
-    fprintf(stdout, "Supports OpenGL 1.4: %d\n", GLEE_VERSION_1_4);
-    fprintf(stdout, "Supports OpenGL 1.5: %d\n", GLEE_VERSION_1_5);
-    fprintf(stdout, "Supports OpenGL 2.0: %d\n", GLEE_VERSION_2_0);
-    fprintf(stdout, "Supports OpenGL 2.1: %d\n", GLEE_VERSION_2_1);
-    fprintf(stdout, "Supports OpenGL 3.0: %d\n", GLEE_VERSION_3_0);
-    fprintf(stdout, "Supports VBOs: %d\n", GLEE_ARB_vertex_buffer_object);
+    //fprintf(stdout, "Successfully started up video, querying capabilities...\n");
 
     // Set window title.
     SDL_WM_SetCaption("Undertaker", NULL);

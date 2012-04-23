@@ -8,8 +8,6 @@
 #ifndef MAP_H
 #define	MAP_H
 
-#include "GLee.h"
-
 #include "players.h"
 #include "units.h"
 
