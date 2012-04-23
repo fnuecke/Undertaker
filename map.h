@@ -71,6 +71,12 @@ void DK_update_map(void);
 /** Render the current map (blocks) */
 void DK_render_map(void);
 
+/** Load the current map from a file with the specified name */
+void DK_map_load(const char* filename);
+
+/** Save the current map to a file with the specified name */
+void DK_map_save(const char* filename);
+
 /** Get the map block at the specified coordinate */
 DK_Block* DK_block_at(int x, int y);
 

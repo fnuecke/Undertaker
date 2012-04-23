@@ -8,6 +8,8 @@
 #ifndef CONFIG_H
 #define	CONFIG_H
 
+#include <stdio.h>
+
 #include <GL/glew.h>
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -34,6 +36,9 @@ int DK_use_antialiasing;
 
 /** Use fog in the distance, to fade out to black */
 int DK_use_fog;
+
+/** The stream to write log messages to */
+FILE* DK_log_target;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Units
@@ -100,7 +105,7 @@ int DK_use_fog;
 #define DK_AI_PATH_INTERPOLATE 1
 
 /** Factor to use for catmull rom path smoothing */
-#define DK_AI_CATMULL_ROM_T 0.3f
+#define DK_AI_CATMULL_ROM_T 0.25f
 
 /** Interpolation steps to compute when estimating a path segment's length */
 #define DK_AI_PATH_INTERPOLATION 5
@@ -237,6 +242,24 @@ int DK_d_draw_paths;
 
 /** Render job slots for player red */
 int DK_d_draw_jobs;
+
+///////////////////////////////////////////////////////////////////////////////
+// Debugging
+///////////////////////////////////////////////////////////////////////////////
+
+#ifdef	__cplusplus
+extern "C" {
+#endif
+
+/** Load configuration from disk */
+void DK_load_config(void);
+
+/** Save configuration to disk */
+void DK_save_config(void);
+
+#ifdef	__cplusplus
+}
+#endif
 
 #endif	/* CONFIG_H */
 

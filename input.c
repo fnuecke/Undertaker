@@ -2,6 +2,7 @@
 
 #include "camera.h"
 #include "config.h"
+#include "input.h"
 #include "selection.h"
 #include "units.h"
 
