@@ -18,6 +18,9 @@ void DK_init_gl(void);
 /** Render the game to the screen */
 void DK_render(void);
 
+/** Set a texture to use for the deferred shader */
+void DK_set_texture(GLuint texture);
+
 #ifdef	__cplusplus
 }
 #endif

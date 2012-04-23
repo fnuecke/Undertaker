@@ -25,7 +25,7 @@ void DK_init(void) {
     fprintf(DK_log_target, "INFO: Game starting up...\n");
 
     atexit(shutdown);
-    
+
     // Set up SDL.
     if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO) < 0) {
         fprintf(DK_log_target, "ERROR: Unable to initialize SDL: %s\n", SDL_GetError());
@@ -50,7 +50,7 @@ void DK_init(void) {
     fprintf(DK_log_target, "INFO: Done configuring SDL.\n");
 
     // Set up video.
-    screen = SDL_SetVideoMode(DK_resolution_x, DK_resolution_y, 16, SDL_HWSURFACE | SDL_OPENGL);
+    screen = SDL_SetVideoMode(DK_resolution_x, DK_resolution_y, 0, SDL_HWSURFACE | SDL_OPENGL);
     if (screen == NULL) {
         fprintf(DK_log_target, "ERROR: Unable to set video: %s.\n", SDL_GetError());
         exit(EXIT_FAILURE);

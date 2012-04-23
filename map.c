@@ -12,6 +12,7 @@
 #include "jobs.h"
 #include "map.h"
 #include "picking.h"
+#include "render.h"
 #include "selection.h"
 #include "simplexnoise.h"
 #include "textures.h"
@@ -451,14 +452,18 @@ static void update_block(DK_Block* block) {
 // Map model rendering
 ///////////////////////////////////////////////////////////////////////////////
 
+static void set_texture(int x, int y, unsigned int z, DK_Texture texture) {
+    unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
+    DK_set_texture(DK_opengl_texture(texture, variation));
+}
+
 static void draw_top(int x, int y, unsigned int z, DK_Texture texture) {
-    unsigned int variation, idx;
+    unsigned int idx;
 
     x += DK_MAP_BORDER / 2;
     y += DK_MAP_BORDER / 2;
 
-    variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
-    glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
+    set_texture(x, y, z, texture);
 
     glBegin(GL_QUAD_STRIP);
     {
@@ -542,13 +547,12 @@ static void draw_top(int x, int y, unsigned int z, DK_Texture texture) {
 }
 
 static void draw_east(int x, int y, unsigned int z, DK_Texture texture) {
-    unsigned int variation, idx;
+    unsigned int idx;
 
     x += DK_MAP_BORDER / 2;
     y += DK_MAP_BORDER / 2;
 
-    variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
-    glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
+    set_texture(x, y, z, texture);
 
     glBegin(GL_QUAD_STRIP);
     {
@@ -632,13 +636,12 @@ static void draw_east(int x, int y, unsigned int z, DK_Texture texture) {
 }
 
 static void draw_west(int x, int y, unsigned int z, DK_Texture texture) {
-    unsigned int variation, idx;
+    unsigned int idx;
 
     x += DK_MAP_BORDER / 2;
     y += DK_MAP_BORDER / 2;
 
-    variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
-    glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
+    set_texture(x, y, z, texture);
 
     glBegin(GL_QUAD_STRIP);
     {
@@ -722,13 +725,12 @@ static void draw_west(int x, int y, unsigned int z, DK_Texture texture) {
 }
 
 static void draw_north(int x, int y, unsigned int z, DK_Texture texture) {
-    unsigned int variation, idx;
+    unsigned int idx;
 
     x += DK_MAP_BORDER / 2;
     y += DK_MAP_BORDER / 2;
 
-    variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
-    glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
+    set_texture(x, y, z, texture);
 
     glBegin(GL_QUAD_STRIP);
     {
@@ -812,13 +814,12 @@ static void draw_north(int x, int y, unsigned int z, DK_Texture texture) {
 }
 
 static void draw_south(int x, int y, unsigned int z, DK_Texture texture) {
-    unsigned int variation, idx;
+    unsigned int idx;
 
     x += DK_MAP_BORDER / 2;
     y += DK_MAP_BORDER / 2;
 
-    variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
-    glBindTexture(GL_TEXTURE_2D, DK_opengl_texture(texture, variation));
+    set_texture(x, y, z, texture);
 
     glBegin(GL_QUAD_STRIP);
     {

@@ -243,6 +243,18 @@ int DK_d_draw_paths;
 /** Render job slots for player red */
 int DK_d_draw_jobs;
 
+/** Possible steps of the deferred rendering that can be rendered */
+typedef enum {
+    DK_D_DEFERRED_FINAL,
+    DK_D_DEFERRED_DIFFUSE,
+    DK_D_DEFERRED_POSITION,
+    DK_D_DEFERRED_NORMALS,
+    DK_D_DEFERRED_COUNT /* Number of possibilities, for bounding */
+} DK_DeferredDisplay;
+
+/** What part of the deferred rendering process to output */
+DK_DeferredDisplay DK_d_draw_deferred;
+
 ///////////////////////////////////////////////////////////////////////////////
 // Debugging
 ///////////////////////////////////////////////////////////////////////////////
