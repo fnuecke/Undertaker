@@ -3,7 +3,7 @@
 #include <malloc.h>
 
 #include "GLee.h"
-#include <SDL.h>
+#include <SDL/SDL.h>
 
 #include "bitset.h"
 #include "camera.h"

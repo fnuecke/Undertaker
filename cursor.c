@@ -1,7 +1,7 @@
-#include <SDL.h>
-
 #include "GLee.h"
 #include <GL/glu.h>
+
+#include <SDL/SDL.h>
 
 #include "camera.h"
 #include "config.h"

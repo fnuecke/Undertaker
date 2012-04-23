@@ -12,17 +12,8 @@
 extern "C" {
 #endif
 
-/** Handle key press */
-void DK_key_down(const SDL_Event* e);
-
-/** Handle key release */
-void DK_key_up(const SDL_Event* e);
-    
-/** Handle mouse down */
-void DK_mouse_down(const SDL_Event* e);
-
-/** Handle mouse up */
-void DK_mouse_up(const SDL_Event* e);
+/** Handle user input */
+void DK_input(void);
 
 #ifdef	__cplusplus
 }

@@ -1,4 +1,4 @@
-#include <SDL.h>
+#include <SDL/SDL.h>
 
 #include "camera.h"
 #include "config.h"
@@ -6,7 +6,11 @@
 #include "selection.h"
 #include "units.h"
 
-void DK_key_down(const SDL_Event* e) {
+///////////////////////////////////////////////////////////////////////////////
+// Event handlers
+///////////////////////////////////////////////////////////////////////////////
+
+static void key_down(const SDL_Event* e) {
     switch (e->key.keysym.sym) {
         case SDLK_UP:
             DK_camera_set_direction(DK_CAMD_NORTH);
@@ -25,7 +29,7 @@ void DK_key_down(const SDL_Event* e) {
     }
 }
 
-void DK_key_up(const SDL_Event* e) {
+static void key_up(const SDL_Event* e) {
     switch (e->key.keysym.sym) {
         case SDLK_UP:
             DK_camera_unset_direction(DK_CAMD_NORTH);
@@ -56,7 +60,7 @@ void DK_key_up(const SDL_Event* e) {
     }
 }
 
-void DK_mouse_down(const SDL_Event* e) {
+static void mouse_down(const SDL_Event* e) {
     switch (e->button.button) {
         case SDL_BUTTON_WHEELUP:
             DK_camera_zoom_in();
@@ -77,12 +81,41 @@ void DK_mouse_down(const SDL_Event* e) {
     }
 }
 
-void DK_mouse_up(const SDL_Event* e) {
+static void mouse_up(const SDL_Event* e) {
     switch (e->button.button) {
         case SDL_BUTTON_LEFT:
             DK_selection_end();
             break;
         default:
             break;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Header implementation
+///////////////////////////////////////////////////////////////////////////////
+
+void DK_input(void) {
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        switch (event.type) {
+            case SDL_QUIT:
+                exit(EXIT_SUCCESS);
+                break;
+            case SDL_KEYDOWN:
+                key_down(&event);
+                break;
+            case SDL_KEYUP:
+                key_up(&event);
+                break;
+            case SDL_MOUSEBUTTONDOWN:
+                mouse_down(&event);
+                break;
+            case SDL_MOUSEBUTTONUP:
+                mouse_up(&event);
+                break;
+            default:
+                break;
+        }
     }
 }
