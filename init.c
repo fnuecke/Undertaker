@@ -68,11 +68,11 @@ void DK_init(void) {
 
     fprintf(DK_log_target, "INFO: GLEW initialized successfully\n");
 
-    if (!GLEW_VERSION_2_0) {
-        fprintf(DK_log_target, "ERROR: OpenGL 2.0 not supported.\n");
+    if (!GLEW_VERSION_3_3) {
+        fprintf(DK_log_target, "ERROR: OpenGL 3.3 not supported.\n");
         exit(EXIT_FAILURE);
     }
-    fprintf(DK_log_target, "INFO: OpenGL 2.0 supported.\n");
+    fprintf(DK_log_target, "INFO: OpenGL 3.3 supported.\n");
 
     // Load all textures we may need.
     DK_load_textures();

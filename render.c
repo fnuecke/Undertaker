@@ -1,3 +1,6 @@
+#include <assert.h>
+#include <math.h>
+
 #include <SDL/SDL.h>
 #include <GL/glew.h>
 
@@ -10,21 +13,166 @@
 #include "shader.h"
 #include "textures.h"
 #include "units.h"
+#include "vmath.h"
 
 /** Shader programs */
-GLuint deferred_render = 0, deferred_shade = 0;
+//GLuint deferred_render = 0, deferred_shade = 0;
 
 /** Our framebuffer for deferred shading */
-GLuint frame_buffer = 0;
+//GLuint frame_buffer = 0;
 
 /** Renderbuffers for diffuse, position, normals and depth */
-GLuint diffuse_buffer = 0, position_buffer = 0, normals_buffer = 0, depth_buffer = 0;
+//GLuint diffuse_buffer = 0, position_buffer = 0, normals_buffer = 0, depth_buffer = 0;
 
 /** The OpenGL textures for the render targets */
-GLuint diffuse_texture = 0, position_texture = 0, normals_texture = 0;
+//GLuint diffuse_texture = 0, position_texture = 0, normals_texture = 0;
 
 /** The ids for the uniforms in our shader program we bind our texture to */
-GLuint diffuse_id = 0, position_id = 0, normals_id = 0, camera_id = 0, worldMatrix_id = 0, texture_id = 0;
+//GLuint diffuse_id = 0, position_id = 0, normals_id = 0, camera_id = 0, texture_id = 0;
+
+/** Matrices we use for resolving vertex positions to screen positions */
+static struct {
+    /** The current projection transform */
+    mat4 projection;
+
+    /** The current view transform */
+    mat4 view;
+
+    /** Precomputed view-projection transform */
+    mat4 vp;
+
+    /** The current model transform */
+    mat4 model;
+
+    /** The current model-view-projection transform */
+    mat4 mvp;
+
+    /** Precomputed surface normal transform (transpose of inverse of current model transform) */
+    mat3 normal;
+} matrix;
+
+/** Holds information on our GBuffer */
+static struct {
+    /** ID of the frame buffer we use for offscreen rendering */
+    GLuint frame_buffer;
+
+    /** ID of the color render buffer */
+    GLuint color_buffer;
+    /** ID of the position render buffer */
+    GLuint position_buffer;
+    /** ID of the surface normal render buffer */
+    GLuint normal_buffer;
+    /** ID of the depth buffer */
+    GLuint depth_buffer;
+
+    /** ID of the color texture (actual data) */
+    GLuint color_texture;
+    /** ID of the position texture (actual data) */
+    GLuint position_texture;
+    /** ID of the surface normal texture (actual data) */
+    GLuint normal_texture;
+} g_buffer;
+
+/** Holds information on our geometry shader */
+static struct {
+    /** ID of the shader program */
+    GLuint program;
+
+    /** Uniforms for the vertex shader */
+    struct {
+        /** The current model matrix */
+        GLint ModelMatrix;
+
+        /** The current model-view-projection matrix */
+        GLint ModelViewProjectionMatrix;
+
+        /** The current surface normal matrix */
+        GLint NormalMatrix;
+    } vs_uniforms;
+
+    /** Attributes for the vertex shader */
+    struct {
+        /** The vertex position model space */
+        GLuint ModelVertex;
+
+        /** The vertex normal in model space */
+        GLuint ModelNormal;
+
+        /** The texture coordinate at the vertex */
+        GLuint TextureCoordinate;
+    } vs_attributes;
+
+    /** Uniforms for the fragment shader */
+    struct {
+        /** Textures to use for rendering */
+        GLint Textures;
+
+        /** Number of textures to use */
+        GLint TextureCount;
+
+        /** The diffuse color multiplier */
+        GLint ColorDiffuse;
+
+        /** The specular color multiplier */
+        GLint ColorSpecular;
+    } fs_uniforms;
+} geometry_shader;
+
+static struct {
+    /** ID of the shader program */
+    GLuint program;
+
+    /** Uniforms for the vertex shader */
+    struct {
+        /** The current model-view-projection matrix */
+        GLuint ModelViewProjectionMatrix;
+    } vs_uniforms;
+
+    /** Attributes for the vertex shader */
+    struct {
+        /** The vertex position model space */
+        GLuint ModelVertex;
+
+        /** The texture coordinate at the vertex */
+        GLuint TextureCoordinate;
+    } vs_attributes;
+
+    /** Uniforms for the fragment shader */
+    struct {
+        /** The color texture of our GBuffer */
+        GLuint ColorBuffer;
+
+        /** The position texture of our GBuffer */
+        GLuint PositionBuffer;
+
+        /** The surface normal texture of our GBuffer */
+        GLuint NormalBuffer;
+
+        /** The current position of the camera in the world */
+        GLuint WorldCameraPosition;
+
+        /** The diffuse color of the current light to shade for */
+        GLuint LightDiffuseColor;
+
+        /** The specular color of the current light to shade for */
+        GLuint LightSpecularColor;
+
+        /** The position of the current light to shade for */
+        GLuint LightWorldPosition;
+    } fs_uniforms;
+} light_shader;
+
+/** Represents a single light in a scene */
+typedef struct {
+    /** The diffuse color (and power - can be larger than one). */
+    float diffuse_color[3];
+
+    /** The specular color (and power - can be larger than one). */
+    float specular_color[3];
+
+    /** The position of the light, in world space. */
+    vec4 world_position;
+} DK_Light;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Helper methods
@@ -70,49 +218,67 @@ static GLenum create_texture(GLenum internalformat, GLenum type, GLenum attachme
 
 static void init_shaders(void) {
     // Load shader for deferred shading.
-    GLuint vs = DK_shader_load("data/shaders/deferred_render.vert", GL_VERTEX_SHADER);
-    GLuint fs = DK_shader_load("data/shaders/deferred_render.frag", GL_FRAGMENT_SHADER);
+    GLuint vs = DK_shader_load("data/shaders/geom.vert", GL_VERTEX_SHADER);
+    GLuint fs = DK_shader_load("data/shaders/geom.frag", GL_FRAGMENT_SHADER);
     if (vs && fs) {
-        deferred_render = DK_shader_program(vs, fs);
+        const char* out_names[3] = {"Color", "Vertex", "Normal"};
+        geometry_shader.program = DK_shader_program(vs, fs, out_names, 3);
 
-        if (deferred_render) {
-            // Get the handles from the shader
-            diffuse_id = glGetUniformLocation(deferred_render, "tDiffuse");
-            position_id = glGetUniformLocation(deferred_render, "tPosition");
-            normals_id = glGetUniformLocation(deferred_render, "tNormals");
-            camera_id = glGetUniformLocation(deferred_render, "cameraPosition");
+        if (geometry_shader.program) {
+            // Get the uniform/attribute locations from the shader.
+            geometry_shader.vs_uniforms.ModelMatrix = glGetUniformLocation(geometry_shader.program, "ModelMatrix");
+            geometry_shader.vs_uniforms.ModelViewProjectionMatrix = glGetUniformLocation(geometry_shader.program, "ModelViewProjectionMatrix");
+            geometry_shader.vs_uniforms.NormalMatrix = glGetUniformLocation(geometry_shader.program, "NormalMatrix");
+            geometry_shader.vs_attributes.ModelVertex = glGetAttribLocation(geometry_shader.program, "ModelVertex");
+            geometry_shader.vs_attributes.ModelNormal = glGetAttribLocation(geometry_shader.program, "ModelNormal");
+            geometry_shader.vs_attributes.TextureCoordinate = glGetAttribLocation(geometry_shader.program, "TextureCoordinate");
+            geometry_shader.fs_uniforms.Textures = glGetUniformLocation(geometry_shader.program, "Textures");
+            geometry_shader.fs_uniforms.TextureCount = glGetUniformLocation(geometry_shader.program, "TextureCount");
+            geometry_shader.fs_uniforms.ColorDiffuse = glGetUniformLocation(geometry_shader.program, "ColorDiffuse");
+            geometry_shader.fs_uniforms.ColorSpecular = glGetUniformLocation(geometry_shader.program, "ColorSpecular");
         }
     } else {
-        deferred_render = 0;
+        geometry_shader.program = 0;
+        return;
     }
-    vs = DK_shader_load("data/shaders/deferred_shade.vert", GL_VERTEX_SHADER);
-    fs = DK_shader_load("data/shaders/deferred_shade.frag", GL_FRAGMENT_SHADER);
+    vs = DK_shader_load("data/shaders/light.vert", GL_VERTEX_SHADER);
+    fs = DK_shader_load("data/shaders/light.frag", GL_FRAGMENT_SHADER);
     if (vs && fs) {
-        deferred_shade = DK_shader_program(vs, fs);
+        const char* out_names[1] = {"Color"};
+        light_shader.program = DK_shader_program(vs, fs, out_names, 1);
 
-        if (deferred_shade) {
-            // Get the handles from the shader
-            worldMatrix_id = glGetUniformLocationARB(deferred_shade, "WorldMatrix");
-            texture_id = glGetUniformLocationARB(deferred_shade, "tDiffuse");
+        if (light_shader.program) {
+            // Get the uniform/attribute locations from the shader.
+            light_shader.vs_uniforms.ModelViewProjectionMatrix = glGetUniformLocation(light_shader.program, "ModelViewProjectionMatrix");
+            light_shader.vs_attributes.ModelVertex = glGetAttribLocation(light_shader.program, "ModelVertex");
+            light_shader.vs_attributes.TextureCoordinate = glGetAttribLocation(light_shader.program, "TextureCoordinate");
+            light_shader.fs_uniforms.ColorBuffer = glGetUniformLocation(light_shader.program, "ColorBuffer");
+            light_shader.fs_uniforms.PositionBuffer = glGetUniformLocation(light_shader.program, "PositionBuffer");
+            light_shader.fs_uniforms.NormalBuffer = glGetUniformLocation(light_shader.program, "NormalBuffer");
+            light_shader.fs_uniforms.WorldCameraPosition = glGetUniformLocation(light_shader.program, "WorldCameraPosition");
+            light_shader.fs_uniforms.LightDiffuseColor = glGetUniformLocation(light_shader.program, "LightDiffuseColor");
+            light_shader.fs_uniforms.LightSpecularColor = glGetUniformLocation(light_shader.program, "LightSpecularColor");
+            light_shader.fs_uniforms.LightWorldPosition = glGetUniformLocation(light_shader.program, "LightWorldPosition");
         }
     } else {
-        deferred_shade = 0;
+        light_shader.program = 0;
+        return;
     }
 
     // Generate and bind our frame buffer.
-    glGenFramebuffers(1, &frame_buffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer);
+    glGenFramebuffers(1, &g_buffer.frame_buffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, g_buffer.frame_buffer);
 
     // Create our render buffers.
-    diffuse_buffer = create_render_buffer(GL_RGBA, GL_COLOR_ATTACHMENT0);
-    position_buffer = create_render_buffer(GL_RGBA32F, GL_COLOR_ATTACHMENT1);
-    normals_buffer = create_render_buffer(GL_RGBA16F, GL_COLOR_ATTACHMENT2);
-    depth_buffer = create_render_buffer(GL_DEPTH_COMPONENT24, GL_DEPTH_ATTACHMENT);
+    g_buffer.color_buffer = create_render_buffer(GL_RGB, GL_COLOR_ATTACHMENT0);
+    g_buffer.position_buffer = create_render_buffer(GL_RGB32F, GL_COLOR_ATTACHMENT1);
+    g_buffer.normal_buffer = create_render_buffer(GL_RGB16F, GL_COLOR_ATTACHMENT2);
+    g_buffer.depth_buffer = create_render_buffer(GL_DEPTH_COMPONENT24, GL_DEPTH_ATTACHMENT);
 
     // Create our textures.
-    diffuse_texture = create_texture(GL_RGBA, GL_UNSIGNED_BYTE, GL_COLOR_ATTACHMENT0);
-    position_texture = create_texture(GL_RGBA32F, GL_FLOAT, GL_COLOR_ATTACHMENT1);
-    normals_texture = create_texture(GL_RGBA16F, GL_FLOAT, GL_COLOR_ATTACHMENT2);
+    g_buffer.color_texture = create_texture(GL_RGB, GL_UNSIGNED_BYTE, GL_COLOR_ATTACHMENT0);
+    g_buffer.position_texture = create_texture(GL_RGB32F, GL_FLOAT, GL_COLOR_ATTACHMENT1);
+    g_buffer.normal_texture = create_texture(GL_RGB16F, GL_FLOAT, GL_COLOR_ATTACHMENT2);
 
     // Check if all worked fine and unbind the FBO
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -120,43 +286,8 @@ static void init_shaders(void) {
         exit(EXIT_FAILURE);
     }
 
-    // All done, unbind it.
+    // All done, unbind frame buffer.
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-static void init_lighting(void) {
-    // Light colors.
-    GLfloat darkness[] = {0.0f, 0.0f, 0.0f, 1.0f};
-    GLfloat ambient_global[] = {0.1f, 0.1f, 0.1f, 1.0f};
-    GLfloat ambient_directed[] = {0.1f, 0.06f, 0.06f, 1.0f};
-    GLfloat hand_diffuse[] = {0.5f, 0.4f, 0.3f, 1.0f};
-
-    // And directions.
-    GLfloat ambient_direction[] = {-1.0f, 1.0f, 1.0f, 0.0f};
-
-    // Set up global ambient lighting.
-    glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
-    glEnable(GL_LIGHTING);
-    glShadeModel(GL_SMOOTH);
-    glEnable(GL_COLOR_MATERIAL);
-
-    // Ambient overall light.
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambient_global);
-
-    //Add ambient directed light.
-    glLightfv(GL_LIGHT0, GL_AMBIENT, darkness);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, ambient_directed);
-    glLightfv(GL_LIGHT0, GL_AMBIENT, darkness);
-    glLightfv(GL_LIGHT0, GL_POSITION, ambient_direction);
-    glEnable(GL_LIGHT0);
-
-    // Assign created components to GL_LIGHT0
-    glLightfv(GL_LIGHT1, GL_AMBIENT, darkness);
-    glLightfv(GL_LIGHT1, GL_DIFFUSE, hand_diffuse);
-    glLightfv(GL_LIGHT1, GL_SPECULAR, darkness);
-    glLightf(GL_LIGHT1, GL_CONSTANT_ATTENUATION, 0.0f);
-    glLightf(GL_LIGHT1, GL_QUADRATIC_ATTENUATION, 0.00125f);
-    glEnable(GL_LIGHT1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -164,101 +295,106 @@ static void init_lighting(void) {
 ///////////////////////////////////////////////////////////////////////////////
 
 void DK_init_gl(void) {
-    // Anti-alias?
-    if (DK_use_antialiasing) {
-        //glEnable(GL_MULTISAMPLE);
-    }
-
     // We do use textures, so enable that.
     glEnable(GL_TEXTURE_2D);
 
     // We want triangle surface pixels to be shaded using interpolated values.
     glShadeModel(GL_SMOOTH);
 
-    //init_lighting();
-
+    // We do manual lighting via deferred shading.
     glDisable(GL_LIGHTING);
 
     // Also enable depth testing to get stuff in the right order.
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
-    //glDepthMask(GL_TRUE);
+    glDepthMask(GL_TRUE);
 
     // We'll make sure stuff is rotated correctly, so we can cull back-faces.
-    //glEnable(GL_CULL_FACE);
-    //glFrontFace(GL_CCW);
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
 
     glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 
+    // Initialize our deferred shaders.
     init_shaders();
 
-    /*
-        if (DK_use_fog) {
-            GLfloat fog_color[] = {0.0f, 0.0f, 0.0f, 1.0f};
-            glFogi(GL_FOG_MODE, GL_LINEAR);
-            glFogfv(GL_FOG_COLOR, fog_color);
-            glFogf(GL_FOG_DENSITY, 0.1f);
-            glHint(GL_FOG_HINT, GL_DONT_CARE);
-            glFogf(GL_FOG_START, DK_CAMERA_HEIGHT + DK_BLOCK_SIZE);
-            glFogf(GL_FOG_END, DK_CAMERA_HEIGHT + DK_BLOCK_SIZE * 4);
-            glEnable(GL_FOG);
-        }
-     */
-
     // Load all textures we may need.
-    DK_opengl_textures();
+    init_textures();
 
     // Define our viewport as the size of our window.
     glViewport(0, 0, DK_resolution_x, DK_resolution_y);
 
-    // Set our projection matrix to match our viewport.
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(DK_field_of_view, DK_ASPECT_RATIO, 0.1, 1000.0);
+    // Set our projection matrix to match our viewport. Null the OpenGL internal
+    // ones, as we'll use our own because we use shaders.
+    /*
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+     */
+}
 
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
+static void update_matrices(void) {
+    // Precompute view-projection transform.
+    mmulm(&matrix.vp, &matrix.projection, &matrix.view);
+
+    // Precompute model-view-projection transform.
+    mmulm(&matrix.mvp, &matrix.vp, &matrix.model);
+}
+
+static void camera_position(vec4* position) {
+    const vec2* camera = DK_camera_position();
+    position->v[0] = camera->v[0];
+    position->v[1] = camera->v[1];
+    position->v[2] = DK_CAMERA_HEIGHT - DK_camera_zoom() * DK_CAMERA_MAX_ZOOM;
+    position->v[3] = 1.0f;
+}
+
+static void camera_target(vec4* target) {
+    const vec2* camera = DK_camera_position();
+    target->v[0] = camera->v[0];
+    target->v[1] = camera->v[1] + DK_CAMERA_TARGET_DISTANCE;
+    target->v[2] = 0.0f;
+    target->v[3] = 1.0f;
 }
 
 static void begin_render(void) {
-    // Set "camera" position.
-    const float* camera = DK_camera_position();
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    gluLookAt(
-            // Eye position is camera position. Z is lowered by zooming.
-            camera[0],
-            camera[1],
-            DK_CAMERA_HEIGHT - DK_camera_zoom() * DK_CAMERA_MAX_ZOOM,
-            // Eye position is a little in front of camera position.
-            camera[0],
-            camera[1] + DK_CAMERA_TARGET_DISTANCE,
-            0,
-            // We use Z as the up vector.
-            0, 0, 1);
+    // Set camera position.
+    vec4 cam_position, cam_target;
+    camera_position(&cam_position);
+    camera_target(&cam_target);
+    lookat(&matrix.view, &cam_position, &cam_target);
 
-    // Clear to black.
+    // Set projection matrix.
+    perspective(&matrix.projection, DK_field_of_view, DK_ASPECT_RATIO, 0.1f, 1000.0f);
+
+    // Reset model transform.
+    matrix.model = IDENTITY_MATRIX4;
+    matrix.normal = IDENTITY_MATRIX3;
+
+    // Update precomputed matrics.
+    update_matrices();
+
+    // Clear to black and set default vertex color to white.
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClearDepth(1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glColor3f(1.0f, 1.0f, 1.0f);
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
     // Update cursor position (depends on view being set up).
-    DK_update_cursor();
+    //DK_update_cursor();
 
     // Get cursor position and update hand light accordingly.
-    {
-        float x, y;
-        DK_cursor(&x, &y);
+    /*
         {
-            GLfloat light_position[] = {x, y, DK_BLOCK_HEIGHT * 2, 1};
-            glLightfv(GL_LIGHT1, GL_POSITION, light_position);
+            float x, y;
+            DK_cursor(&x, &y);
+            {
+                GLfloat light_position[] = {x, y, DK_BLOCK_HEIGHT * 2, 1};
+                glLightfv(GL_LIGHT1, GL_POSITION, light_position);
+            }
         }
-    }
-}
-
-static void end_render(void) {
-    SDL_GL_SwapBuffers();
+     */
 }
 
 static const GLenum buffers[] = {
@@ -268,96 +404,107 @@ static const GLenum buffers[] = {
 };
 
 static void begin_deferred(void) {
-    // Bind our frame buffer and set the viewport to the proper size.
-    glBindFramebuffer(GL_FRAMEBUFFER, frame_buffer);
-    glPushAttrib(GL_VIEWPORT_BIT);
-    glViewport(0, 0, DK_resolution_x, DK_resolution_y);
+    // Bind our frame buffer.
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, g_buffer.frame_buffer);
 
-    // Clear the render targets
+    // Clear the render targets.
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glActiveTexture(GL_TEXTURE0);
-    glEnable(GL_TEXTURE_2D);
+    // Start using the geometry shader.
+    glUseProgram(geometry_shader.program);
 
+    // Set uniforms for geometry shader.
+    glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelMatrix, 1, GL_FALSE, matrix.model.m);
+    glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, matrix.mvp.m);
+    glUniformMatrix4fv(geometry_shader.vs_uniforms.NormalMatrix, 1, GL_FALSE, matrix.normal.m);
+
+    //glActiveTexture(GL_TEXTURE0);
+    //glEnable(GL_TEXTURE_2D);
+
+    // Use our three buffers.
     glDrawBuffers(3, buffers);
-
-    // Save the current world matrix to compensate the normals in the shader
-    {
-        float worldMatrix[16];
-        glGetFloatv(GL_MODELVIEW_MATRIX, worldMatrix);
-
-        glUseProgram(deferred_shade);
-
-        glUniformMatrix4fv(worldMatrix_id, 1, 0, worldMatrix);
-    }
 }
 
 static void end_deferred(void) {
     glUseProgram(0);
-
-    glPopAttrib();
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 static void render_deferred(void) {
-    // Rendering the three buffers into a quad, so we want an orthogonal projection.
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-    glOrtho(0, DK_resolution_x, 0, DK_resolution_y, 0.1f, 2.0f);
-
-    // Move one unit away from the plane.
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-    glTranslatef(0, 0, -1.0);
-
     // Figure out what to draw.
-    switch (DK_d_draw_deferred) {
-        case DK_D_DEFERRED_DIFFUSE:
-            glActiveTexture(GL_TEXTURE0);
-            glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, diffuse_texture);
-            break;
-        case DK_D_DEFERRED_POSITION:
-            glActiveTexture(GL_TEXTURE0);
-            glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, position_texture);
-            break;
-        case DK_D_DEFERRED_NORMALS:
-            glActiveTexture(GL_TEXTURE0);
-            glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, normals_texture);
-            break;
-        default:
-        {
-            // We use our shader to do the actual shading computations.
-            glUseProgram(deferred_render);
+    if (DK_d_draw_deferred == DK_D_DEFERRED_FINAL) {
+        vec4 cam_position;
 
-            glActiveTexture(GL_TEXTURE0);
-            glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, diffuse_texture);
-            glUniform1i(diffuse_id, 0);
+        // Set projection matrix.
+        orthogonal(&matrix.projection, 0, DK_resolution_x, 0, DK_resolution_y, 0.1f, 2.0f);
 
-            glActiveTexture(GL_TEXTURE1);
-            glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, position_texture);
-            glUniform1i(position_id, 1);
+        // Reset other matrices, set view a bit back to avoid clipping.
+        matrix.model = IDENTITY_MATRIX4;
+        matrix.normal = IDENTITY_MATRIX3;
+        matrix.view = IDENTITY_MATRIX4;
+        mitranslate(&matrix.view, 0, 0, -1.0f);
 
-            glActiveTexture(GL_TEXTURE2);
-            glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, normals_texture);
-            glUniform1i(normals_id, 2);
+        // Update precomputed matrices.
+        update_matrices();
 
-            glUniform3fv(camera_id, 1, DK_camera_position());
-            break;
+        // We use our shader to do the actual shading computations.
+        glUseProgram(light_shader.program);
+
+        // The the global transformation matrix.
+        glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, matrix.mvp.m);
+
+        // Set camera position.
+        camera_position(&cam_position);
+        glUniform3fv(light_shader.fs_uniforms.WorldCameraPosition, 1, cam_position.v);
+
+        // Set our three g-buffer textures.
+        glActiveTexture(GL_TEXTURE0);
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, g_buffer.color_texture);
+        glUniform1i(light_shader.fs_uniforms.ColorBuffer, 0);
+
+        glActiveTexture(GL_TEXTURE1);
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, g_buffer.position_texture);
+        glUniform1i(light_shader.fs_uniforms.PositionBuffer, 1);
+
+        glActiveTexture(GL_TEXTURE2);
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, g_buffer.normal_texture);
+        glUniform1i(light_shader.fs_uniforms.NormalBuffer, 2);
+    } else {
+        glMatrixMode(GL_PROJECTION);
+        glPushMatrix();
+        glLoadIdentity();
+        glOrtho(0, DK_resolution_x, 0, DK_resolution_y, 0.1f, 2.0f);
+
+        glMatrixMode(GL_MODELVIEW);
+        glPushMatrix();
+        glLoadIdentity();
+        glTranslatef(0, 0, -1.0f);
+
+        glDisable(GL_LIGHTING);
+        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+
+        glActiveTexture(GL_TEXTURE0);
+        glEnable(GL_TEXTURE_2D);
+        switch (DK_d_draw_deferred) {
+            case DK_D_DEFERRED_DIFFUSE:
+                glBindTexture(GL_TEXTURE_2D, g_buffer.color_texture);
+                break;
+            case DK_D_DEFERRED_POSITION:
+                glBindTexture(GL_TEXTURE_2D, g_buffer.position_texture);
+                break;
+            case DK_D_DEFERRED_NORMALS:
+                glBindTexture(GL_TEXTURE_2D, g_buffer.normal_texture);
+                break;
+            default:
+                break;
         }
     }
 
     // Render the quad
-    glColor3f(1.0f, 1.0f, 1.0f);
-
     glBegin(GL_QUADS);
     {
         glTexCoord2f(0.0f, 0.0f);
@@ -372,52 +519,32 @@ static void render_deferred(void) {
     glEnd();
 
     // Reset OpenGL state.
-    switch (DK_d_draw_deferred) {
-        case DK_D_DEFERRED_DIFFUSE:
-            glActiveTexture(GL_TEXTURE0);
-            glDisable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, 0);
-            break;
-        case DK_D_DEFERRED_POSITION:
-            glActiveTexture(GL_TEXTURE0);
-            glDisable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, 0);
-            break;
-        case DK_D_DEFERRED_NORMALS:
-            glActiveTexture(GL_TEXTURE0);
-            glDisable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, 0);
-            break;
-        default:
-        {
-            glActiveTexture(GL_TEXTURE0);
-            glDisable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glDisable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE1);
+    glDisable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE2);
+    glDisable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
-            glActiveTexture(GL_TEXTURE1);
-            glDisable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, 0);
-
-            glActiveTexture(GL_TEXTURE2);
-            glDisable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, 0);
-            break;
-        }
+    if (DK_d_draw_deferred == DK_D_DEFERRED_FINAL) {
+        // Done with our lighting shader.
+        glUseProgram(0);
+    } else {
+        // Reset to the matrices.
+        glMatrixMode(GL_PROJECTION);
+        glPopMatrix();
+        glMatrixMode(GL_MODELVIEW);
+        glPopMatrix();
     }
-
-    glUseProgram(0);
-
-    // Reset to the matrices.
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-    glMatrixMode(GL_MODELVIEW);
-    glPopMatrix();
 }
 
 void DK_render(void) {
     begin_render();
 
-    if (deferred_render && deferred_shade) {
+    if (geometry_shader.program && light_shader.program) {
         begin_deferred();
     }
 
@@ -426,15 +553,38 @@ void DK_render(void) {
     DK_render_units();
     DK_render_jobs();
 
-    if (deferred_render && deferred_shade) {
+    if (geometry_shader.program && light_shader.program) {
         end_deferred();
         render_deferred();
     }
-
-    end_render();
 }
 
-void DK_set_texture(GLuint texture) {
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glUniform1i(texture_id, 0);
+static const GLint textureUnits[4] = {0, 1, 2, 3};
+
+void DK_render_set_material(const DK_Material* material) {
+    for (unsigned int i = 0; i < sizeof (material->textures); ++i) {
+        glActiveTexture(GL_TEXTURE0 + i);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    for (unsigned int i = 0; i < material->texture_count; ++i) {
+        glActiveTexture(GL_TEXTURE0 + i);
+        glBindTexture(GL_TEXTURE_2D, material->textures[i]);
+    }
+    glUniform1i(geometry_shader.fs_uniforms.Textures, 0);
+    glUniform1i(geometry_shader.fs_uniforms.TextureCount, material->texture_count);
+}
+
+void DK_material_init(DK_Material* material) {
+    for (unsigned int i = 0; i < sizeof (material->textures); ++i) {
+        material->textures[i] = 0;
+    }
+    material->texture_count = 0;
+    material->diffuse_color.v[0] = 1.0f;
+    material->diffuse_color.v[1] = 1.0f;
+    material->diffuse_color.v[2] = 1.0f;
+    material->specular_color.v[0] = 1.0f;
+    material->specular_color.v[1] = 1.0f;
+    material->specular_color.v[2] = 1.0f;
+    material->bump_map = 0;
+    material->normal_map = 0;
 }

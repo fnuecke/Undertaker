@@ -108,7 +108,7 @@ void DK_load_textures(void) {
     DK_test_texture = IMG_Load(filename);
 }
 
-void DK_opengl_textures(void) {
+void init_textures(void) {
     int textureId;
     for (textureId = 0; textureId < DK_TEX_COUNT; ++textureId) {
         int count;

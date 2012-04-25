@@ -8,6 +8,12 @@
 #ifndef CAMERA_H
 #define	CAMERA_H
 
+#include "vmath.h"
+
+#ifdef	__cplusplus
+extern "C" {
+#endif
+
 /** Possible camera movement directions for DK_camera_[un]set_direction() */
 typedef enum {
     DK_CAMD_NONE = 0,
@@ -16,10 +22,6 @@ typedef enum {
     DK_CAMD_SOUTH = 4,
     DK_CAMD_WEST = 8
 } DK_CameraDirection;
-
-#ifdef	__cplusplus
-extern "C" {
-#endif
 
 /** Make the camera move in the specified direction */
 void DK_camera_set_direction(DK_CameraDirection direction);
@@ -37,7 +39,7 @@ void DK_camera_zoom_out(void);
 void DK_update_camera(void);
 
 /** Get the current camera position as (x, y) */
-const float* DK_camera_position(void);
+const vec2* DK_camera_position(void);
 
 /** Get the current camera zoom */
 float DK_camera_zoom(void);

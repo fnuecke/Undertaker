@@ -8,9 +8,32 @@
 #ifndef RENDER_H
 #define	RENDER_H
 
+#include "vmath.h"
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
+
+/** Used to configure material used for rendering */
+typedef struct {
+    /** Textures used for multi-texturing */
+    GLuint textures[4];
+
+    /** Number of textures to use */
+    unsigned int texture_count;
+
+    /** Texture to use as a bump map */
+    GLuint bump_map;
+
+    /** Texture to use as a normal map */
+    GLuint normal_map;
+
+    /** Diffuse multiplier for texture */
+    vec3 diffuse_color;
+
+    /** Specular multiplier for texture */
+    vec3 specular_color;
+} DK_Material;
 
 /** (Re)initialize openGL */
 void DK_init_gl(void);
@@ -18,8 +41,14 @@ void DK_init_gl(void);
 /** Render the game to the screen */
 void DK_render(void);
 
-/** Set a texture to use for the deferred shader */
-void DK_set_texture(GLuint texture);
+/** Set up the camera used for rendering, using two 3-component vectors */
+void DK_render_set_camera(const float* position, const float* target);
+
+/** Set material information to use from now on */
+void DK_render_set_material(const DK_Material* material);
+
+/** Initialize a material to its default values */
+void DK_material_init(DK_Material* material);
 
 #ifdef	__cplusplus
 }

@@ -233,7 +233,7 @@ static void update_vertices(int x, int y) {
         float offset_factor;
 #if DK_D_USE_NOISE_OFFSET
         factor = compute_offset(offset, (x - DK_MAP_BORDER) / 2.0f, (y - DK_MAP_BORDER) / 2.0f);
-        offset_factor = (0.25f - (fabs(fabs(z / 4.0f - 0.5f) - 0.25f) - 0.25f)) * 3;
+        offset_factor = (0.25f - (fabs(fabs(z / 4.0f - 0.5f) - 0.25f) - 0.25f)) * z - 0.5f;
         offset[0] *= offset_factor;
         offset[1] *= offset_factor;
 #endif
@@ -454,7 +454,11 @@ static void update_block(DK_Block* block) {
 
 static void set_texture(int x, int y, unsigned int z, DK_Texture texture) {
     unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
-    DK_set_texture(DK_opengl_texture(texture, variation));
+    DK_Material material;
+    DK_material_init(&material);
+    material.textures[0] = DK_opengl_texture(texture, variation);
+    material.texture_count = 1;
+    DK_render_set_material(&material);
 }
 
 static void draw_top(int x, int y, unsigned int z, DK_Texture texture) {
@@ -919,7 +923,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
 
     // Set up for line drawing.
     glLineWidth(3.0f + DK_camera_zoom() * 3.0f);
-    glColor4f(DK_MAP_OUTLINE_COLOR, 0.5f);
+    //glColor4f(DK_MAP_OUTLINE_COLOR, 0.5f);
 
     for (x = start_x; x <= end_x; ++x) {
         map_x = x - DK_MAP_BORDER / 2;
@@ -1283,8 +1287,9 @@ void DK_update_map(void) {
 #define M_PI 3.14159265358979323846
 
 void DK_render_map(void) {
-    int x_begin = (int) (DK_camera_position()[0] / DK_BLOCK_SIZE) - DK_RENDER_AREA_X / 2;
-    int y_begin = (int) (DK_camera_position()[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA_Y_OFFSET;
+    const vec2* cam_position = DK_camera_position();
+    int x_begin = (int) (cam_position->v[0] / DK_BLOCK_SIZE) - DK_RENDER_AREA_X / 2;
+    int y_begin = (int) (cam_position->v[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA_Y_OFFSET;
     int x_end = x_begin + DK_RENDER_AREA_X;
     int y_end = y_begin + DK_RENDER_AREA_Y;
     int x, y, z;
@@ -1297,10 +1302,10 @@ void DK_render_map(void) {
                 glLoadName(((unsigned short) y << 16) | (unsigned short) x);
             } else {
                 // Reset tint color.
-                glColorMaterial(GL_FRONT, GL_EMISSION);
-                glColor3f(0.0f, 0.0f, 0.0f);
-                glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
-                glColor3f(1.0f, 1.0f, 1.0f);
+                //glColorMaterial(GL_FRONT, GL_EMISSION);
+                //glColor3f(0.0f, 0.0f, 0.0f);
+                //glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+                //glColor3f(1.0f, 1.0f, 1.0f);
             }
 
             texture_top_wall = 0;
@@ -1316,8 +1321,8 @@ void DK_render_map(void) {
                 // Selected by the local player?
                 if (!picking && DK_block_is_selected(DK_PLAYER_RED, x, y)) {
                     const float intensity = 0.6f + sinf(SDL_GetTicks() * M_PI * (DK_MAP_SELECTED_PULSE_FREQUENCY)) * 0.3f;
-                    glColorMaterial(GL_FRONT, GL_EMISSION);
-                    glColor3f(DK_MAP_SELECTED_COLOR(intensity));
+                    //glColorMaterial(GL_FRONT, GL_EMISSION);
+                    //glColor3f(DK_MAP_SELECTED_COLOR(intensity));
                 }
 
                 if (block->type == DK_BLOCK_NONE) {

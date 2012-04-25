@@ -26,7 +26,7 @@ void DK_update_cursor(void) {
     glGetDoublev(GL_PROJECTION_MATRIX, proj);
     glGetIntegerv(GL_VIEWPORT, view);
 
-    gluProject(DK_camera_position()[0], DK_camera_position()[1] + DK_CAMERA_TARGET_DISTANCE, 0, model, proj, view, &ox, &oy, &oz);
+    //gluProject(DK_camera_position()[0], DK_camera_position()[1] + DK_CAMERA_TARGET_DISTANCE, 0, model, proj, view, &ox, &oy, &oz);
 
     // Get window mouse coordinates.
     SDL_GetMouseState(&mouseX, &mouseY);

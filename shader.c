@@ -80,7 +80,10 @@ GLuint DK_shader_load(const char* path, GLenum type) {
 
     // Create the shader, load the source and try to compile it.
     shader = glCreateShader(type);
-    glShaderSource(shader, 1, &buffer, NULL);
+    {
+        const char* cbuffer = buffer;
+        glShaderSource(shader, 1, &cbuffer, NULL);
+    }
     glCompileShader(shader);
 
     // Free memory used by source.
@@ -95,21 +98,24 @@ GLuint DK_shader_load(const char* path, GLenum type) {
     return shader;
 }
 
-GLuint DK_shader_program(GLuint vs, GLuint fs) {
-    GLuint program = glCreateProgram();
-    if (vs) {
-        glAttachShader(program, vs);
-    }
-    if (fs) {
-        glAttachShader(program, fs);
-    }
-    glLinkProgram(program);
-
-    // Check if linking succeeded.
-    if (verify(program, NULL) == GL_FALSE) {
+GLuint DK_shader_program(GLuint vs, GLuint fs, const char** out_names, unsigned int out_count) {
+    if (!vs || !fs) {
         return 0;
-    }
+    } else {
+        GLuint program = glCreateProgram();
+        glAttachShader(program, vs);
+        glAttachShader(program, fs);
+        for (unsigned int i = 0; i < out_count; ++i) {
+            glBindFragDataLocation(program, i, out_names[i]);
+        }
+        glLinkProgram(program);
 
-    // Linking successful, return the program id.
-    return program;
+        // Check if linking succeeded.
+        if (verify(program, NULL) == GL_FALSE) {
+            return 0;
+        }
+
+        // Linking successful, return the program id.
+        return program;
+    }
 }

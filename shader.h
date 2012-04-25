@@ -18,7 +18,7 @@ extern "C" {
 GLuint DK_shader_load(const char* path, GLenum type);
 
 /** Create a shader program from the specified vertex and fragment shaders */
-GLuint DK_shader_program(GLuint vs, GLuint fs);
+GLuint DK_shader_program(GLuint vs, GLuint fs, const char** out_names, unsigned int out_count);
 
 #ifdef	__cplusplus
 }

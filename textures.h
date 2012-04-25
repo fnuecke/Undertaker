@@ -48,7 +48,7 @@ extern "C" {
 void DK_load_textures(void);
 
 /** Initializes textures for openGL after video reset */
-void DK_opengl_textures(void);
+void init_textures(void);
 
 /** Get a specific texture; the variant is determined by the given hash */
 GLuint DK_opengl_texture(DK_Texture texture, unsigned int hash);
