@@ -53,7 +53,7 @@ static void key_up(const SDL_Event* e) {
             DK_d_draw_jobs = 1 - DK_d_draw_jobs;
             break;
         case SDLK_F4:
-            DK_add_unit(DK_PLAYER_ONE, DK_UNIT_IMP, 5, 10);
+            DK_AddUnit(DK_PLAYER_ONE, DK_UNIT_IMP, 5, 10);
             break;
         case SDLK_F5:
             DK_d_draw_deferred = (DK_d_draw_deferred + 1) % DK_D_DEFERRED_COUNT;

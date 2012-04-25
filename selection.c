@@ -142,7 +142,7 @@ void DK_ConfirmSelection(void) {
 // Modifiers
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_SelectBlock(DK_Player player, int x, int y) {
+int DK_SelectBlock(DK_Player player, int x, int y) {
     if (DK_IsBlockSelectable(player, x, y)) {
         const unsigned int idx = y * DK_map_size + x;
 
@@ -150,11 +150,13 @@ void DK_SelectBlock(DK_Player player, int x, int y) {
         if (!BS_Test(gPlayerSelection[player], idx)) {
             BS_Set(gPlayerSelection[player], idx);
             DK_FindJobs(player, x, y);
+            return 1;
         }
     }
+    return 0;
 }
 
-void DK_DeselectBlock(DK_Player player, int x, int y) {
+int DK_DeselectBlock(DK_Player player, int x, int y) {
     if (x >= 0 && y >= 0 && x < DK_map_size && y < DK_map_size) {
         const unsigned int idx = y * DK_map_size + x;
 
@@ -162,8 +164,10 @@ void DK_DeselectBlock(DK_Player player, int x, int y) {
         if (BS_Test(gPlayerSelection[player], idx)) {
             BS_Unset(gPlayerSelection[player], idx);
             DK_FindJobs(player, x, y);
+            return 1;
         }
     }
+    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

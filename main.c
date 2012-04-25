@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
         start = SDL_GetTicks();
 
         DK_Events();
-        DK_update();
+        DK_Update();
         DK_render();
 
         SDL_GL_SwapBuffers();

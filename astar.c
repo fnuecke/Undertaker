@@ -312,8 +312,7 @@ static int line_of_sight(const AStar_Node* a, const AStar_Node* b) {
 static int is_goal(DK_AStarWaypoint* path, unsigned int* depth, float* length,
         AStar_Node* node,
         unsigned int local_goal_x, unsigned int local_goal_y,
-        float start_x, float start_y,
-        float goal_x, float goal_y) {
+        const vec2* start, const vec2* goal) {
     // Test whether node coordinates are goal coordinates.
     if (node->x == local_goal_x && node->y == local_goal_y) {
         // Done, follow the path back to the beginning to return the best
@@ -367,11 +366,11 @@ static int is_goal(DK_AStarWaypoint* path, unsigned int* depth, float* length,
 
         // Set the start node to the actual start coordinates, instead of the
         // ones of the waypoint.
-        path[0].x = start_x;
-        path[0].y = start_y;
+        path[0].x = start->v[0];
+        path[0].y = start->v[1];
         // Same for the last one.
-        path[real_depth - 1].x = goal_x;
-        path[real_depth - 1].y = goal_y;
+        path[real_depth - 1].x = goal->v[0];
+        path[real_depth - 1].y = goal->v[1];
         // And skip it, too.
         node = &closed[node->came_from - 1];
 
@@ -383,8 +382,8 @@ static int is_goal(DK_AStarWaypoint* path, unsigned int* depth, float* length,
                     node->y == local_goal_y) {
                 // Use the actual goal coordinates instead of those of the
                 // actual waypoint for the goal.
-                waypoint->x = goal_x;
-                waypoint->y = goal_y;
+                waypoint->x = goal->v[0];
+                waypoint->y = goal->v[1];
             } else {
                 // Normal waypoint, convert it to map space coordinates.
                 waypoint->x = to_map_space(node->x);
@@ -423,20 +422,19 @@ void DK_InitAStar(void) {
     a_star_closed_set = BS_New(a_star_grid_size * a_star_grid_size);
 }
 
-int DK_AStar(const DK_Unit* unit, float goal_x, float goal_y, DK_AStarWaypoint* path, unsigned int* depth, float* length) {
+int DK_AStar(const DK_Unit* unit, const vec2* goal, DK_AStarWaypoint* path, unsigned int* depth, float* length) {
     unsigned int gx, gy, begin_x, begin_y, end_x, end_y, neighbor_x, neighbor_y;
     int x, y;
-    float start_x, start_y, gscore, fscore;
+    float gscore, fscore;
     AStar_Node *current, *node;
+    const vec2* start = DK_GetUnitPosition(unit);
 
+    // Remember we're working on this unit (passable checks).
     current_unit = unit;
 
-    // Get the unit's current position.
-    DK_unit_position(unit, &start_x, &start_y);
-
     // Check if the start and target position are valid (passable).
-    if (!DK_block_is_passable(DK_block_at((int) start_x, (int) start_y), unit) ||
-            !DK_block_is_passable(DK_block_at((int) goal_x, (int) goal_y), unit)) {
+    if (!DK_block_is_passable(DK_block_at((int) start->v[0], (int) start->v[1]), unit) ||
+            !DK_block_is_passable(DK_block_at((int) goal->v[0], (int) goal->v[1]), unit)) {
         return 0;
     }
 
@@ -448,13 +446,13 @@ int DK_AStar(const DK_Unit* unit, float goal_x, float goal_y, DK_AStarWaypoint* 
     BS_Reset(a_star_closed_set, a_star_grid_size * a_star_grid_size);
 
     // Get goal in local coordinates.
-    gx = (unsigned int) (goal_x * DK_ASTAR_GRANULARITY);
-    gy = (unsigned int) (goal_y * DK_ASTAR_GRANULARITY);
+    gx = (unsigned int) (goal->v[0] * DK_ASTAR_GRANULARITY);
+    gy = (unsigned int) (goal->v[1] * DK_ASTAR_GRANULARITY);
 
     // Initialize the first open node to the one we're starting from.
     current = get_open(0);
-    current->x = (unsigned int) (start_x * DK_ASTAR_GRANULARITY);
-    current->y = (unsigned int) (start_y * DK_ASTAR_GRANULARITY);
+    current->x = (unsigned int) (start->v[0] * DK_ASTAR_GRANULARITY);
+    current->y = (unsigned int) (start->v[1] * DK_ASTAR_GRANULARITY);
     current->gscore = 0.0f;
     current->fscore = 0.0f;
     current->came_from = 0;
@@ -466,7 +464,7 @@ int DK_AStar(const DK_Unit* unit, float goal_x, float goal_y, DK_AStarWaypoint* 
         current = pop_to_closed();
 
         // Check if we're there yet.
-        if (is_goal(path, depth, length, current, gx, gy, start_x, start_y, goal_x, goal_y)) {
+        if (is_goal(path, depth, length, current, gx, gy, start, goal)) {
             return 1;
         }
 
@@ -523,7 +521,7 @@ int DK_AStar(const DK_Unit* unit, float goal_x, float goal_y, DK_AStarWaypoint* 
                 }
 
                 // We might have jumped to the goal, check for that.
-                if (is_goal(path, depth, length, current, gx, gy, start_x, start_y, goal_x, goal_y)) {
+                if (is_goal(path, depth, length, current, gx, gy, start, goal)) {
                     return 1;
                 }
 #else

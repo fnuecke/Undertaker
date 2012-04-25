@@ -14,41 +14,41 @@
 extern "C" {
 #endif
 
-/** Used to configure material used for rendering */
-typedef struct {
-    /** Textures used for multi-texturing */
-    GLuint textures[4];
+    /** Used to configure material used for rendering */
+    typedef struct {
+        /** Textures used for multi-texturing */
+        GLuint textures[4];
 
-    /** Number of textures to use */
-    unsigned int texture_count;
+        /** Number of textures to use */
+        unsigned int texture_count;
 
-    /** Texture to use as a bump map */
-    GLuint bump_map;
+        /** Texture to use as a bump map */
+        GLuint bump_map;
 
-    /** Texture to use as a normal map */
-    GLuint normal_map;
+        /** Texture to use as a normal map */
+        GLuint normal_map;
 
-    /** Diffuse multiplier for texture */
-    vec3 diffuse_color;
+        /** Diffuse multiplier for texture */
+        vec3 diffuse_color;
 
-    /** Specular multiplier for texture */
-    vec3 specular_color;
-} DK_Material;
+        /** Specular multiplier for texture */
+        vec3 specular_color;
+    } DK_Material;
 
-/** (Re)initialize openGL */
-void DK_init_gl(void);
+    /** (Re)initialize openGL */
+    void DK_init_gl(void);
 
-/** Render the game to the screen */
-void DK_render(void);
+    /** Render the game to the screen */
+    void DK_render(void);
 
-/** Set up the camera used for rendering, using two 3-component vectors */
-void DK_render_set_camera(const float* position, const float* target);
+    /** Set up the camera used for rendering, using two 3-component vectors */
+    void DK_render_set_camera(const float* position, const float* target);
 
-/** Set material information to use from now on */
-void DK_render_set_material(const DK_Material* material);
+    /** Set material information to use from now on */
+    void DK_render_set_material(const DK_Material* material);
 
-/** Initialize a material to its default values */
-void DK_material_init(DK_Material* material);
+    /** Initialize a material to its default values */
+    void DK_material_init(DK_Material* material);
 
 #ifdef	__cplusplus
 }

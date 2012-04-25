@@ -14,111 +14,113 @@
 extern "C" {
 #endif
 
-///////////////////////////////////////////////////////////////////////////////
-// Types
-///////////////////////////////////////////////////////////////////////////////
-
-/**
- * Used for making current selection accessible.
- */
-typedef struct {
-    /**
-     * The x/y coordinate where the selection starts. Guaranteed to be less or
-     * equal to the end coordinate on either axis.
-     */
-    int startX, startY;
+    ///////////////////////////////////////////////////////////////////////////////
+    // Types
+    ///////////////////////////////////////////////////////////////////////////////
 
     /**
-     * The x/y coordinate where the selection ends. Guaranteed to be larger or
-     * equal to the start coordinate on either axis.
+     * Used for making current selection accessible.
      */
-    int endX, endY;
-} DK_Selection;
+    typedef struct {
+        /**
+         * The x/y coordinate where the selection starts. Guaranteed to be less or
+         * equal to the end coordinate on either axis.
+         */
+        int startX, startY;
 
-///////////////////////////////////////////////////////////////////////////////
-// Accessors
-///////////////////////////////////////////////////////////////////////////////
+        /**
+         * The x/y coordinate where the selection ends. Guaranteed to be larger or
+         * equal to the start coordinate on either axis.
+         */
+        int endX, endY;
+    } DK_Selection;
 
-/**
- * Get the currently selected region.
- * @return the currently selected area.
- */
-DK_Selection DK_GetSelection(void);
+    ///////////////////////////////////////////////////////////////////////////////
+    // Accessors
+    ///////////////////////////////////////////////////////////////////////////////
 
-/**
- * Checks if the specified block is selectable by the specified player.
- * @return whether the block is selectable (1) or not (0).
- */
-int DK_IsBlockSelectable(DK_Player player, int x, int y);
+    /**
+     * Get the currently selected region.
+     * @return the currently selected area.
+     */
+    DK_Selection DK_GetSelection(void);
 
-/**
- * Checks if the specified block is selected by the specified player.
- * @return whether the block is selected (1) or not (0).
- */
-int DK_IsBlockSelected(DK_Player player, unsigned short x, unsigned short y);
+    /**
+     * Checks if the specified block is selectable by the specified player.
+     * @return whether the block is selectable (1) or not (0).
+     */
+    int DK_IsBlockSelectable(DK_Player player, int x, int y);
 
-///////////////////////////////////////////////////////////////////////////////
-// User area selection
-///////////////////////////////////////////////////////////////////////////////
+    /**
+     * Checks if the specified block is selected by the specified player.
+     * @return whether the block is selected (1) or not (0).
+     */
+    int DK_IsBlockSelected(DK_Player player, unsigned short x, unsigned short y);
 
-/**
- * Start selecting an area of the map, uses currently hovered block as start.
- * This will do nothing if the selection was started before, or the block
- * currently under the cursor is not selectable.
- * @return whether selection started (1) or not (0).
- */
-int DK_BeginSelection(void);
+    ///////////////////////////////////////////////////////////////////////////////
+    // User area selection
+    ///////////////////////////////////////////////////////////////////////////////
 
-/**
- * Cancel selecting. This will discard the current selection.
- * @return whether we were in select mode (1) or not (0).
- */
-int DK_DiscardSelection(void);
+    /**
+     * Start selecting an area of the map, uses currently hovered block as start.
+     * This will do nothing if the selection was started before, or the block
+     * currently under the cursor is not selectable.
+     * @return whether selection started (1) or not (0).
+     */
+    int DK_BeginSelection(void);
 
-/**
- * Done selecting, uses currently hovered block as end. This will automatically
- * select all blocks in the selection for the local player. This will do nothing
- * if the selection was not successfully started before.
- */
-void DK_ConfirmSelection(void);
+    /**
+     * Cancel selecting. This will discard the current selection.
+     * @return whether we were in select mode (1) or not (0).
+     */
+    int DK_DiscardSelection(void);
 
-///////////////////////////////////////////////////////////////////////////////
-// Modifiers
-///////////////////////////////////////////////////////////////////////////////
+    /**
+     * Done selecting, uses currently hovered block as end. This will automatically
+     * select all blocks in the selection for the local player. This will do nothing
+     * if the selection was not successfully started before.
+     */
+    void DK_ConfirmSelection(void);
 
-/**
- * Select the block at the specified coordinates for the specified player. Will
- * do nothing if the block is not selectable. If a selection change took place,
- * this will also trigger an update to the nearby jobs.
- * @param player the player to select the block for.
- * @param x the x coordinate of the block, in map space.
- * @param y the y coordinate of the block, in map space.
- */
-void DK_SelectBlock(DK_Player player, int x, int y);
+    ///////////////////////////////////////////////////////////////////////////////
+    // Modifiers
+    ///////////////////////////////////////////////////////////////////////////////
 
-/**
- * Deselect the block at the specified coordinates for the specified player.
- * Will do nothing if the coordinates are invalid. If a selection change took
- * place, this will also trigger an update to the nearby jobs.
- * @param player the player to deselect the block for.
- * @param x the x coordinate of the block, in map space.
- * @param y the y coordinate of the block, in map space.
- */
-void DK_DeselectBlock(DK_Player player, int x, int y);
+    /**
+     * Select the block at the specified coordinates for the specified player. Will
+     * do nothing if the block is not selectable. If a selection change took place,
+     * this will also trigger an update to the nearby jobs.
+     * @param player the player to select the block for.
+     * @param x the x coordinate of the block, in map space.
+     * @param y the y coordinate of the block, in map space.
+     * @return whether the block selection changed (1) or not (0).
+     */
+    int DK_SelectBlock(DK_Player player, int x, int y);
 
-///////////////////////////////////////////////////////////////////////////////
-// Initialization / Update
-///////////////////////////////////////////////////////////////////////////////
+    /**
+     * Deselect the block at the specified coordinates for the specified player.
+     * Will do nothing if the coordinates are invalid. If a selection change took
+     * place, this will also trigger an update to the nearby jobs.
+     * @param player the player to deselect the block for.
+     * @param x the x coordinate of the block, in map space.
+     * @param y the y coordinate of the block, in map space.
+     * @return whether the block selection changed (1) or not (0).
+     */
+    int DK_DeselectBlock(DK_Player player, int x, int y);
 
-/**
- * (Re)Initialize selection data structures after map change.
- */
-void DK_InitSelection(void);
+    ///////////////////////////////////////////////////////////////////////////////
+    // Initialization / Update
+    ///////////////////////////////////////////////////////////////////////////////
 
-/**
- * Update the current selection. Should be called each frame.
- */
-void DK_UpdateSelection(void);
+    /**
+     * (Re)Initialize selection data structures after map change.
+     */
+    void DK_InitSelection(void);
+
+    /**
+     * Update the current selection. Should be called each frame.
+     */
+    void DK_UpdateSelection(void);
 
 #ifdef	__cplusplus
 }

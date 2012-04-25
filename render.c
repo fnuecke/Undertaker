@@ -550,7 +550,7 @@ void DK_render(void) {
 
     // Render game components.
     DK_render_map();
-    DK_render_units();
+    DK_RenderUnits();
     DK_RenderJobs();
 
     if (geometry_shader.program && light_shader.program) {

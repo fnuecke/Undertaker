@@ -76,16 +76,16 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
         if (job->block != block) {
             continue;
         }
-        if (job->x < x) {
+        if (job->position.v[0] < x) {
             // Left.
             existing_jobs |= WEST;
-        } else if (job->x > x + 1) {
+        } else if (job->position.v[0] > x + 1) {
             // Right.
             existing_jobs |= EAST;
-        } else if (job->y < y) {
+        } else if (job->position.v[1] < y) {
             // Top.
             existing_jobs |= NORTH;
-        } else if (job->y > y + 1) {
+        } else if (job->position.v[1] > y + 1) {
             // Bottom.
             existing_jobs |= SOUTH;
         } else {
@@ -107,8 +107,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
                 // Left is valid.
                 DK_Job* job = get_job(player);
                 job->block = block;
-                job->x = (x - 0.25f);
-                job->y = (y + 0.5f);
+                job->position.v[0] = (x - 0.25f);
+                job->position.v[1] = (y + 0.5f);
                 job->type = DK_JOB_DIG;
                 job->worker = 0;
             }
@@ -118,8 +118,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
                 // Right is valid.
                 DK_Job* job = get_job(player);
                 job->block = block;
-                job->x = (x + 1.25f);
-                job->y = (y + 0.5f);
+                job->position.v[0] = (x + 1.25f);
+                job->position.v[1] = (y + 0.5f);
                 job->type = DK_JOB_DIG;
                 job->worker = 0;
             }
@@ -129,8 +129,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
                 // Top is valid.
                 DK_Job* job = get_job(player);
                 job->block = block;
-                job->x = (x + 0.5f);
-                job->y = (y - 0.25f);
+                job->position.v[0] = (x + 0.5f);
+                job->position.v[1] = (y - 0.25f);
                 job->type = DK_JOB_DIG;
                 job->worker = 0;
             }
@@ -140,8 +140,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
                 // Bottom is valid.
                 DK_Job* job = get_job(player);
                 job->block = block;
-                job->x = (x + 0.5f);
-                job->y = (y + 1.25f);
+                job->position.v[0] = (x + 0.5f);
+                job->position.v[1] = (y + 1.25f);
                 job->type = DK_JOB_DIG;
                 job->worker = 0;
             }
@@ -156,8 +156,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
                 // Left is valid.
                 DK_Job* job = get_job(player);
                 job->block = block;
-                job->x = (x - 0.25f);
-                job->y = (y + 0.5f);
+                job->position.v[0] = (x - 0.25f);
+                job->position.v[1] = (y + 0.5f);
                 job->type = DK_JOB_CONVERT;
                 job->worker = 0;
             }
@@ -168,8 +168,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
                 // Right is valid.
                 DK_Job* job = get_job(player);
                 job->block = block;
-                job->x = (x + 1.25f);
-                job->y = (y + 0.5f);
+                job->position.v[0] = (x + 1.25f);
+                job->position.v[1] = (y + 0.5f);
                 job->type = DK_JOB_CONVERT;
                 job->worker = 0;
             }
@@ -180,8 +180,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
                 // Top is valid.
                 DK_Job* job = get_job(player);
                 job->block = block;
-                job->x = (x + 0.5f);
-                job->y = (y - 0.25f);
+                job->position.v[0] = (x + 0.5f);
+                job->position.v[1] = (y - 0.25f);
                 job->type = DK_JOB_CONVERT;
                 job->worker = 0;
             }
@@ -192,8 +192,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
                 // Bottom is valid.
                 DK_Job* job = get_job(player);
                 job->block = block;
-                job->x = (x + 0.5f);
-                job->y = (y + 1.25f);
+                job->position.v[0] = (x + 0.5f);
+                job->position.v[1] = (y + 1.25f);
                 job->type = DK_JOB_CONVERT;
                 job->worker = 0;
             }
@@ -221,8 +221,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
                 b->owner == player)) {
             DK_Job* job = get_job(player);
             job->block = block;
-            job->x = (x + 0.5f);
-            job->y = (y + 0.5f);
+            job->position.v[0] = (x + 0.5f);
+            job->position.v[1] = (y + 0.5f);
             job->type = DK_JOB_CONVERT;
             job->worker = 0;
         }
@@ -251,7 +251,7 @@ void DK_FindJobs(DK_Player player, unsigned short x, unsigned short y) {
         if (job->block == block) {
             // Remove this one. Notify worker that it's no longer needed.
             if (job->worker) {
-                DK_unit_cancel_job(job->worker);
+                DK_CancelJob(job->worker);
             }
 
             // Free memory.
@@ -294,10 +294,10 @@ void DK_RenderJobs(void) {
 
             glBegin(GL_QUADS);
             {
-                glVertex3f((job->x - 0.1f) * DK_BLOCK_SIZE, (job->y - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-                glVertex3f((job->x + 0.1f) * DK_BLOCK_SIZE, (job->y - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-                glVertex3f((job->x + 0.1f) * DK_BLOCK_SIZE, (job->y + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-                glVertex3f((job->x - 0.1f) * DK_BLOCK_SIZE, (job->y + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+                glVertex3f((job->position.v[0] - 0.1f) * DK_BLOCK_SIZE, (job->position.v[1] - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+                glVertex3f((job->position.v[0] + 0.1f) * DK_BLOCK_SIZE, (job->position.v[1] - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+                glVertex3f((job->position.v[0] + 0.1f) * DK_BLOCK_SIZE, (job->position.v[1] + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+                glVertex3f((job->position.v[0] - 0.1f) * DK_BLOCK_SIZE, (job->position.v[1] + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
             }
             glEnd();
 

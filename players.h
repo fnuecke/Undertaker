@@ -8,44 +8,52 @@
 #ifndef PLAYERS_H
 #define	PLAYERS_H
 
-/**
- * Player IDs for possible players in a game.
- */
-typedef enum {
-    /**
-     * No player / invalid player.
-     */
-    DK_PLAYER_NONE,
+#ifdef	__cplusplus
+extern "C" {
+#endif
 
     /**
-     * First player.
+     * Player IDs for possible players in a game.
      */
-    DK_PLAYER_ONE,
+    typedef enum {
+        /**
+         * No player / invalid player.
+         */
+        DK_PLAYER_NONE,
 
-    /**
-     * Second player.
-     */
-    DK_PLAYER_TWO,
+        /**
+         * First player.
+         */
+        DK_PLAYER_ONE,
 
-    /**
-     * Third player.
-     */
-    DK_PLAYER_THREE,
+        /**
+         * Second player.
+         */
+        DK_PLAYER_TWO,
 
-    /**
-     * Fourth player.
-     */
-    DK_PLAYER_FOUR,
+        /**
+         * Third player.
+         */
+        DK_PLAYER_THREE,
 
-    /**
-     * Fifth player.
-     */
-    DK_PLAYER_FIVE,
+        /**
+         * Fourth player.
+         */
+        DK_PLAYER_FOUR,
 
-    /**
-     * Number of possible values, used for array initialization.
-     */
-    DK_PLAYER_COUNT
-} DK_Player;
+        /**
+         * Fifth player.
+         */
+        DK_PLAYER_FIVE,
+
+        /**
+         * Number of possible values, used for array initialization.
+         */
+        DK_PLAYER_COUNT
+    } DK_Player;
+
+#ifdef	__cplusplus
+}
+#endif
 
 #endif	/* PLAYERS_H */

@@ -12,10 +12,10 @@
 extern "C" {
 #endif
 
-/**
- * Handle SDL events.
- */
-void DK_Events(void);
+    /**
+     * Handle SDL events.
+     */
+    void DK_Events(void);
 
 #ifdef	__cplusplus
 }

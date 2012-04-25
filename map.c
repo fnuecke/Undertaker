@@ -440,10 +440,9 @@ static void update_block(DK_Block* block) {
     }
 
     // Update jobs for this block by deselecting it.
-    {
-        int i;
-        for (i = 0; i < DK_PLAYER_COUNT; ++i) {
-            DK_DeselectBlock(i, x, y);
+    for (int i = 0; i < DK_PLAYER_COUNT; ++i) {
+        if (!DK_DeselectBlock(DK_PLAYER_NONE + i, x, y)) {
+            DK_FindJobs(DK_PLAYER_NONE + i, x, y);
         }
     }
 }
@@ -1440,9 +1439,8 @@ void DK_render_map(void) {
     }
 
     if (!picking) {
-        int sx, sy, ex, ey;
-        DK_GetSelection(&sx, &sy, &ex, &ey);
-        draw_outline(sx, sy, ex, ey);
+        DK_Selection selection = DK_GetSelection();
+        draw_outline(selection.startX, selection.startY, selection.endX, selection.endY);
     }
 }
 
@@ -1456,7 +1454,7 @@ void DK_map_load(const char* filename) {
     DK_init_map(128);
     DK_InitSelection();
     DK_InitAStar();
-    DK_init_units();
+    DK_InitUnits();
 
     for (i = 0; i < 7; ++i) {
         for (j = 0; j < 7; ++j) {
@@ -1478,7 +1476,7 @@ void DK_map_load(const char* filename) {
     //DK_block_at(9, 8)->owner = DK_PLAYER_RED;
 
     for (i = 0; i < 2; ++i) {
-        DK_add_unit(DK_PLAYER_ONE, DK_UNIT_IMP, 5, 10);
+        DK_AddUnit(DK_PLAYER_ONE, DK_UNIT_IMP, 5, 10);
     }
 }
 
@@ -1531,10 +1529,10 @@ int DK_block_is_passable(const DK_Block* block, const DK_Unit* unit) {
             case DK_BLOCK_WATER:
                 return 1;
             case DK_BLOCK_LAVA:
-                return DK_unit_immune_to_lava(unit);
+                return DK_IsUnitImmuneToLava(unit);
             case DK_BLOCK_NONE:
                 if (block->room == DK_ROOM_DOOR) {
-                    return block->owner == DK_unit_owner(unit) && !block->closed;
+                    return block->owner == DK_GetUnitOwner(unit) && !block->closed;
                 } else {
                     return 1;
                 }

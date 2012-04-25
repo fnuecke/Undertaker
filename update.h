@@ -12,8 +12,8 @@
 extern "C" {
 #endif
 
-/** Update logic */
-void DK_update(void);
+    /** Update logic */
+    void DK_Update(void);
 
 #ifdef	__cplusplus
 }

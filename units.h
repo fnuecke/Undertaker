@@ -9,41 +9,49 @@
 #define	UNITS_H
 
 #include "players.h"
-
-typedef enum {
-    DK_UNIT_IMP,
-    DK_UNIT_WIZARD
-} DK_UnitType;
-
-typedef struct DK_Unit DK_Unit;
+#include "vmath.h"
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-/** (Re)Initialize unit logic after a map change */
-void DK_init_units(void);
+    typedef enum {
+        DK_UNIT_IMP,
+        DK_UNIT_WIZARD
+    } DK_UnitType;
 
-/** Update unit logic, i.e. run ai and update positions */
-void DK_update_units(void);
+    typedef struct DK_Unit DK_Unit;
 
-/** Render units to screen */
-void DK_render_units(void);
+    /**
+     * Get the current position of the specified unit, in map space.
+     * @param unit the unit to get the position for.
+     */
+    const vec2* DK_GetUnitPosition(const DK_Unit* unit);
 
-/** Add a unit for a player at the specified block coordinates */
-unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, unsigned short y);
+    /**
+     * Get the owner of the specified unit.
+     * @param unit the unit to get the owner of.
+     * @return the owner of that unit.
+     */
+    DK_Player DK_GetUnitOwner(const DK_Unit* unit);
 
-/** Make a unit (imp) cancel it's current job */
-void DK_unit_cancel_job(DK_Unit* unit);
+    /** Test whether the specified unit is immune to lava */
+    int DK_IsUnitImmuneToLava(const DK_Unit* unit);
 
-/** Get the current position of the specified unit; returns 1 on success, 0 on failure (null pointer) */
-int DK_unit_position(const DK_Unit* unit, float* x, float* y);
+    /** Add a unit for a player at the specified block coordinates */
+    int DK_AddUnit(DK_Player player, DK_UnitType type, unsigned short x, unsigned short y);
 
-/** Test whether the specified unit is immune to lava */
-int DK_unit_immune_to_lava(const DK_Unit* unit);
+    /** Make a unit (imp) cancel it's current job */
+    void DK_CancelJob(DK_Unit* unit);
 
-/** Get the owner of the specified unit */
-DK_Player DK_unit_owner(const DK_Unit* unit);
+    /** (Re)Initialize unit logic after a map change */
+    void DK_InitUnits(void);
+
+    /** Update unit logic, i.e. run ai and update positions */
+    void DK_UpdateUnits(void);
+
+    /** Render units to screen */
+    void DK_RenderUnits(void);
 
 #ifdef	__cplusplus
 }

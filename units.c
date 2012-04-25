@@ -10,6 +10,7 @@
 #include "config.h"
 #include "map.h"
 #include "jobs.h"
+#include "vmath.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Abilities
@@ -132,7 +133,7 @@ struct DK_Unit {
     DK_UnitType type;
 
     /** Current position of the unit */
-    float x, y;
+    vec2 position;
 
     /** Cooldowns for unit abilities */
     unsigned int cooldowns[DK_UNITS_MAX_ABILITIES];
@@ -222,8 +223,8 @@ static void update_ai(DK_Unit* unit) {
 
                     // Test direct distance; if that's longer than our best we
                     // can safely skip this one.
-                    const float dx = unit->x - job->x;
-                    const float dy = unit->y - job->y;
+                    const float dx = unit->position.v[0] - job->position.v[0];
+                    const float dy = unit->position.v[1] - job->position.v[1];
                     float distance = sqrt(dx * dx + dy * dy);
                     if (distance >= best_distance + best_penalty) {
                         continue;
@@ -231,7 +232,7 @@ static void update_ai(DK_Unit* unit) {
 
                     // Find a path to it. Use temporary output data to avoid
                     // overriding existing path that may be shorter.
-                    if (DK_AStar(unit, job->x, job->y, path, &depth, &distance)) {
+                    if (DK_AStar(unit, &job->position, path, &depth, &distance)) {
                         float penalty = 0;
 
                         // Factor in priorities.
@@ -255,15 +256,15 @@ static void update_ai(DK_Unit* unit) {
                             // only take it if our path is better than the
                             // direct distance to the occupant.
                             if (job->worker) {
-                                const float cdx = job->worker->x - job->x;
-                                const float cdy = job->worker->y - job->y;
+                                const float cdx = job->worker->position.v[0] - job->position.v[0];
+                                const float cdy = job->worker->position.v[1] - job->position.v[1];
                                 const float current_distance = sqrt(cdx * cdx + cdy * cdy);
                                 if (current_distance <= distance + DK_AI_ALREADY_WORKING_BONUS) {
                                     // The one that's on it is closer, ignore.
                                     continue;
                                 }
                                 // We're closer, kick the other one.
-                                DK_unit_cancel_job(job->worker);
+                                DK_CancelJob(job->worker);
                             }
 
                             // Copy data.
@@ -326,8 +327,8 @@ static void update_ai(DK_Unit* unit) {
                         // Just walk around dumbly.
                         int i;
                         for (i = 0; i < DK_AI_WANDER_TRIES; ++i) {
-                            float wx = unit->x + (rand() / (float) RAND_MAX - 0.5f);
-                            float wy = unit->y + (rand() / (float) RAND_MAX - 0.5f);
+                            float wx = unit->position.v[0] + (rand() / (float) RAND_MAX - 0.5f);
+                            float wy = unit->position.v[1] + (rand() / (float) RAND_MAX - 0.5f);
                             // Make sure the coordinates are in bounds. This is
                             // expecially important for the interval of [-1, 0],
                             // because those get rounded to 0 when casting to int,
@@ -348,14 +349,14 @@ static void update_ai(DK_Unit* unit) {
                                 // OK, move.
                                 moveNode = &unit->ai[unit->ai_count++];
                                 moveNode->state = DK_AI_MOVE;
-                                moveNode->path[0].x = 2 * unit->x - wx;
-                                moveNode->path[0].y = 2 * unit->y - wy;
-                                moveNode->path[1].x = unit->x;
-                                moveNode->path[1].y = unit->y;
+                                moveNode->path[0].x = 2 * unit->position.v[0] - wx;
+                                moveNode->path[0].y = 2 * unit->position.v[1] - wy;
+                                moveNode->path[1].x = unit->position.v[0];
+                                moveNode->path[1].y = unit->position.v[1];
                                 moveNode->path[2].x = wx;
                                 moveNode->path[2].y = wy;
-                                moveNode->path[3].x = 2 * wx - unit->x;
-                                moveNode->path[3].y = 2 * wy - unit->y;
+                                moveNode->path[3].x = 2 * wx - unit->position.v[0];
+                                moveNode->path[3].y = 2 * wy - unit->position.v[1];
                                 moveNode->path_depth = 2;
                                 moveNode->path_index = 1;
                                 moveNode->path_distance = 0;
@@ -386,8 +387,8 @@ static void update_ai(DK_Unit* unit) {
                 ++ai->path_index;
                 if (ai->path_index > ai->path_depth) {
                     // Reached final node, we're done.
-                    unit->x = ai->path[ai->path_index - 1].x;
-                    unit->y = ai->path[ai->path_index - 1].y;
+                    unit->position.v[0] = ai->path[ai->path_index - 1].x;
+                    unit->position.v[1] = ai->path[ai->path_index - 1].y;
                     --unit->ai_count;
                     break;
                 } else {
@@ -421,8 +422,8 @@ static void update_ai(DK_Unit* unit) {
             // Compute actual position of the unit.
             {
                 const float t = ai->path_traveled / ai->path_distance;
-                unit->x = catmull_rom(ai->path[ai->path_index - 2].x, ai->path[ai->path_index - 1].x, ai->path[ai->path_index].x, ai->path[ai->path_index + 1].x, t);
-                unit->y = catmull_rom(ai->path[ai->path_index - 2].y, ai->path[ai->path_index - 1].y, ai->path[ai->path_index].y, ai->path[ai->path_index + 1].y, t);
+                unit->position.v[0] = catmull_rom(ai->path[ai->path_index - 2].x, ai->path[ai->path_index - 1].x, ai->path[ai->path_index].x, ai->path[ai->path_index + 1].x, t);
+                unit->position.v[1] = catmull_rom(ai->path[ai->path_index - 2].y, ai->path[ai->path_index - 1].y, ai->path[ai->path_index].y, ai->path[ai->path_index + 1].y, t);
             }
             break;
         }
@@ -479,7 +480,7 @@ static void update_ai(DK_Unit* unit) {
     }
 }
 
-void DK_init_units(void) {
+void DK_InitUnits(void) {
     int i;
     for (i = 0; i < DK_PLAYER_COUNT; ++i) {
         unit_count[i] = 0;
@@ -487,7 +488,7 @@ void DK_init_units(void) {
     total_unit_count = 0;
 }
 
-void DK_update_units(void) {
+void DK_UpdateUnits(void) {
     unsigned int i;
     for (i = 0; i < total_unit_count; ++i) {
         DK_Unit* unit = &units[i];
@@ -496,7 +497,7 @@ void DK_update_units(void) {
     }
 }
 
-void DK_render_units(void) {
+void DK_RenderUnits(void) {
     unsigned int i, j;
 
     if (!quadratic) {
@@ -528,7 +529,7 @@ void DK_render_units(void) {
                         break;
                 }
                 glPushMatrix();
-                glTranslatef(unit->x * DK_BLOCK_SIZE, unit->y * DK_BLOCK_SIZE, 4);
+                glTranslatef(unit->position.v[0] * DK_BLOCK_SIZE, unit->position.v[1] * DK_BLOCK_SIZE, 4);
                 gluSphere(quadratic, DK_BLOCK_SIZE / 6.0f, 8, 8);
                 glPopMatrix();
                 glEnable(GL_LIGHTING);
@@ -573,7 +574,7 @@ void DK_render_units(void) {
     }
 }
 
-unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, unsigned short y) {
+int DK_AddUnit(DK_Player player, DK_UnitType type, unsigned short x, unsigned short y) {
     if (total_unit_count > DK_PLAYER_COUNT * DK_UNITS_MAX_PER_PLAYER) {
         // TODO
         return 0;
@@ -584,8 +585,8 @@ unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, u
         DK_Unit* unit = &units[total_unit_count];
         unit->type = type;
         unit->owner = player;
-        unit->x = (x + 0.5f);
-        unit->y = (y + 0.5f);
+        unit->position.v[0] = (x + 0.5f);
+        unit->position.v[1] = (y + 0.5f);
 
         ++total_unit_count;
         ++unit_count[player];
@@ -593,7 +594,7 @@ unsigned int DK_add_unit(DK_Player player, DK_UnitType type, unsigned short x, u
     return 1;
 }
 
-void DK_unit_cancel_job(DK_Unit* unit) {
+void DK_CancelJob(DK_Unit* unit) {
     unsigned int backtrack = 1;
     while (unit->ai_count > backtrack) {
         AI_Node* ai = &unit->ai[unit->ai_count - backtrack];
@@ -613,19 +614,17 @@ void DK_unit_cancel_job(DK_Unit* unit) {
     }
 }
 
-int DK_unit_position(const DK_Unit* unit, float* x, float* y) {
+const vec2* DK_GetUnitPosition(const DK_Unit* unit) {
     if (unit) {
-        *x = unit->x;
-        *y = unit->y;
-        return 1;
+        return &unit->position;
     }
-    return 0;
+    return NULL;
 }
 
-int DK_unit_immune_to_lava(const DK_Unit* unit) {
+int DK_IsUnitImmuneToLava(const DK_Unit* unit) {
     return unit && unit->immune_to_lava;
 }
 
-DK_Player DK_unit_owner(const DK_Unit* unit) {
+DK_Player DK_GetUnitOwner(const DK_Unit* unit) {
     return unit ? unit->owner : DK_PLAYER_NONE;
 }

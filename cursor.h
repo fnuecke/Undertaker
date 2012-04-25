@@ -14,16 +14,16 @@
 extern "C" {
 #endif
 
-/**
- * Get the current cursor coordinate.
- * @return the current cursor coordinate on the x/y plane.
- */
-const vec2* DK_GetCursor(void);
+    /**
+     * Get the current cursor coordinate.
+     * @return the current cursor coordinate on the x/y plane.
+     */
+    const vec2* DK_GetCursor(void);
 
-/**
- * Update the cursor coordinate. This should be called each frame.
- */
-void DK_UpdateCursor(void);
+    /**
+     * Update the cursor coordinate. This should be called each frame.
+     */
+    void DK_UpdateCursor(void);
 
 #ifdef	__cplusplus
 }
