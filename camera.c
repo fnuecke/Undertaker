@@ -19,9 +19,6 @@ static vec2 gCameraVelocity = {
     {0, 0}
 };
 
-// Friction (slowing) to apply to camera movement speed.
-static float gCameraFriction = 0;
-
 // Current scroll direction.
 static DK_CameraDirection gCameraDirection;
 

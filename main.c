@@ -4,7 +4,7 @@
 
 #include "config.h"
 #include "init.h"
-#include "input.h"
+#include "events.h"
 #include "render.h"
 #include "update.h"
 

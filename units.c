@@ -204,7 +204,7 @@ static void update_ai(DK_Unit* unit) {
                 float best_penalty = 0;
                 DK_Job* best_job = NULL;
                 unsigned int job_count;
-                DK_Job** jobs = DK_jobs(unit->owner, &job_count);
+                DK_Job** jobs = DK_GetJobs(unit->owner, &job_count);
 
                 // Assuming we'll find work we'll want to add two jobs, one for
                 // the actual work task, one for getting there.

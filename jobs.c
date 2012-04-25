@@ -233,7 +233,7 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_init_jobs(void) {
+void DK_InitJobs(void) {
     int player, job_index;
     for (player = 0; player < DK_PLAYER_COUNT; ++player) {
         for (job_index = jobs_count[player] - 1; job_index >= 0; --job_index) {
@@ -243,7 +243,7 @@ void DK_init_jobs(void) {
     }
 }
 
-void DK_update_jobs(DK_Player player, unsigned short x, unsigned short y) {
+void DK_FindJobs(DK_Player player, unsigned short x, unsigned short y) {
     DK_Block* block = DK_block_at(x, y);
     int i;
     for (i = jobs_count[player]; i > 0; --i) {
@@ -275,7 +275,7 @@ void DK_update_jobs(DK_Player player, unsigned short x, unsigned short y) {
     }
 }
 
-void DK_render_jobs(void) {
+void DK_RenderJobs(void) {
     if (DK_d_draw_jobs) {
         unsigned int i;
         for (i = 0; i < jobs_count[DK_PLAYER_RED]; ++i) {
@@ -306,7 +306,7 @@ void DK_render_jobs(void) {
     }
 }
 
-DK_Job** DK_jobs(DK_Player player, unsigned int* count) {
+DK_Job** DK_GetJobs(DK_Player player, unsigned int* count) {
     *count = jobs_count[player];
     return jobs[player];
 }

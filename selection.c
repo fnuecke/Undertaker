@@ -124,7 +124,7 @@ void DK_block_select(DK_Player player, unsigned short x, unsigned short y) {
         const unsigned int idx = y * DK_map_size + x;
         BS_Set(selection[player], idx);
 
-        DK_update_jobs(player, x, y);
+        DK_FindJobs(player, x, y);
     }
 }
 
@@ -133,7 +133,7 @@ void DK_block_deselect(DK_Player player, unsigned short x, unsigned short y) {
         const unsigned int idx = y * DK_map_size + x;
         BS_Unset(selection[player], idx);
 
-        DK_update_jobs(player, x, y);
+        DK_FindJobs(player, x, y);
     }
 }
 

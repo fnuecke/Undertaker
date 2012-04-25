@@ -12,41 +12,77 @@
 #include "units.h"
 #include "map.h"
 
-typedef enum {
-    DK_JOB_DIG,
-    DK_JOB_CONVERT
-} DK_JobType;
-
-/** A slot for imp work (digging, converting) */
-typedef struct {
-    /** The targeted block */
-    DK_Block* block;
-
-    /** Coordinates of the workplace in A* coordinates */
-    float x, y;
-
-    /** The type of the job */
-    DK_JobType type;
-
-    /** The imp that wants to work here */
-    struct DK_Unit* worker;
-} DK_Job;
-
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-/** (Re)Initialize data structures on map change */
-void DK_init_jobs(void);
+/**
+ * Possible jobs.
+ */
+typedef enum {
+    /**
+     * Digging job, targets a block to be destroyed.
+     */
+    DK_JOB_DIG,
 
-/** Display hints for job slots (e.g. debugging) */
-void DK_render_jobs(void);
+    /**
+     * Conversion job, targets a block to be converted (claimed).
+     */
+    DK_JOB_CONVERT
+} DK_JobType;
 
-/** Update jobs at and surrounding the specified coordinate */
-void DK_update_jobs(DK_Player player, unsigned short x, unsigned short y);
+/**
+ * Data for a single job.
+ */
+typedef struct {
+    /**
+     * The type of the job.
+     */
+    DK_JobType type;
 
-/** Get a list of all jobs for the specified player */
-DK_Job** DK_jobs(DK_Player player, unsigned int* count);
+    /**
+     * The unit that is currently assigned to that job.
+     */
+    DK_Unit* worker;
+
+    /**
+     * The targeted block, if any.
+     */
+    DK_Block* block;
+
+    /**
+     * Coordinates of the workplace in map space.
+     */
+    float x, y;
+} DK_Job;
+
+/**
+ * (Re)Initialize data structures on map change.
+ */
+void DK_InitJobs(void);
+
+/**
+ * DEBUGGING FEATURE
+ * Display hints for job slots.
+ */
+void DK_RenderJobs(void);
+
+/**
+ * Find and make available jobs at and surrounding the block at the specified
+ * coordinate.
+ * @param player the player for whom to check.
+ * @param the x coordinate of the block in map space.
+ * @param the y coordinate of the block in map space.
+ */
+void DK_FindJobs(DK_Player player, unsigned short x, unsigned short y);
+
+/**
+ * Get a list of all jobs for the specified player. This is a list of pointers
+ * to the actual job data.
+ * @param player the player to get all jobs for.
+ * @param count the number of jobs.
+ */
+DK_Job** DK_GetJobs(DK_Player player, unsigned int* count);
 
 #ifdef	__cplusplus
 }

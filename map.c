@@ -1320,7 +1320,7 @@ void DK_render_map(void) {
 
                 // Selected by the local player?
                 if (!picking && DK_block_is_selected(DK_PLAYER_RED, x, y)) {
-                    const float intensity = 0.6f + sinf(SDL_GetTicks() * M_PI * (DK_MAP_SELECTED_PULSE_FREQUENCY)) * 0.3f;
+                    //const float intensity = 0.6f + sinf(SDL_GetTicks() * M_PI * (DK_MAP_SELECTED_PULSE_FREQUENCY)) * 0.3f;
                     //glColorMaterial(GL_FRONT, GL_EMISSION);
                     //glColor3f(DK_MAP_SELECTED_COLOR(intensity));
                 }
@@ -1694,7 +1694,7 @@ int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
         block->strength = max_strength;
 
         // Update jobs nearby.
-        DK_update_jobs(player, x, y);
+        DK_FindJobs(player, x, y);
     }
     return 1;
 }
