@@ -1,3 +1,29 @@
+/*
+ * Parts taken from:
+ * 
+ * Mesa 3-D graphics library
+ * Version:  6.3
+ *
+ * Copyright (C) 1999-2005  Brian Paul   All Rights Reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * BRIAN PAUL BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+ * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 #include <math.h>
 
 #include "vmath.h"
@@ -121,20 +147,211 @@ void vinormalize(vec4* v) {
 ///////////////////////////////////////////////////////////////////////////////
 
 void mmulm(mat4* result, const mat4* ma, const mat4* mb) {
-    for (int i = 0; i < 4; ++i) {
-        for (int j = 0; j < 4; ++j) {
-            result->m[j * 4 + i] = 0.0f;
-            for (int k = 0; k < 4; ++k) {
-                result->m[j * 4 + i] += ma->m[k * 4 + i] * mb->m[j * 4 + k];
-            }
-        }
+#define A(row,col) ma->m[(col << 2) + row]
+#define B(row,col) mb->m[(col << 2) + row]
+#define P(row,col) result->m[(col << 2) + row]
+    for (int i = 0; i < 4; i++) {
+        const float ai0 = A(i, 0), ai1 = A(i, 1), ai2 = A(i, 2), ai3 = A(i, 3);
+        P(i, 0) = ai0 * B(0, 0) + ai1 * B(1, 0) + ai2 * B(2, 0) + ai3 * B(3, 0);
+        P(i, 1) = ai0 * B(0, 1) + ai1 * B(1, 1) + ai2 * B(2, 1) + ai3 * B(3, 1);
+        P(i, 2) = ai0 * B(0, 2) + ai1 * B(1, 2) + ai2 * B(2, 2) + ai3 * B(3, 2);
+        P(i, 3) = ai0 * B(0, 3) + ai1 * B(1, 3) + ai2 * B(2, 3) + ai3 * B(3, 3);
     }
+#undef A
+#undef B
+#undef P
 }
 
 void mimulm(mat4 *ma, const mat4 *mb) {
     mat4 result;
     mmulm(&result, ma, mb);
     *ma = result;
+}
+
+void mmulv(vec4* result, const vec4* v, const mat4* m) {
+#define V(i) v->v[i]
+    const float v0 = V(0), v1 = V(1), v2 = V(2), v3 = V(3);
+#undef V
+#define U(i) result->v[i]
+#define M(row, col) m->m[col * 4 + row]
+    U(0) = v0 * M(0, 0) + v1 * M(1, 0) + v2 * M(2, 0) + v3 * M(3, 0);
+    U(1) = v0 * M(0, 1) + v1 * M(1, 1) + v2 * M(2, 1) + v3 * M(3, 1);
+    U(2) = v0 * M(0, 2) + v1 * M(1, 2) + v2 * M(2, 2) + v3 * M(3, 2);
+    U(3) = v0 * M(0, 3) + v1 * M(1, 3) + v2 * M(2, 3) + v3 * M(3, 3);
+#undef M
+}
+
+void mimulv(vec4* v, const mat4* m) {
+    vec4 t;
+    mmulv(&t, v, m);
+    *v = t;
+}
+
+void mtranspose(mat4* to, const mat4* from) {
+#define T(i) to->m[i]
+#define F(i) from->m[i]
+    T(0) = F(0);
+    T(1) = F(4);
+    T(2) = F(8);
+    T(3) = F(12);
+    T(4) = F(1);
+    T(5) = F(5);
+    T(6) = F(9);
+    T(7) = F(13);
+    T(8) = F(2);
+    T(9) = F(6);
+    T(10) = F(10);
+    T(11) = F(14);
+    T(12) = F(3);
+    T(13) = F(7);
+    T(14) = F(11);
+    T(15) = F(15);
+#undef T
+#undef F
+}
+
+void mitranspose(mat4* m) {
+    mat4 t;
+    mtranspose(&t, m);
+    *m = t;
+}
+
+int minvert(mat4* inverse, const mat4* m) {
+    mat4 tmp;
+    float det;
+
+#define I(i) tmp.m[i]
+#define M(i) m->m[i]
+    I(0) = M(5) * M(10) * M(15) -
+            M(5) * M(11) * M(14) -
+            M(9) * M(6) * M(15) +
+            M(9) * M(7) * M(14) +
+            M(13) * M(6) * M(11) -
+            M(13) * M(7) * M(10);
+
+    I(4) = -M(4) * M(10) * M(15) +
+            M(4) * M(11) * M(14) +
+            M(8) * M(6) * M(15) -
+            M(8) * M(7) * M(14) -
+            M(12) * M(6) * M(11) +
+            M(12) * M(7) * M(10);
+
+    I(8) = M(4) * M(9) * M(15) -
+            M(4) * M(11) * M(13) -
+            M(8) * M(5) * M(15) +
+            M(8) * M(7) * M(13) +
+            M(12) * M(5) * M(11) -
+            M(12) * M(7) * M(9);
+
+    I(12) = -M(4) * M(9) * M(14) +
+            M(4) * M(10) * M(13) +
+            M(8) * M(5) * M(14) -
+            M(8) * M(6) * M(13) -
+            M(12) * M(5) * M(10) +
+            M(12) * M(6) * M(9);
+
+    I(1) = -M(1) * M(10) * M(15) +
+            M(1) * M(11) * M(14) +
+            M(9) * M(2) * M(15) -
+            M(9) * M(3) * M(14) -
+            M(13) * M(2) * M(11) +
+            M(13) * M(3) * M(10);
+
+    I(5) = M(0) * M(10) * M(15) -
+            M(0) * M(11) * M(14) -
+            M(8) * M(2) * M(15) +
+            M(8) * M(3) * M(14) +
+            M(12) * M(2) * M(11) -
+            M(12) * M(3) * M(10);
+
+    I(9) = -M(0) * M(9) * M(15) +
+            M(0) * M(11) * M(13) +
+            M(8) * M(1) * M(15) -
+            M(8) * M(3) * M(13) -
+            M(12) * M(1) * M(11) +
+            M(12) * M(3) * M(9);
+
+    I(13) = M(0) * M(9) * M(14) -
+            M(0) * M(10) * M(13) -
+            M(8) * M(1) * M(14) +
+            M(8) * M(2) * M(13) +
+            M(12) * M(1) * M(10) -
+            M(12) * M(2) * M(9);
+
+    I(2) = M(1) * M(6) * M(15) -
+            M(1) * M(7) * M(14) -
+            M(5) * M(2) * M(15) +
+            M(5) * M(3) * M(14) +
+            M(13) * M(2) * M(7) -
+            M(13) * M(3) * M(6);
+
+    I(6) = -M(0) * M(6) * M(15) +
+            M(0) * M(7) * M(14) +
+            M(4) * M(2) * M(15) -
+            M(4) * M(3) * M(14) -
+            M(12) * M(2) * M(7) +
+            M(12) * M(3) * M(6);
+
+    I(10) = M(0) * M(5) * M(15) -
+            M(0) * M(7) * M(13) -
+            M(4) * M(1) * M(15) +
+            M(4) * M(3) * M(13) +
+            M(12) * M(1) * M(7) -
+            M(12) * M(3) * M(5);
+
+    I(14) = -M(0) * M(5) * M(14) +
+            M(0) * M(6) * M(13) +
+            M(4) * M(1) * M(14) -
+            M(4) * M(2) * M(13) -
+            M(12) * M(1) * M(6) +
+            M(12) * M(2) * M(5);
+
+    I(3) = -M(1) * M(6) * M(11) +
+            M(1) * M(7) * M(10) +
+            M(5) * M(2) * M(11) -
+            M(5) * M(3) * M(10) -
+            M(9) * M(2) * M(7) +
+            M(9) * M(3) * M(6);
+
+    I(7) = M(0) * M(6) * M(11) -
+            M(0) * M(7) * M(10) -
+            M(4) * M(2) * M(11) +
+            M(4) * M(3) * M(10) +
+            M(8) * M(2) * M(7) -
+            M(8) * M(3) * M(6);
+
+    I(11) = -M(0) * M(5) * M(11) +
+            M(0) * M(7) * M(9) +
+            M(4) * M(1) * M(11) -
+            M(4) * M(3) * M(9) -
+            M(8) * M(1) * M(7) +
+            M(8) * M(3) * M(5);
+
+    I(15) = M(0) * M(5) * M(10) -
+            M(0) * M(6) * M(9) -
+            M(4) * M(1) * M(10) +
+            M(4) * M(2) * M(9) +
+            M(8) * M(1) * M(6) -
+            M(8) * M(2) * M(5);
+
+    det = M(0) * I(0) + M(1) * I(4) + M(2) * I(8) + M(3) * I(12);
+#undef M
+
+    if (det * det < 1e-25) {
+        return 0;
+    }
+
+    det = 1.0 / det;
+
+    for (unsigned int i = 0; i < 16; i++) {
+        inverse->m[i] = I(i) * det;
+    }
+#undef I
+    return 1;
+}
+
+int miinvert(mat4* m) {
+    return minvert(m, m);
 }
 
 void mirotatex(mat4* m, float angle) {
@@ -186,94 +403,20 @@ void miscale(mat4* m, float x, float y, float z) {
     mimulm(m, &scale);
 }
 
-void mitranslate(mat4* m, float tx, float ty, float tz) {
-    mat4 translation = IDENTITY_MATRIX4;
+void mitranslate(mat4* mat, float tx, float ty, float tz) {
+    /*
+        mat4 translation = IDENTITY_MATRIX4;
 
-    translation.m[12] += tx;
-    translation.m[13] += ty;
-    translation.m[14] += tz;
+        translation.m[12] = tx;
+        translation.m[13] = ty;
+        translation.m[14] = tz;
 
-    mimulm(m, &translation);
-}
+        mimulm(m, &translation);
+     */
 
-///////////////////////////////////////////////////////////////////////////////
-// Projection and view matrix generation
-///////////////////////////////////////////////////////////////////////////////
-
-static const float PI = 3.14159265358979323846f;
-
-void perspective(mat4* m, float fov, float ratio, float near, float far) {
-    // range = tan(deg2rad(fov / 2)) * near
-    // => near / range = 1 / tan(deg2rad(fov / 2))
-    const float f = 1.0f / tanf(fov * (PI / 360.0f));
-
-    *m = IDENTITY_MATRIX4;
-
-    m->m[0] = f / ratio;
-    m->m[1 * 4 + 1] = f;
-    m->m[2 * 4 + 2] = (far + near) / (near - far);
-    m->m[3 * 4 + 2] = (2.0f * far * near) / (near - far);
-    m->m[2 * 4 + 3] = -1.0f;
-    m->m[3 * 4 + 3] = 0.0f;
-}
-
-void orthogonal(mat4* m, float left, float right, float bottom, float top, float near, float far) {
-    const float tx = -(right + left) / (right - left);
-    const float ty = -(top + bottom) / (top - bottom);
-    const float tz = -(far + near) / (far - near);
-
-    *m = IDENTITY_MATRIX4;
-
-    m->m[0] = 2.0f / (right - left);
-    m->m[1 * 4 + 1] = 2.0f / (top - bottom);
-    m->m[2 * 4 + 2] = -2.0f / (far - near);
-    m->m[3 * 4 + 0] = tx;
-    m->m[3 * 4 + 1] = ty;
-    m->m[3 * 4 + 2] = tz;
-}
-
-void lookat(mat4* m, const vec4* position, const vec4* target) {
-    vec4 up = {
-        {0.0f, 0.0f, 1.0f, 1.0f}
-    };
-    vec4 direction, right;
-
-    // Compute direction vectors and set up base matrix.
-    direction.v[0] = (target->v[0] - position->v[0]);
-    direction.v[1] = (target->v[1] - position->v[1]);
-    direction.v[2] = (target->v[2] - position->v[2]);
-    vinormalize(&direction);
-
-    vcross(&right, &direction, &up);
-    vinormalize(&right);
-
-    vcross(&up, &right, &direction);
-    vinormalize(&up);
-
-    // First row.
-    m->m[0] = right.v[0];
-    m->m[4] = right.v[1];
-    m->m[8] = right.v[2];
-    m->m[12] = 0.0f;
-
-    // Second row.
-    m->m[1] = up.v[0];
-    m->m[5] = up.v[1];
-    m->m[9] = up.v[2];
-    m->m[13] = 0.0f;
-
-    // Third row.
-    m->m[2] = -direction.v[0];
-    m->m[6] = -direction.v[1];
-    m->m[10] = -direction.v[2];
-    m->m[14] = 0.0f;
-
-    // Fourth row.
-    m->m[3] = 0.0f;
-    m->m[7] = 0.0f;
-    m->m[11] = 0.0f;
-    m->m[15] = 1.0f;
-
-    // Then add translation based on eye position.
-    mitranslate(m, -position->v[0], -position->v[1], -position->v[2]);
+    float* m = mat->m;
+    m[12] = m[0] * tx + m[4] * ty + m[8] * tz + m[12];
+    m[13] = m[1] * tx + m[5] * ty + m[9] * tz + m[13];
+    m[14] = m[2] * tx + m[6] * ty + m[10] * tz + m[14];
+    m[15] = m[3] * tx + m[7] * ty + m[11] * tz + m[15];
 }

@@ -5,6 +5,6 @@
 
 void DK_Update(void) {
     DK_UpdateCamera();
-    DK_update_map();
+    DK_UpdateMap();
     DK_UpdateUnits();
 }

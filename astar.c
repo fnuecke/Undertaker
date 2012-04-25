@@ -159,7 +159,7 @@ inline static float to_map_space(unsigned int node_coordinate) {
 
 /** Checks if a block is passable, using local coordinates */
 inline static int is_passable(unsigned int node_x, unsigned int node_y) {
-    return DK_block_is_passable(DK_block_at(node_x / DK_ASTAR_GRANULARITY, node_y / DK_ASTAR_GRANULARITY), current_unit);
+    return DK_IsBlockPassable(DK_GetBlockAt(node_x / DK_ASTAR_GRANULARITY, node_y / DK_ASTAR_GRANULARITY), current_unit);
 }
 
 /** Tests if a neighbor should be skipped due to it already having a better score */
@@ -418,7 +418,7 @@ static int is_goal(DK_AStarWaypoint* path, unsigned int* depth, float* length,
 
 void DK_InitAStar(void) {
     BS_Delete(a_star_closed_set);
-    a_star_grid_size = DK_map_size * DK_ASTAR_GRANULARITY;
+    a_star_grid_size = DK_GetMapSize() * DK_ASTAR_GRANULARITY;
     a_star_closed_set = BS_New(a_star_grid_size * a_star_grid_size);
 }
 
@@ -433,8 +433,8 @@ int DK_AStar(const DK_Unit* unit, const vec2* goal, DK_AStarWaypoint* path, unsi
     current_unit = unit;
 
     // Check if the start and target position are valid (passable).
-    if (!DK_block_is_passable(DK_block_at((int) start->v[0], (int) start->v[1]), unit) ||
-            !DK_block_is_passable(DK_block_at((int) goal->v[0], (int) goal->v[1]), unit)) {
+    if (!DK_IsBlockPassable(DK_GetBlockAt((int) start->v[0], (int) start->v[1]), unit) ||
+            !DK_IsBlockPassable(DK_GetBlockAt((int) goal->v[0], (int) goal->v[1]), unit)) {
         return 0;
     }
 

@@ -25,11 +25,6 @@ extern "C" {
     } DK_AStarWaypoint;
 
     /**
-     * (Re)Initializes data structures after a map change.
-     */
-    void DK_InitAStar(void);
-
-    /**
      * Performs an A* path search using JPS.
      * @param unit the unit to find a path for.
      * @param goal the target position as a fraction of map coordinates.
@@ -39,6 +34,11 @@ extern "C" {
      * @return 1 if a path was found, 0 if there was no path to the target.
      */
     int DK_AStar(const DK_Unit* unit, const vec2* goal, DK_AStarWaypoint* path, unsigned int* depth, float* length);
+
+    /**
+     * (Re)Initializes data structures after a map change.
+     */
+    void DK_InitAStar(void);
 
 #ifdef	__cplusplus
 }

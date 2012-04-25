@@ -241,7 +241,7 @@ static void update_ai(DK_Unit* unit) {
                                 penalty = DK_JOB_DIG_PRIORITY;
                                 break;
                             case DK_JOB_CONVERT:
-                                if (DK_block_is_open(job->block)) {
+                                if (DK_IsBlockOpen(job->block)) {
                                     penalty = DK_JOB_CONVERT_FLOOR_PRIORITY;
                                 } else {
                                     penalty = DK_JOB_CONVERT_WALL_PRIORITY;
@@ -336,16 +336,16 @@ static void update_ai(DK_Unit* unit) {
                             if (wx < 0.2f) {
                                 wx = 0.2f;
                             }
-                            if (wx > DK_map_size - 0.2f) {
-                                wx = DK_map_size - 0.2f;
+                            if (wx > DK_GetMapSize() - 0.2f) {
+                                wx = DK_GetMapSize() - 0.2f;
                             }
                             if (wy < 0.2f) {
                                 wy = 0.2f;
                             }
-                            if (wy > DK_map_size - 0.2f) {
-                                wy = DK_map_size - 0.2f;
+                            if (wy > DK_GetMapSize() - 0.2f) {
+                                wy = DK_GetMapSize() - 0.2f;
                             }
-                            if (DK_block_is_passable(DK_block_at((int) wx, (int) wy), unit)) {
+                            if (DK_IsBlockPassable(DK_GetBlockAt((int) wx, (int) wy), unit)) {
                                 // OK, move.
                                 moveNode = &unit->ai[unit->ai_count++];
                                 moveNode->state = DK_AI_MOVE;
@@ -444,7 +444,7 @@ static void update_ai(DK_Unit* unit) {
             // Else attack the dirt! Update cooldown and apply damage.
             unit->cooldowns[DK_ABILITY_IMP_ATTACK] =
                     cooldowns[DK_UNIT_IMP][DK_ABILITY_IMP_ATTACK];
-            if (DK_block_damage(ai->job->block, damage[DK_UNIT_IMP][DK_ABILITY_IMP_ATTACK])) {
+            if (DK_DamageBlock(ai->job->block, damage[DK_UNIT_IMP][DK_ABILITY_IMP_ATTACK])) {
                 // Block was destroyed! Job done.
                 --unit->ai_count;
             }
@@ -467,7 +467,7 @@ static void update_ai(DK_Unit* unit) {
             // Else hoyoyo! Update cooldown and apply conversion.
             unit->cooldowns[DK_ABILITY_IMP_CONVERT] =
                     cooldowns[DK_UNIT_IMP][DK_ABILITY_IMP_CONVERT];
-            if (DK_block_convert(ai->job->block, damage[DK_UNIT_IMP][DK_ABILITY_IMP_CONVERT], unit->owner)) {
+            if (DK_ConvertBlock(ai->job->block, damage[DK_UNIT_IMP][DK_ABILITY_IMP_CONVERT], unit->owner)) {
                 // Block was destroyed! Job done.
                 --unit->ai_count;
             }
@@ -578,7 +578,7 @@ int DK_AddUnit(DK_Player player, DK_UnitType type, unsigned short x, unsigned sh
     if (total_unit_count > DK_PLAYER_COUNT * DK_UNITS_MAX_PER_PLAYER) {
         // TODO
         return 0;
-    } else if (!DK_block_is_open(DK_block_at(x, y))) {
+    } else if (!DK_IsBlockOpen(DK_GetBlockAt(x, y))) {
         // TODO
         return 0;
     } else {

@@ -75,7 +75,7 @@ DK_Selection DK_GetSelection(void) {
 }
 
 int DK_IsBlockSelectable(DK_Player player, int x, int y) {
-    const DK_Block* block = DK_block_at(x, y);
+    const DK_Block* block = DK_GetBlockAt(x, y);
     return block &&
             (block->type == DK_BLOCK_DIRT ||
             block->type == DK_BLOCK_GOLD ||
@@ -84,7 +84,7 @@ int DK_IsBlockSelectable(DK_Player player, int x, int y) {
 }
 
 int DK_IsBlockSelected(DK_Player player, unsigned short x, unsigned short y) {
-    return BS_Test(gPlayerSelection[player], y * DK_map_size + x);
+    return BS_Test(gPlayerSelection[player], y * DK_GetMapSize() + x);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -144,7 +144,7 @@ void DK_ConfirmSelection(void) {
 
 int DK_SelectBlock(DK_Player player, int x, int y) {
     if (DK_IsBlockSelectable(player, x, y)) {
-        const unsigned int idx = y * DK_map_size + x;
+        const unsigned int idx = y * DK_GetMapSize() + x;
 
         // Only update if something changed.
         if (!BS_Test(gPlayerSelection[player], idx)) {
@@ -157,8 +157,8 @@ int DK_SelectBlock(DK_Player player, int x, int y) {
 }
 
 int DK_DeselectBlock(DK_Player player, int x, int y) {
-    if (x >= 0 && y >= 0 && x < DK_map_size && y < DK_map_size) {
-        const unsigned int idx = y * DK_map_size + x;
+    if (x >= 0 && y >= 0 && x < DK_GetMapSize() && y < DK_GetMapSize()) {
+        const unsigned int idx = y * DK_GetMapSize() + x;
 
         // Only update if something changed.
         if (BS_Test(gPlayerSelection[player], idx)) {
@@ -177,12 +177,12 @@ int DK_DeselectBlock(DK_Player player, int x, int y) {
 void DK_InitSelection(void) {
     for (int i = 0; i < DK_PLAYER_COUNT; ++i) {
         BS_Delete(gPlayerSelection[i]);
-        gPlayerSelection[i] = BS_New(DK_map_size * DK_map_size);
+        gPlayerSelection[i] = BS_New(DK_GetMapSize() * DK_GetMapSize());
     }
 }
 
 void DK_UpdateSelection(void) {
-    DK_block_under_cursor(&gCurrentSelection.endX, &gCurrentSelection.endY);
+    DK_GetBlockUnderCursor(&gCurrentSelection.endX, &gCurrentSelection.endY);
     if (gMode == MODE_NONE) {
         gCurrentSelection.startX = gCurrentSelection.endX;
         gCurrentSelection.startY = gCurrentSelection.endY;

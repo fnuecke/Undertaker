@@ -5,6 +5,7 @@
 #include "config.h"
 #include "cursor.h"
 #include "vmath.h"
+#include "graphics.h"
 
 static vec2 gCursorPosition;
 
@@ -14,31 +15,21 @@ const vec2* DK_GetCursor(void) {
 
 void DK_UpdateCursor(void) {
     // Get environment info.
-    const vec2* camera_position = DK_GetCameraPosition();
-    mat4 model;
-    mat4 proj;
-    GLint view;
-    GLdouble ox, oy, oz;
     int mouseX, mouseY;
-    GLdouble objXn, objYn, objZn;
-    GLdouble objXf, objYf, objZf;
-
-    
-    glGetDoublev(GL_MODELVIEW_MATRIX, model.m);
-    glGetDoublev(GL_PROJECTION_MATRIX, proj.m);
-    glGetIntegerv(GL_VIEWPORT, &view);
-
-    gluProject(camera_position->v[0], camera_position->v[1] + DK_CAMERA_TARGET_DISTANCE, 0, model.m, proj.m, view, &ox, &oy, &oz);
+    float objXn, objYn, objZn;
+    float objXf, objYf, objZf;
 
     // Get window mouse coordinates.
     SDL_GetMouseState(&mouseX, &mouseY);
     mouseY = DK_resolution_y - mouseY;
 
     // Get near plane.
-    gluUnProject(mouseX, mouseY, 0, model.m, proj.m, view, &objXn, &objYn, &objZn);
+    //gluUnProject(mouseX, mouseY, 0, model.m, proj.m, view, &objXn, &objYn, &objZn);
+    DK_UnProject(mouseX, mouseY, 0, &objXn, &objYn, &objZn);
 
     // Get far plane.
-    gluUnProject(mouseX, mouseY, 1, model.m, proj.m, view, &objXf, &objYf, &objZf);
+    //gluUnProject(mouseX, mouseY, 1, model.m, proj.m, view, &objXf, &objYf, &objZf);
+    DK_UnProject(mouseX, mouseY, 1, &objXf, &objYf, &objZf);
 
     // Build vector.
     {

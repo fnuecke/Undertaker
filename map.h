@@ -8,12 +8,17 @@
 #ifndef MAP_H
 #define	MAP_H
 
+#include "callbacks.h"
 #include "players.h"
 #include "units.h"
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Types
+    ///////////////////////////////////////////////////////////////////////////
 
     /** Possible block types */
     typedef enum {
@@ -59,59 +64,99 @@ extern "C" {
         int closed;
     } DK_Block;
 
-    /** Size (width and height) of the current map */
-    unsigned short DK_map_size;
+    ///////////////////////////////////////////////////////////////////////////
+    // Save / Load
+    ///////////////////////////////////////////////////////////////////////////
 
-    /** Clears the current map and initializes a new one with the specified size */
-    void DK_init_map(unsigned short size);
+    /**
+     * Load the current map from a file with the specified name.
+     */
+    void DK_LoadMap(const char* filename);
 
-    /** Update map data such as currently hovered block */
-    void DK_update_map(void);
+    /**
+     * Save the current map to a file with the specified name.
+     */
+    void DK_SaveMap(const char* filename);
 
-    /** Render the current map (blocks) */
-    void DK_render_map(void);
+    ///////////////////////////////////////////////////////////////////////////
+    // Accessors
+    ///////////////////////////////////////////////////////////////////////////
 
-    /** Load the current map from a file with the specified name */
-    void DK_map_load(const char* filename);
+    /**
+     * Size (width and height, maps are always squared) of the current map.
+     */
+    unsigned short DK_GetMapSize(void);
 
-    /** Save the current map to a file with the specified name */
-    void DK_map_save(const char* filename);
+    /**
+     * Get the map block at the specified coordinate.
+     */
+    DK_Block* DK_GetBlockAt(int x, int y);
 
-    /** Get the map block at the specified coordinate */
-    DK_Block* DK_block_at(int x, int y);
+    /**
+     * Get the coordinates of the specified block.
+     */
+    int DK_GetBlockCoordinates(unsigned short* x, unsigned short* y, const DK_Block* block);
 
-    /** Get the coordinates of the specified block */
-    int DK_block_coordinates(unsigned short* x, unsigned short* y, const DK_Block* block);
+    /**
+     * Gets the block currently hovered by the mouse, and its coordinates.
+     */
+    DK_Block* DK_GetBlockUnderCursor(int* block_x, int* block_y);
 
-    /** Test whether the specified block contains a fluid */
-    int DK_block_is_fluid(const DK_Block* block);
+    /**
+     * Test whether the specified block is open, i.e. air.
+     */
+    int DK_IsBlockOpen(const DK_Block* block);
 
-    /** Test whether the specified block is a wall owned by the specified player */
-    int DK_block_is_wall(const DK_Block* block, DK_Player player);
+    /**
+     * Test whether the specified block contains a fluid.
+     */
+    int DK_IsBlockFluid(const DK_Block* block);
 
-    /** Test whether the specified block is open, i.e. air */
-    int DK_block_is_open(const DK_Block* block);
+    /**
+     * Test whether the specified block is passable by the specified unit.
+     */
+    int DK_IsBlockPassable(const DK_Block* block, const DK_Unit* unit);
 
-    /** Test whether the specified block is passable by the specified unit */
-    int DK_block_is_passable(const DK_Block* block, const DK_Unit* unit);
+    /**
+     * Test whether the specified block is a wall owned by the specified player.
+     */
+    int DK_IsBlockWall(const DK_Block* block, DK_Player player);
 
-    /** Gets the block currently hovered by the mouse, and its coordinates */
-    DK_Block* DK_block_under_cursor(int* block_x, int* block_y);
-
-    /** Apply damage to a block (dirt, gold or gem); return 1 if destroyed */
-    int DK_block_damage(DK_Block* block, unsigned int damage);
-
-    /** Apply conversion to a block (dirt, wall, empty); return 1 if successful */
-    int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player);
+    ///////////////////////////////////////////////////////////////////////////
+    // Modifiers
+    ///////////////////////////////////////////////////////////////////////////
 
     /** Change the type of a block */
-    void DK_block_set_type(DK_Block* block, DK_BlockType type);
+    void DK_SetBlockType(DK_Block* block, DK_BlockType type);
 
     /** Change the owner of a block */
-    void DK_block_set_owner(DK_Block* block, DK_Player player);
+    void DK_SetBlockOwner(DK_Block* block, DK_Player player);
 
-    /** Update the map model for the block at the specified coordinates */
-    void DK_block_update(unsigned short x, unsigned short y);
+    /** Apply damage to a block (dirt, gold or gem); return 1 if destroyed */
+    int DK_DamageBlock(DK_Block* block, unsigned int damage);
+
+    /** Apply conversion to a block (dirt, wall, empty); return 1 if successful */
+    int DK_ConvertBlock(DK_Block* block, unsigned int strength, DK_Player player);
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Initialization / Update / Render
+    ///////////////////////////////////////////////////////////////////////////
+
+    /** Clears the current map and initializes a new one with the specified size */
+    void DK_InitMap(unsigned short size);
+
+    /** Update map data such as currently hovered block */
+    void DK_UpdateMap(void);
+
+    /** Render the current map (blocks) */
+    void DK_RenderMap(void);
+
+    /**
+     * Register a method that should be called when the map size changes.
+     * Methods are called in the order in which they are registered.
+     * @param callback the method to call.
+     */
+    void DK_OnMapSizeChange(callback method);
 
 #ifdef	__cplusplus
 }

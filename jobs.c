@@ -66,7 +66,7 @@ typedef enum {
 } JobNeighbors;
 
 static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
-    DK_Block* block = DK_block_at(x, y);
+    DK_Block* block = DK_GetBlockAt(x, y);
 
     // Check which jobs are already taken care of. There are 5 slots: the block
     // itself (converting) and the four non-diagonal neighbors (dig/convert).
@@ -102,8 +102,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
             // Check if a neighboring tile is passable.
             DK_Block* b;
             if (!(existing_jobs & WEST) &&
-                    (b = DK_block_at(x - 1, y)) &&
-                    DK_block_is_open(b)) {
+                    (b = DK_GetBlockAt(x - 1, y)) &&
+                    DK_IsBlockOpen(b)) {
                 // Left is valid.
                 DK_Job* job = get_job(player);
                 job->block = block;
@@ -113,8 +113,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
                 job->worker = 0;
             }
             if (!(existing_jobs & EAST) &&
-                    (b = DK_block_at(x + 1, y)) &&
-                    DK_block_is_open(b)) {
+                    (b = DK_GetBlockAt(x + 1, y)) &&
+                    DK_IsBlockOpen(b)) {
                 // Right is valid.
                 DK_Job* job = get_job(player);
                 job->block = block;
@@ -124,8 +124,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
                 job->worker = 0;
             }
             if (!(existing_jobs & NORTH) &&
-                    (b = DK_block_at(x, y - 1)) &&
-                    DK_block_is_open(b)) {
+                    (b = DK_GetBlockAt(x, y - 1)) &&
+                    DK_IsBlockOpen(b)) {
                 // Top is valid.
                 DK_Job* job = get_job(player);
                 job->block = block;
@@ -135,8 +135,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
                 job->worker = 0;
             }
             if (!(existing_jobs & SOUTH) &&
-                    (b = DK_block_at(x, y + 1)) &&
-                    DK_block_is_open(b)) {
+                    (b = DK_GetBlockAt(x, y + 1)) &&
+                    DK_IsBlockOpen(b)) {
                 // Bottom is valid.
                 DK_Job* job = get_job(player);
                 job->block = block;
@@ -150,8 +150,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
             // Check if a neighboring tile is owned by the same player.
             DK_Block* b;
             if (!(existing_jobs & WEST) &&
-                    (b = DK_block_at(x - 1, y)) &&
-                    DK_block_is_open(b) &&
+                    (b = DK_GetBlockAt(x - 1, y)) &&
+                    DK_IsBlockOpen(b) &&
                     b->owner == player) {
                 // Left is valid.
                 DK_Job* job = get_job(player);
@@ -162,8 +162,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
                 job->worker = 0;
             }
             if (!(existing_jobs & EAST) &&
-                    (b = DK_block_at(x + 1, y)) &&
-                    DK_block_is_open(b) &&
+                    (b = DK_GetBlockAt(x + 1, y)) &&
+                    DK_IsBlockOpen(b) &&
                     b->owner == player) {
                 // Right is valid.
                 DK_Job* job = get_job(player);
@@ -174,8 +174,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
                 job->worker = 0;
             }
             if (!(existing_jobs & NORTH) &&
-                    (b = DK_block_at(x, y - 1)) &&
-                    DK_block_is_open(b) &&
+                    (b = DK_GetBlockAt(x, y - 1)) &&
+                    DK_IsBlockOpen(b) &&
                     b->owner == player) {
                 // Top is valid.
                 DK_Job* job = get_job(player);
@@ -186,8 +186,8 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
                 job->worker = 0;
             }
             if (!(existing_jobs & SOUTH) &&
-                    (b = DK_block_at(x, y + 1)) &&
-                    DK_block_is_open(b) &&
+                    (b = DK_GetBlockAt(x, y + 1)) &&
+                    DK_IsBlockOpen(b) &&
                     b->owner == player) {
                 // Bottom is valid.
                 DK_Job* job = get_job(player);
@@ -204,20 +204,20 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
         // Block is empty tile and not already owned.
         // Check if a neighboring tile is owned by the same player.
         DK_Block* b;
-        if (((b = DK_block_at(x - 1, y)) &&
-                DK_block_is_open(b) &&
+        if (((b = DK_GetBlockAt(x - 1, y)) &&
+                DK_IsBlockOpen(b) &&
                 b->owner == player) ||
 
-                ((b = DK_block_at(x + 1, y)) &&
-                DK_block_is_open(b) &&
+                ((b = DK_GetBlockAt(x + 1, y)) &&
+                DK_IsBlockOpen(b) &&
                 b->owner == player) ||
 
-                ((b = DK_block_at(x, y - 1)) &&
-                DK_block_is_open(b) &&
+                ((b = DK_GetBlockAt(x, y - 1)) &&
+                DK_IsBlockOpen(b) &&
                 b->owner == player) ||
 
-                ((b = DK_block_at(x, y + 1)) &&
-                DK_block_is_open(b) &&
+                ((b = DK_GetBlockAt(x, y + 1)) &&
+                DK_IsBlockOpen(b) &&
                 b->owner == player)) {
             DK_Job* job = get_job(player);
             job->block = block;
@@ -244,7 +244,7 @@ void DK_InitJobs(void) {
 }
 
 void DK_FindJobs(DK_Player player, unsigned short x, unsigned short y) {
-    DK_Block* block = DK_block_at(x, y);
+    DK_Block* block = DK_GetBlockAt(x, y);
     int i;
     for (i = jobs_count[player]; i > 0; --i) {
         const DK_Job* job = jobs[player][i - 1];
@@ -264,13 +264,13 @@ void DK_FindJobs(DK_Player player, unsigned short x, unsigned short y) {
     if (x > 0) {
         jobs_add(player, x - 1, y);
     }
-    if (x < DK_map_size - 1) {
+    if (x < DK_GetMapSize() - 1) {
         jobs_add(player, x + 1, y);
     }
     if (y > 0) {
         jobs_add(player, x, y - 1);
     }
-    if (y < DK_map_size - 1) {
+    if (y < DK_GetMapSize() - 1) {
         jobs_add(player, x, y + 1);
     }
 }

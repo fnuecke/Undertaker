@@ -82,15 +82,15 @@ void DK_UpdateCamera(void) {
     if (gCameraPosition.v[0] < 0) {
         gCameraPosition.v[0] = 0;
     }
-    if (gCameraPosition.v[0] > DK_map_size * DK_BLOCK_SIZE) {
-        gCameraPosition.v[0] = DK_map_size * DK_BLOCK_SIZE;
+    if (gCameraPosition.v[0] > DK_GetMapSize() * DK_BLOCK_SIZE) {
+        gCameraPosition.v[0] = DK_GetMapSize() * DK_BLOCK_SIZE;
     }
 
     if (gCameraPosition.v[1] < 0) {
         gCameraPosition.v[1] = 0;
     }
-    if (gCameraPosition.v[1] > DK_map_size * DK_BLOCK_SIZE) {
-        gCameraPosition.v[1] = DK_map_size * DK_BLOCK_SIZE;
+    if (gCameraPosition.v[1] > DK_GetMapSize() * DK_BLOCK_SIZE) {
+        gCameraPosition.v[1] = DK_GetMapSize() * DK_BLOCK_SIZE;
     }
 
     gCameraVelocity.v[0] *= DK_CAMERA_FRICTION;

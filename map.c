@@ -7,6 +7,7 @@
 
 #include "astar.h"
 #include "bitset.h"
+#include "callbacks.h"
 #include "camera.h"
 #include "config.h"
 #include "jobs.h"
@@ -19,31 +20,33 @@
 #include "units.h"
 
 ///////////////////////////////////////////////////////////////////////////////
-// Macros
-///////////////////////////////////////////////////////////////////////////////
-
-#define XYZD2I(x, y, z, dx, dy) (((z) * (dx) * (dy)) + (y) * (dy) + (x))
-#define XYZ2IF(x, y, z) XYZD2I(x, y, z, vertices_count_full, vertices_count_full)
-#define XYZ2IH(x, y, z) XYZD2I(x, y, z, vertices_count_full, vertices_count_semi)
-
-#define DK_NEQ(a, b) (fabs(b - (a + 0.5)) < 0.01f)
-#define DK_NLT(a, b) (b - (a + 0.5) > 0)
-
-///////////////////////////////////////////////////////////////////////////////
 // Internal variables
 ///////////////////////////////////////////////////////////////////////////////
 
-/** The current map */
-static DK_Block* map = 0;
+/**
+ * The current map.
+ */
+static DK_Block* gMap = 0;
 
-/** Current map size */
-unsigned short DK_map_size = 0;
+/**
+ * Size of the current map (width and height).
+ */
+static unsigned short gMapSize = 0;
 
-/** Currently hovered block coordinates */
+/**
+ * Currently hovered block coordinates.
+ */
 static int cursor_x = 0, cursor_y = 0;
 
-/** Currently doing a picking (select) render pass? */
-static char picking = 0;
+/**
+ * Currently doing a picking (select) render pass?
+ */
+static char gIsPicking = 0;
+
+/**
+ * List of methods to call when map size changes.
+ */
+static Callbacks* gMapChangeCallbacks = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Map model data
@@ -76,14 +79,64 @@ static const float z_coords[5] = {
 };
 
 ///////////////////////////////////////////////////////////////////////////////
+// Utility methods
+///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Converts the specified three dimensional index with dx/dy/? dimensionality
+ * to an index in a one dimensional array.
+ * @param x the x index.
+ * @param y the y index.
+ * @param z the z index.
+ * @param dx the dimensionality along the x axis.
+ * @param dy the dimensionality along the y axis.
+ * @return the index in the one dimensional array.
+ */
+inline static unsigned int computeIndex(unsigned int x, unsigned int y, unsigned int z, unsigned int dx, unsigned int dy) {
+    return (z * dx * dy) +y * dy + x;
+}
+
+/**
+ * Converts the specified three dimensional index of a symmetric vertex or
+ * normal array to the one dimensional index in that array.
+ * @param x the x index.
+ * @param y the y index.
+ * @param z the z index.
+ * @return the index in the one dimensional array.
+ */
+inline static unsigned int fi(unsigned int x, unsigned int y, unsigned int z) {
+    return computeIndex(x, y, z, vertices_count_full, vertices_count_full);
+}
+
+/**
+ * Converts the specified three dimensional index of a asymmetric vertex or
+ * normal array to the one dimensional index in that array.
+ * @param x the x index.
+ * @param y the y index.
+ * @param z the z index.
+ * @return the index in the one dimensional array.
+ */
+inline static unsigned int hi(unsigned int x, unsigned int y, unsigned int z) {
+    return computeIndex(x, y, z, vertices_count_full, vertices_count_semi);
+}
+
+inline static int DK_NEQ(unsigned int a, unsigned int b) {
+    return fabs(b - (a + 0.5f)) < 0.01f;
+}
+
+inline static int DK_NLT(unsigned int a, unsigned int b) {
+    return b - (a + 0.5f) > 0.0f;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Picking
 ///////////////////////////////////////////////////////////////////////////////
 
 inline static GLuint pick_block(int x, int y) {
     GLuint result;
-    picking = 1;
-    result = DK_Pick(x, y, &DK_render_map);
-    picking = 0;
+    gIsPicking = 1;
+    result = DK_Pick(x, y, &DK_RenderMap);
+    gIsPicking = 0;
     return result;
 }
 
@@ -101,7 +154,7 @@ typedef enum {
 /** Get influence of a specific block on noise */
 static double noise_factor_block(DK_Offset* offset, const DK_Block* block) {
     *offset = OFFSET_NONE;
-    if (DK_block_is_open(block) && block->owner == DK_PLAYER_NONE) {
+    if (DK_IsBlockOpen(block) && block->owner == DK_PLAYER_NONE) {
         *offset = OFFSET_INCREASE;
         return 1.5;
     } else if (block->owner != DK_PLAYER_NONE) {
@@ -121,7 +174,8 @@ static float compute_offset(float* offset, float x, float y) {
     float offset_reduction[2] = {1, 1};
 
     // Get full coordinate for our doubles (which might be at half coordinates.
-    const int i = (int) (x + 0.1f), j = (int) (y + 0.1f);
+    const int i = (int) (x + 0.1f);
+    const int j = (int) (y + 0.1f);
 
     // Find out what kind of point this is, among the following:
     // +---+---+---+
@@ -135,7 +189,7 @@ static float compute_offset(float* offset, float x, float y) {
     // check A,B,D and E, for 1 A,B,C,D,E,F, for 2 A,B,D,E,G and H, for 3 we
     // want all. Note that i,j for (1,2,3) will always equal (x,y) for 0.
     int x_begin = i - 1, y_begin = j - 1;
-    int x_end, y_end, k, l;
+    int x_end, y_end;
     float normalizer, factor;
     if (fabs(x - i - 0.5f) < 0.01f) {
         // X is halfway, so we're at 1 or 3.
@@ -166,33 +220,33 @@ static float compute_offset(float* offset, float x, float y) {
     if (x_begin < 0) {
         x_begin = 0;
     }
-    if (x_end > DK_map_size - 1) {
-        x_end = DK_map_size - 1;
+    if (x_end > gMapSize - 1) {
+        x_end = gMapSize - 1;
     }
     if (y_begin < 0) {
         y_begin = 0;
     }
-    if (y_end > DK_map_size - 1) {
-        y_end = DK_map_size - 1;
+    if (y_end > gMapSize - 1) {
+        y_end = gMapSize - 1;
     }
 
     // Walk all the block necessary.
     factor = 0;
-    for (k = x_begin; k <= x_end; ++k) {
-        for (l = y_begin; l <= y_end; ++l) {
-            factor += noise_factor_block(&offset_type, &map[k + l * DK_map_size]);
+    for (unsigned int k = x_begin; (int)k <= x_end; ++k) {
+        for (unsigned int l = y_begin; (int)l <= y_end; ++l) {
+            factor += noise_factor_block(&offset_type, DK_GetBlockAt(k, l));
             if (offset_type == OFFSET_INCREASE) {
                 if (!DK_NEQ(k, x)) {
                     if (DK_NLT(k, x)) {
                         offset[0] += 1;
-                    } else if (k >= i) {
+                    } else if ((int)k >= i) {
                         offset[0] -= 1;
                     }
                 }
                 if (!DK_NEQ(l, y)) {
                     if (DK_NLT(l, y)) {
                         offset[1] += 1;
-                    } else if (l >= j) {
+                    } else if ((int)l >= j) {
                         offset[1] -= 1;
                     }
                 }
@@ -223,7 +277,7 @@ static float compute_offset(float* offset, float x, float y) {
 static void update_vertices(int x, int y) {
     unsigned int z;
     for (z = 0; z < 5; ++z) {
-        v3f* v = &vertices[XYZ2IF(x, y, z)];
+        v3f* v = &vertices[fi(x, y, z)];
         const float vx = (x - DK_MAP_BORDER) / 2.0f * DK_BLOCK_SIZE;
         const float vy = (y - DK_MAP_BORDER) / 2.0f * DK_BLOCK_SIZE;
         const float vz = z_coords[z];
@@ -321,20 +375,20 @@ static void update_normals(int x, int y) {
     for (z = 1; z < 4; ++z) {
         if ((x & 1) == 0) {
             // Compute x normals.
-            v3f* n = &normals_x[XYZ2IH(x / 2, y, z)];
+            v3f* n = &normals_x[hi(x / 2, y, z)];
 
             // Vertex the normal sits on.
-            const v3f* v0 = &vertices[XYZ2IF(x, y, z)];
+            const v3f* v0 = &vertices[fi(x, y, z)];
 
             // Neighboring vertices.
-            const v3f* v1 = &vertices[XYZ2IF(x, y - 1, z + 1)];
-            const v3f* v2 = &vertices[XYZ2IF(x, y - 1, z)];
-            const v3f* v3 = &vertices[XYZ2IF(x, y - 1, z - 1)];
-            const v3f* v4 = &vertices[XYZ2IF(x, y, z - 1)];
-            const v3f* v5 = &vertices[XYZ2IF(x, y + 1, z - 1)];
-            const v3f* v6 = &vertices[XYZ2IF(x, y + 1, z)];
-            const v3f* v7 = &vertices[XYZ2IF(x, y + 1, z + 1)];
-            const v3f* v8 = &vertices[XYZ2IF(x, y, z + 1)];
+            const v3f* v1 = &vertices[fi(x, y - 1, z + 1)];
+            const v3f* v2 = &vertices[fi(x, y - 1, z)];
+            const v3f* v3 = &vertices[fi(x, y - 1, z - 1)];
+            const v3f* v4 = &vertices[fi(x, y, z - 1)];
+            const v3f* v5 = &vertices[fi(x, y + 1, z - 1)];
+            const v3f* v6 = &vertices[fi(x, y + 1, z)];
+            const v3f* v7 = &vertices[fi(x, y + 1, z + 1)];
+            const v3f* v8 = &vertices[fi(x, y, z + 1)];
 
             // Compute normals based on neighbors and accumulate.
             interpolate_normal(n, v0, v1, v2, v3, v4, v5, v6, v7, v8);
@@ -342,20 +396,20 @@ static void update_normals(int x, int y) {
 
         if ((y & 1) == 0) {
             // Compute y normals.
-            v3f* n = &normals_y[XYZ2IH(x, y / 2, z)];
+            v3f* n = &normals_y[hi(x, y / 2, z)];
 
             // Vertex the normal sits on.
-            const v3f* v0 = &vertices[XYZ2IF(x, y, z)];
+            const v3f* v0 = &vertices[fi(x, y, z)];
 
             // Neighboring vertices.
-            const v3f* v1 = &vertices[XYZ2IF(x + 1, y, z + 1)];
-            const v3f* v2 = &vertices[XYZ2IF(x + 1, y, z)];
-            const v3f* v3 = &vertices[XYZ2IF(x + 1, y, z - 1)];
-            const v3f* v4 = &vertices[XYZ2IF(x, y, z - 1)];
-            const v3f* v5 = &vertices[XYZ2IF(x - 1, y, z - 1)];
-            const v3f* v6 = &vertices[XYZ2IF(x - 1, y, z)];
-            const v3f* v7 = &vertices[XYZ2IF(x - 1, y, z + 1)];
-            const v3f* v8 = &vertices[XYZ2IF(x, y, z + 1)];
+            const v3f* v1 = &vertices[fi(x + 1, y, z + 1)];
+            const v3f* v2 = &vertices[fi(x + 1, y, z)];
+            const v3f* v3 = &vertices[fi(x + 1, y, z - 1)];
+            const v3f* v4 = &vertices[fi(x, y, z - 1)];
+            const v3f* v5 = &vertices[fi(x - 1, y, z - 1)];
+            const v3f* v6 = &vertices[fi(x - 1, y, z)];
+            const v3f* v7 = &vertices[fi(x - 1, y, z + 1)];
+            const v3f* v8 = &vertices[fi(x, y, z + 1)];
 
             // Compute normals based on neighbors and accumulate.
             interpolate_normal(n, v0, v1, v2, v3, v4, v5, v6, v7, v8);
@@ -364,20 +418,20 @@ static void update_normals(int x, int y) {
 
     for (z = 0; z < 5; z += 2) {
         // Compute z normals.
-        v3f* n = &normals_z[XYZ2IF(x, y, z / 2)];
+        v3f* n = &normals_z[fi(x, y, z / 2)];
 
         // Vertex the normal sits on.
-        const v3f* v0 = &vertices[XYZ2IF(x, y, z)];
+        const v3f* v0 = &vertices[fi(x, y, z)];
 
         // Neighboring vertices.
-        const v3f* v1 = &vertices[XYZ2IF(x, y - 1, z)];
-        const v3f* v2 = &vertices[XYZ2IF(x + 1, y - 1, z)];
-        const v3f* v3 = &vertices[XYZ2IF(x + 1, y, z)];
-        const v3f* v4 = &vertices[XYZ2IF(x + 1, y + 1, z)];
-        const v3f* v5 = &vertices[XYZ2IF(x, y + 1, z)];
-        const v3f* v6 = &vertices[XYZ2IF(x - 1, y + 1, z)];
-        const v3f* v7 = &vertices[XYZ2IF(x - 1, y, z)];
-        const v3f* v8 = &vertices[XYZ2IF(x - 1, y - 1, z)];
+        const v3f* v1 = &vertices[fi(x, y - 1, z)];
+        const v3f* v2 = &vertices[fi(x + 1, y - 1, z)];
+        const v3f* v3 = &vertices[fi(x + 1, y, z)];
+        const v3f* v4 = &vertices[fi(x + 1, y + 1, z)];
+        const v3f* v5 = &vertices[fi(x, y + 1, z)];
+        const v3f* v6 = &vertices[fi(x - 1, y + 1, z)];
+        const v3f* v7 = &vertices[fi(x - 1, y, z)];
+        const v3f* v8 = &vertices[fi(x - 1, y - 1, z)];
 
         // Compute normals based on neighbors and accumulate.
         interpolate_normal(n, v0, v1, v2, v3, v4, v5, v6, v7, v8);
@@ -396,7 +450,7 @@ static void update_block(DK_Block* block) {
         return;
     }
 
-    if (!DK_block_coordinates(&x, &y, block)) {
+    if (!DK_GetBlockCoordinates(&x, &y, block)) {
         // Out of bounds, ignore.
         return;
     }
@@ -471,39 +525,39 @@ static void draw_top(int x, int y, unsigned int z, DK_Texture texture) {
     glBegin(GL_QUAD_STRIP);
     {
         glTexCoord2d(0, 0);
-        idx = XYZ2IF(x * 2, y * 2 + 2, z / 2);
+        idx = fi(x * 2, y * 2 + 2, z / 2);
         glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 2, z);
+        idx = fi(x * 2, y * 2 + 2, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0, 0.5);
-        idx = XYZ2IF(x * 2, y * 2 + 1, z / 2);
+        idx = fi(x * 2, y * 2 + 1, z / 2);
         glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 1, z);
+        idx = fi(x * 2, y * 2 + 1, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 0);
-        idx = XYZ2IF(x * 2 + 1, y * 2 + 2, z / 2);
+        idx = fi(x * 2 + 1, y * 2 + 2, z / 2);
         glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
-        idx = XYZ2IF(x * 2 + 1, y * 2 + 2, z);
+        idx = fi(x * 2 + 1, y * 2 + 2, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 0.5);
-        idx = XYZ2IF(x * 2 + 1, y * 2 + 1, z / 2);
+        idx = fi(x * 2 + 1, y * 2 + 1, z / 2);
         glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
-        idx = XYZ2IF(x * 2 + 1, y * 2 + 1, z);
+        idx = fi(x * 2 + 1, y * 2 + 1, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 0);
-        idx = XYZ2IF(x * 2 + 2, y * 2 + 2, z / 2);
+        idx = fi(x * 2 + 2, y * 2 + 2, z / 2);
         glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
-        idx = XYZ2IF(x * 2 + 2, y * 2 + 2, z);
+        idx = fi(x * 2 + 2, y * 2 + 2, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 0.5);
-        idx = XYZ2IF(x * 2 + 2, y * 2 + 1, z / 2);
+        idx = fi(x * 2 + 2, y * 2 + 1, z / 2);
         glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
-        idx = XYZ2IF(x * 2 + 2, y * 2 + 1, z);
+        idx = fi(x * 2 + 2, y * 2 + 1, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
     }
     glEnd();
@@ -511,39 +565,39 @@ static void draw_top(int x, int y, unsigned int z, DK_Texture texture) {
     glBegin(GL_QUAD_STRIP);
     {
         glTexCoord2d(0, 0.5);
-        idx = XYZ2IF(x * 2, y * 2 + 1, z / 2);
+        idx = fi(x * 2, y * 2 + 1, z / 2);
         glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 1, z);
+        idx = fi(x * 2, y * 2 + 1, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0, 1);
-        idx = XYZ2IF(x * 2, y * 2, z / 2);
+        idx = fi(x * 2, y * 2, z / 2);
         glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z);
+        idx = fi(x * 2, y * 2, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 0.5);
-        idx = XYZ2IF(x * 2 + 1, y * 2 + 1, z / 2);
+        idx = fi(x * 2 + 1, y * 2 + 1, z / 2);
         glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
-        idx = XYZ2IF(x * 2 + 1, y * 2 + 1, z);
+        idx = fi(x * 2 + 1, y * 2 + 1, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 1);
-        idx = XYZ2IF(x * 2 + 1, y * 2, z / 2);
+        idx = fi(x * 2 + 1, y * 2, z / 2);
         glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
-        idx = XYZ2IF(x * 2 + 1, y * 2, z);
+        idx = fi(x * 2 + 1, y * 2, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 0.5);
-        idx = XYZ2IF(x * 2 + 2, y * 2 + 1, z / 2);
+        idx = fi(x * 2 + 2, y * 2 + 1, z / 2);
         glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
-        idx = XYZ2IF(x * 2 + 2, y * 2 + 1, z);
+        idx = fi(x * 2 + 2, y * 2 + 1, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 1);
-        idx = XYZ2IF(x * 2 + 2, y * 2, z / 2);
+        idx = fi(x * 2 + 2, y * 2, z / 2);
         glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
-        idx = XYZ2IF(x * 2 + 2, y * 2, z);
+        idx = fi(x * 2 + 2, y * 2, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
     }
     glEnd();
@@ -560,39 +614,39 @@ static void draw_east(int x, int y, unsigned int z, DK_Texture texture) {
     glBegin(GL_QUAD_STRIP);
     {
         glTexCoord2d(0, 0);
-        idx = XYZ2IH(x, y * 2, z + 2);
+        idx = hi(x, y * 2, z + 2);
         glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z + 2);
+        idx = fi(x * 2, y * 2, z + 2);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0, 0.5);
-        idx = XYZ2IH(x, y * 2, z + 1);
+        idx = hi(x, y * 2, z + 1);
         glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z + 1);
+        idx = fi(x * 2, y * 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 0);
-        idx = XYZ2IH(x, y * 2 + 1, z + 2);
+        idx = hi(x, y * 2 + 1, z + 2);
         glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 1, z + 2);
+        idx = fi(x * 2, y * 2 + 1, z + 2);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 0.5);
-        idx = XYZ2IH(x, y * 2 + 1, z + 1);
+        idx = hi(x, y * 2 + 1, z + 1);
         glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 1, z + 1);
+        idx = fi(x * 2, y * 2 + 1, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 0);
-        idx = XYZ2IH(x, y * 2 + 2, z + 2);
+        idx = hi(x, y * 2 + 2, z + 2);
         glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 2, z + 2);
+        idx = fi(x * 2, y * 2 + 2, z + 2);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 0.5);
-        idx = XYZ2IH(x, y * 2 + 2, z + 1);
+        idx = hi(x, y * 2 + 2, z + 1);
         glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 2, z + 1);
+        idx = fi(x * 2, y * 2 + 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
     }
     glEnd();
@@ -600,39 +654,39 @@ static void draw_east(int x, int y, unsigned int z, DK_Texture texture) {
     glBegin(GL_QUAD_STRIP);
     {
         glTexCoord2d(0, 0.5);
-        idx = XYZ2IH(x, y * 2, z + 1);
+        idx = hi(x, y * 2, z + 1);
         glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z + 1);
+        idx = fi(x * 2, y * 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0, 1);
-        idx = XYZ2IH(x, y * 2, z);
+        idx = hi(x, y * 2, z);
         glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z);
+        idx = fi(x * 2, y * 2, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 0.5);
-        idx = XYZ2IH(x, y * 2 + 1, z + 1);
+        idx = hi(x, y * 2 + 1, z + 1);
         glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 1, z + 1);
+        idx = fi(x * 2, y * 2 + 1, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 1);
-        idx = XYZ2IH(x, y * 2 + 1, z);
+        idx = hi(x, y * 2 + 1, z);
         glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 1, z);
+        idx = fi(x * 2, y * 2 + 1, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 0.5);
-        idx = XYZ2IH(x, y * 2 + 2, z + 1);
+        idx = hi(x, y * 2 + 2, z + 1);
         glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 2, z + 1);
+        idx = fi(x * 2, y * 2 + 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 1);
-        idx = XYZ2IH(x, y * 2 + 2, z);
+        idx = hi(x, y * 2 + 2, z);
         glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 2, z);
+        idx = fi(x * 2, y * 2 + 2, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
     }
     glEnd();
@@ -649,39 +703,39 @@ static void draw_west(int x, int y, unsigned int z, DK_Texture texture) {
     glBegin(GL_QUAD_STRIP);
     {
         glTexCoord2d(0, 0);
-        idx = XYZ2IH(x, y * 2, z + 2);
+        idx = hi(x, y * 2, z + 2);
         glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 2, z + 2);
+        idx = fi(x * 2, y * 2 + 2, z + 2);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0, 0.5);
-        idx = XYZ2IH(x, y * 2, z + 1);
+        idx = hi(x, y * 2, z + 1);
         glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 2, z + 1);
+        idx = fi(x * 2, y * 2 + 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 0);
-        idx = XYZ2IH(x, y * 2 + 1, z + 2);
+        idx = hi(x, y * 2 + 1, z + 2);
         glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 1, z + 2);
+        idx = fi(x * 2, y * 2 + 1, z + 2);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 0.5);
-        idx = XYZ2IH(x, y * 2 + 1, z + 1);
+        idx = hi(x, y * 2 + 1, z + 1);
         glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 1, z + 1);
+        idx = fi(x * 2, y * 2 + 1, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 0);
-        idx = XYZ2IH(x, y * 2 + 2, z + 2);
+        idx = hi(x, y * 2 + 2, z + 2);
         glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z + 2);
+        idx = fi(x * 2, y * 2, z + 2);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 0.5);
-        idx = XYZ2IH(x, y * 2 + 2, z + 1);
+        idx = hi(x, y * 2 + 2, z + 1);
         glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z + 1);
+        idx = fi(x * 2, y * 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
     }
     glEnd();
@@ -689,39 +743,39 @@ static void draw_west(int x, int y, unsigned int z, DK_Texture texture) {
     glBegin(GL_QUAD_STRIP);
     {
         glTexCoord2d(0, 0.5);
-        idx = XYZ2IH(x, y * 2, z + 1);
+        idx = hi(x, y * 2, z + 1);
         glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 2, z + 1);
+        idx = fi(x * 2, y * 2 + 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0, 1);
-        idx = XYZ2IH(x, y * 2, z);
+        idx = hi(x, y * 2, z);
         glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 2, z);
+        idx = fi(x * 2, y * 2 + 2, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 0.5);
-        idx = XYZ2IH(x, y * 2 + 1, z + 1);
+        idx = hi(x, y * 2 + 1, z + 1);
         glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 1, z + 1);
+        idx = fi(x * 2, y * 2 + 1, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 1);
-        idx = XYZ2IH(x, y * 2 + 1, z);
+        idx = hi(x, y * 2 + 1, z);
         glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2 + 1, z);
+        idx = fi(x * 2, y * 2 + 1, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 0.5);
-        idx = XYZ2IH(x, y * 2 + 2, z + 1);
+        idx = hi(x, y * 2 + 2, z + 1);
         glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z + 1);
+        idx = fi(x * 2, y * 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 1);
-        idx = XYZ2IH(x, y * 2 + 2, z);
+        idx = hi(x, y * 2 + 2, z);
         glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z);
+        idx = fi(x * 2, y * 2, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
     }
     glEnd();
@@ -738,39 +792,39 @@ static void draw_north(int x, int y, unsigned int z, DK_Texture texture) {
     glBegin(GL_QUAD_STRIP);
     {
         glTexCoord2d(0, 0);
-        idx = XYZ2IH(x * 2, y, z + 2);
+        idx = hi(x * 2, y, z + 2);
         glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
-        idx = XYZ2IF(x * 2 + 2, y * 2, z + 2);
+        idx = fi(x * 2 + 2, y * 2, z + 2);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0, 0.5);
-        idx = XYZ2IH(x * 2, y, z + 1);
+        idx = hi(x * 2, y, z + 1);
         glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
-        idx = XYZ2IF(x * 2 + 2, y * 2, z + 1);
+        idx = fi(x * 2 + 2, y * 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 0);
-        idx = XYZ2IH(x * 2 + 1, y, z + 2);
+        idx = hi(x * 2 + 1, y, z + 2);
         glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
-        idx = XYZ2IF(x * 2 + 1, y * 2, z + 2);
+        idx = fi(x * 2 + 1, y * 2, z + 2);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 0.5);
-        idx = XYZ2IH(x * 2 + 1, y, z + 1);
+        idx = hi(x * 2 + 1, y, z + 1);
         glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
-        idx = XYZ2IF(x * 2 + 1, y * 2, z + 1);
+        idx = fi(x * 2 + 1, y * 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 0);
-        idx = XYZ2IH(y * 2 + 2, y, z + 2);
+        idx = hi(y * 2 + 2, y, z + 2);
         glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z + 2);
+        idx = fi(x * 2, y * 2, z + 2);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 0.5);
-        idx = XYZ2IH(x * 2 + 2, y, z + 1);
+        idx = hi(x * 2 + 2, y, z + 1);
         glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z + 1);
+        idx = fi(x * 2, y * 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
     }
     glEnd();
@@ -778,39 +832,39 @@ static void draw_north(int x, int y, unsigned int z, DK_Texture texture) {
     glBegin(GL_QUAD_STRIP);
     {
         glTexCoord2d(0, 0.5);
-        idx = XYZ2IH(x * 2, y, z + 1);
+        idx = hi(x * 2, y, z + 1);
         glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
-        idx = XYZ2IF(x * 2 + 2, y * 2, z + 1);
+        idx = fi(x * 2 + 2, y * 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0, 1);
-        idx = XYZ2IH(x * 2, y, z);
+        idx = hi(x * 2, y, z);
         glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
-        idx = XYZ2IF(x * 2 + 2, y * 2, z);
+        idx = fi(x * 2 + 2, y * 2, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 0.5);
-        idx = XYZ2IH(x * 2 + 1, y, z + 1);
+        idx = hi(x * 2 + 1, y, z + 1);
         glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
-        idx = XYZ2IF(x * 2 + 1, y * 2, z + 1);
+        idx = fi(x * 2 + 1, y * 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 1);
-        idx = XYZ2IH(x * 2 + 1, y, z);
+        idx = hi(x * 2 + 1, y, z);
         glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
-        idx = XYZ2IF(x * 2 + 1, y * 2, z);
+        idx = fi(x * 2 + 1, y * 2, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 0.5);
-        idx = XYZ2IH(x * 2 + 2, y, z + 1);
+        idx = hi(x * 2 + 2, y, z + 1);
         glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z + 1);
+        idx = fi(x * 2, y * 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 1);
-        idx = XYZ2IH(x * 2 + 2, y, z);
+        idx = hi(x * 2 + 2, y, z);
         glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z);
+        idx = fi(x * 2, y * 2, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
     }
     glEnd();
@@ -827,39 +881,39 @@ static void draw_south(int x, int y, unsigned int z, DK_Texture texture) {
     glBegin(GL_QUAD_STRIP);
     {
         glTexCoord2d(0, 0);
-        idx = XYZ2IH(x * 2, y, z + 2);
+        idx = hi(x * 2, y, z + 2);
         glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z + 2);
+        idx = fi(x * 2, y * 2, z + 2);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0, 0.5);
-        idx = XYZ2IH(x * 2, y, z + 1);
+        idx = hi(x * 2, y, z + 1);
         glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z + 1);
+        idx = fi(x * 2, y * 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 0);
-        idx = XYZ2IH(x * 2 + 1, y, z + 2);
+        idx = hi(x * 2 + 1, y, z + 2);
         glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
-        idx = XYZ2IF(x * 2 + 1, y * 2, z + 2);
+        idx = fi(x * 2 + 1, y * 2, z + 2);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 0.5);
-        idx = XYZ2IH(x * 2 + 1, y, z + 1);
+        idx = hi(x * 2 + 1, y, z + 1);
         glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
-        idx = XYZ2IF(x * 2 + 1, y * 2, z + 1);
+        idx = fi(x * 2 + 1, y * 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 0);
-        idx = XYZ2IH(y * 2 + 2, y, z + 2);
+        idx = hi(y * 2 + 2, y, z + 2);
         glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
-        idx = XYZ2IF(x * 2 + 2, y * 2, z + 2);
+        idx = fi(x * 2 + 2, y * 2, z + 2);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 0.5);
-        idx = XYZ2IH(x * 2 + 2, y, z + 1);
+        idx = hi(x * 2 + 2, y, z + 1);
         glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
-        idx = XYZ2IF(x * 2 + 2, y * 2, z + 1);
+        idx = fi(x * 2 + 2, y * 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
     }
     glEnd();
@@ -867,39 +921,39 @@ static void draw_south(int x, int y, unsigned int z, DK_Texture texture) {
     glBegin(GL_QUAD_STRIP);
     {
         glTexCoord2d(0, 0.5);
-        idx = XYZ2IH(x * 2, y, z + 1);
+        idx = hi(x * 2, y, z + 1);
         glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z + 1);
+        idx = fi(x * 2, y * 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0, 1);
-        idx = XYZ2IH(x * 2, y, z);
+        idx = hi(x * 2, y, z);
         glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
-        idx = XYZ2IF(x * 2, y * 2, z);
+        idx = fi(x * 2, y * 2, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 0.5);
-        idx = XYZ2IH(x * 2 + 1, y, z + 1);
+        idx = hi(x * 2 + 1, y, z + 1);
         glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
-        idx = XYZ2IF(x * 2 + 1, y * 2, z + 1);
+        idx = fi(x * 2 + 1, y * 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(0.5, 1);
-        idx = XYZ2IH(x * 2 + 1, y, z);
+        idx = hi(x * 2 + 1, y, z);
         glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
-        idx = XYZ2IF(x * 2 + 1, y * 2, z);
+        idx = fi(x * 2 + 1, y * 2, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 0.5);
-        idx = XYZ2IH(x * 2 + 2, y, z + 1);
+        idx = hi(x * 2 + 2, y, z + 1);
         glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
-        idx = XYZ2IF(x * 2 + 2, y * 2, z + 1);
+        idx = fi(x * 2 + 2, y * 2, z + 1);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
 
         glTexCoord2d(1, 1);
-        idx = XYZ2IH(x * 2 + 2, y, z);
+        idx = hi(x * 2 + 2, y, z);
         glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
-        idx = XYZ2IF(x * 2 + 2, y * 2, z);
+        idx = fi(x * 2 + 2, y * 2, z);
         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
     }
     glEnd();
@@ -933,79 +987,79 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
             }
 
             // Draw north outline.
-            if (y == end_y || DK_block_is_open(DK_block_at(map_x, map_y + 1))) {
+            if (y == end_y || DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1))) {
                 glPushMatrix();
                 glTranslatef(0, DK_MAP_OUTLINE_OFFSET, DK_MAP_OUTLINE_OFFSET);
 
                 glBegin(GL_LINES);
                 {
-                    idx = XYZ2IF(x * 2, y * 2 + 2, 4);
+                    idx = fi(x * 2, y * 2 + 2, 4);
                     glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                    idx = XYZ2IF(x * 2 + 1, y * 2 + 2, 4);
+                    idx = fi(x * 2 + 1, y * 2 + 2, 4);
                     glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                    idx = XYZ2IF(x * 2 + 1, y * 2 + 2, 4);
+                    idx = fi(x * 2 + 1, y * 2 + 2, 4);
                     glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                    idx = XYZ2IF(x * 2 + 2, y * 2 + 2, 4);
+                    idx = fi(x * 2 + 2, y * 2 + 2, 4);
                     glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
                 }
                 glEnd();
 
-                if (DK_block_is_open(DK_block_at(map_x, map_y + 1))) {
+                if (DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1))) {
                     glBegin(GL_LINES);
                     {
-                        idx = XYZ2IF(x * 2, y * 2 + 2, 2);
+                        idx = fi(x * 2, y * 2 + 2, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2 + 1, y * 2 + 2, 2);
+                        idx = fi(x * 2 + 1, y * 2 + 2, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2 + 1, y * 2 + 2, 2);
+                        idx = fi(x * 2 + 1, y * 2 + 2, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2 + 2, y * 2 + 2, 2);
+                        idx = fi(x * 2 + 2, y * 2 + 2, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
                     }
                     glEnd();
                 }
 
                 if (x == start_x ?
-                        (DK_block_is_open(DK_block_at(map_x, map_y + 1)) ||
-                        DK_block_is_open(DK_block_at(map_x - 1, map_y)))
+                        (DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1)) ||
+                        DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y)))
                         :
-                        ((DK_block_is_open(DK_block_at(map_x, map_y + 1)) ^
-                        DK_block_is_open(DK_block_at(map_x - 1, map_y + 1))) ||
-                        DK_block_is_open(DK_block_at(map_x - 1, map_y)))) {
+                        ((DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1)) ^
+                        DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y + 1))) ||
+                        DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y)))) {
                     // Draw north west top-to-bottom line.
                     glTranslatef(-DK_MAP_OUTLINE_OFFSET, 0, 0);
                     glBegin(GL_LINES);
                     {
-                        idx = XYZ2IF(x * 2, y * 2 + 2, 4);
+                        idx = fi(x * 2, y * 2 + 2, 4);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2, y * 2 + 2, 3);
+                        idx = fi(x * 2, y * 2 + 2, 3);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2, y * 2 + 2, 3);
+                        idx = fi(x * 2, y * 2 + 2, 3);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2, y * 2 + 2, 2);
+                        idx = fi(x * 2, y * 2 + 2, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
                     }
                     glEnd();
                     glTranslatef(DK_MAP_OUTLINE_OFFSET, 0, 0);
                 }
                 if (x == end_x ?
-                        (DK_block_is_open(DK_block_at(map_x, map_y + 1)) ||
-                        DK_block_is_open(DK_block_at(map_x + 1, map_y)))
+                        (DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1)) ||
+                        DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y)))
                         :
-                        ((DK_block_is_open(DK_block_at(map_x, map_y + 1)) ^
-                        DK_block_is_open(DK_block_at(map_x + 1, map_y + 1))) ||
-                        DK_block_is_open(DK_block_at(map_x + 1, map_y)))) {
+                        ((DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1)) ^
+                        DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y + 1))) ||
+                        DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y)))) {
                     // Draw north east top-to-bottom line.
                     glTranslatef(DK_MAP_OUTLINE_OFFSET, 0, 0);
                     glBegin(GL_LINES);
                     {
-                        idx = XYZ2IF(x * 2 + 2, y * 2 + 2, 4);
+                        idx = fi(x * 2 + 2, y * 2 + 2, 4);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2 + 2, y * 2 + 2, 3);
+                        idx = fi(x * 2 + 2, y * 2 + 2, 3);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2 + 2, y * 2 + 2, 3);
+                        idx = fi(x * 2 + 2, y * 2 + 2, 3);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2 + 2, y * 2 + 2, 2);
+                        idx = fi(x * 2 + 2, y * 2 + 2, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
                     }
                     glEnd();
@@ -1016,79 +1070,79 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
             }
 
             // Draw south outline.
-            if (y == start_y || DK_block_is_open(DK_block_at(map_x, map_y - 1))) {
+            if (y == start_y || DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1))) {
                 glPushMatrix();
                 glTranslatef(0, -DK_MAP_OUTLINE_OFFSET, DK_MAP_OUTLINE_OFFSET);
 
                 glBegin(GL_LINES);
                 {
-                    idx = XYZ2IF(x * 2, y * 2, 4);
+                    idx = fi(x * 2, y * 2, 4);
                     glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                    idx = XYZ2IF(x * 2 + 1, y * 2, 4);
+                    idx = fi(x * 2 + 1, y * 2, 4);
                     glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                    idx = XYZ2IF(x * 2 + 1, y * 2, 4);
+                    idx = fi(x * 2 + 1, y * 2, 4);
                     glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                    idx = XYZ2IF(x * 2 + 2, y * 2, 4);
+                    idx = fi(x * 2 + 2, y * 2, 4);
                     glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
                 }
                 glEnd();
 
-                if (DK_block_is_open(DK_block_at(map_x, map_y - 1))) {
+                if (DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1))) {
                     glBegin(GL_LINES);
                     {
-                        idx = XYZ2IF(x * 2, y * 2, 2);
+                        idx = fi(x * 2, y * 2, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2 + 1, y * 2, 2);
+                        idx = fi(x * 2 + 1, y * 2, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2 + 1, y * 2, 2);
+                        idx = fi(x * 2 + 1, y * 2, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2 + 2, y * 2, 2);
+                        idx = fi(x * 2 + 2, y * 2, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
                     }
                     glEnd();
                 }
 
                 if (x == start_x ?
-                        (DK_block_is_open(DK_block_at(map_x, map_y - 1)) ||
-                        DK_block_is_open(DK_block_at(map_x - 1, map_y)))
+                        (DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1)) ||
+                        DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y)))
                         :
-                        ((DK_block_is_open(DK_block_at(map_x, map_y - 1)) ^
-                        DK_block_is_open(DK_block_at(map_x - 1, map_y - 1))) ||
-                        DK_block_is_open(DK_block_at(map_x - 1, map_y)))) {
+                        ((DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1)) ^
+                        DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y - 1))) ||
+                        DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y)))) {
                     // Draw south west top-to-bottom line.
                     glTranslatef(-DK_MAP_OUTLINE_OFFSET, 0, 0);
                     glBegin(GL_LINES);
                     {
-                        idx = XYZ2IF(x * 2, y * 2, 4);
+                        idx = fi(x * 2, y * 2, 4);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2, y * 2, 3);
+                        idx = fi(x * 2, y * 2, 3);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2, y * 2, 3);
+                        idx = fi(x * 2, y * 2, 3);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2, y * 2, 2);
+                        idx = fi(x * 2, y * 2, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
                     }
                     glEnd();
                     glTranslatef(DK_MAP_OUTLINE_OFFSET, 0, 0);
                 }
                 if (x == end_x ?
-                        (DK_block_is_open(DK_block_at(map_x, map_y - 1)) ||
-                        DK_block_is_open(DK_block_at(map_x + 1, map_y)))
+                        (DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1)) ||
+                        DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y)))
                         :
-                        ((DK_block_is_open(DK_block_at(map_x, map_y - 1)) ^
-                        DK_block_is_open(DK_block_at(map_x + 1, map_y - 1))) ||
-                        DK_block_is_open(DK_block_at(map_x + 1, map_y)))) {
+                        ((DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1)) ^
+                        DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y - 1))) ||
+                        DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y)))) {
                     // Draw south east top-to-bottom line.
                     glTranslatef(DK_MAP_OUTLINE_OFFSET, 0, 0);
                     glBegin(GL_LINES);
                     {
-                        idx = XYZ2IF(x * 2 + 2, y * 2, 4);
+                        idx = fi(x * 2 + 2, y * 2, 4);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2 + 2, y * 2, 3);
+                        idx = fi(x * 2 + 2, y * 2, 3);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2 + 2, y * 2, 3);
+                        idx = fi(x * 2 + 2, y * 2, 3);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2 + 2, y * 2, 2);
+                        idx = fi(x * 2 + 2, y * 2, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
                     }
                     glEnd();
@@ -1099,33 +1153,33 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
             }
 
             // Draw west outline.
-            if (x == start_x || DK_block_is_open(DK_block_at(map_x - 1, map_y))) {
+            if (x == start_x || DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y))) {
                 glPushMatrix();
                 glTranslatef(-DK_MAP_OUTLINE_OFFSET, 0, DK_MAP_OUTLINE_OFFSET);
 
                 glBegin(GL_LINES);
                 {
-                    idx = XYZ2IF(x * 2, y * 2, 4);
+                    idx = fi(x * 2, y * 2, 4);
                     glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                    idx = XYZ2IF(x * 2, y * 2 + 1, 4);
+                    idx = fi(x * 2, y * 2 + 1, 4);
                     glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                    idx = XYZ2IF(x * 2, y * 2 + 1, 4);
+                    idx = fi(x * 2, y * 2 + 1, 4);
                     glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                    idx = XYZ2IF(x * 2, y * 2 + 2, 4);
+                    idx = fi(x * 2, y * 2 + 2, 4);
                     glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
                 }
                 glEnd();
 
-                if (DK_block_is_open(DK_block_at(map_x - 1, map_y))) {
+                if (DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y))) {
                     glBegin(GL_LINES);
                     {
-                        idx = XYZ2IF(x * 2, y * 2, 2);
+                        idx = fi(x * 2, y * 2, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2, y * 2 + 1, 2);
+                        idx = fi(x * 2, y * 2 + 1, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2, y * 2 + 1, 2);
+                        idx = fi(x * 2, y * 2 + 1, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2, y * 2 + 2, 2);
+                        idx = fi(x * 2, y * 2 + 2, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
                     }
                     glEnd();
@@ -1135,33 +1189,33 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
             }
 
             // Draw east outline.
-            if (x == end_x || DK_block_is_open(DK_block_at(map_x + 1, map_y))) {
+            if (x == end_x || DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y))) {
                 glPushMatrix();
                 glTranslatef(DK_MAP_OUTLINE_OFFSET, 0, DK_MAP_OUTLINE_OFFSET);
 
                 glBegin(GL_LINES);
                 {
-                    idx = XYZ2IF(x * 2 + 2, y * 2, 4);
+                    idx = fi(x * 2 + 2, y * 2, 4);
                     glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                    idx = XYZ2IF(x * 2 + 2, y * 2 + 1, 4);
+                    idx = fi(x * 2 + 2, y * 2 + 1, 4);
                     glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                    idx = XYZ2IF(x * 2 + 2, y * 2 + 1, 4);
+                    idx = fi(x * 2 + 2, y * 2 + 1, 4);
                     glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                    idx = XYZ2IF(x * 2 + 2, y * 2 + 2, 4);
+                    idx = fi(x * 2 + 2, y * 2 + 2, 4);
                     glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
                 }
                 glEnd();
 
-                if (DK_block_is_open(DK_block_at(map_x + 1, map_y))) {
+                if (DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y))) {
                     glBegin(GL_LINES);
                     {
-                        idx = XYZ2IF(x * 2 + 2, y * 2, 2);
+                        idx = fi(x * 2 + 2, y * 2, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2 + 2, y * 2 + 1, 2);
+                        idx = fi(x * 2 + 2, y * 2 + 1, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2 + 2, y * 2 + 1, 2);
+                        idx = fi(x * 2 + 2, y * 2 + 1, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
-                        idx = XYZ2IF(x * 2 + 2, y * 2 + 2, 2);
+                        idx = fi(x * 2 + 2, y * 2 + 2, 2);
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
                     }
                     glEnd();
@@ -1182,16 +1236,20 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_init_map(unsigned short size) {
+unsigned short DK_GetMapSize(void) {
+    return gMapSize;
+}
+
+void DK_InitMap(unsigned short size) {
     unsigned int x, y, z;
 
     // Reallocate data only if the size changed.
-    if (size != DK_map_size) {
+    if (size != gMapSize) {
         // Free old map data.
-        free(map);
+        free(gMap);
 
         // Allocate new map data.
-        if (!(map = calloc(size * size, sizeof (DK_Block)))) {
+        if (!(gMap = calloc(size * size, sizeof (DK_Block)))) {
             fprintf(stderr, "Out of memory while allocating map data.\n");
             exit(EXIT_FAILURE);
         }
@@ -1217,12 +1275,12 @@ void DK_init_map(unsigned short size) {
     }
 
     // Remember new map size (needed *now* for offset computation).
-    DK_map_size = size;
+    gMapSize = size;
 
     // Initialize map data.
     for (x = 0; x < size; ++x) {
         for (y = 0; y < size; ++y) {
-            DK_Block* block = DK_block_at(x, y);
+            DK_Block* block = DK_GetBlockAt(x, y);
             block->type = DK_BLOCK_DIRT;
             block->health = DK_BLOCK_DIRT_HEALTH;
             block->strength = DK_BLOCK_DIRT_STRENGTH;
@@ -1243,20 +1301,20 @@ void DK_init_map(unsigned short size) {
             for (z = 0; z < 5; ++z) {
                 if ((x & 1) == 0) {
                     // Compute x normals.
-                    v3f* n = &normals_x[XYZ2IH(x / 2, y, z)];
+                    v3f* n = &normals_x[hi(x / 2, y, z)];
                     n->x = 1;
                     n->y = 0;
                     n->z = 0;
                 }
                 if ((y & 1) == 0) {
                     // Compute y normals.
-                    v3f* n = &normals_y[XYZ2IH(x, y / 2, z)];
+                    v3f* n = &normals_y[hi(x, y / 2, z)];
                     n->x = 0;
                     n->y = 1;
                     n->z = 0;
                 }
                 if ((z & 1) == 0) {
-                    v3f* n = &normals_z[XYZ2IF(x, y, z / 2)];
+                    v3f* n = &normals_z[fi(x, y, z / 2)];
                     n->x = 0;
                     n->y = 0;
                     n->z = 1;
@@ -1273,7 +1331,7 @@ void DK_init_map(unsigned short size) {
     }
 }
 
-void DK_update_map(void) {
+void DK_UpdateMap(void) {
     int mouse_x, mouse_y;
     GLuint selected_name;
 
@@ -1285,7 +1343,7 @@ void DK_update_map(void) {
 
 #define M_PI 3.14159265358979323846
 
-void DK_render_map(void) {
+void DK_RenderMap(void) {
     const vec2* cam_position = DK_GetCameraPosition();
     int x_begin = (int) (cam_position->v[0] / DK_BLOCK_SIZE) - DK_RENDER_AREA_X / 2;
     int y_begin = (int) (cam_position->v[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA_Y_OFFSET;
@@ -1297,7 +1355,7 @@ void DK_render_map(void) {
     for (x = x_begin; x < x_end; ++x) {
         for (y = y_begin; y < y_end; ++y) {
             // Mark for select mode, coordinates of that block.
-            if (picking) {
+            if (gIsPicking) {
                 glLoadName(((unsigned short) y << 16) | (unsigned short) x);
             } else {
                 // Reset tint color.
@@ -1309,16 +1367,16 @@ void DK_render_map(void) {
 
             texture_top_wall = 0;
             texture_top_owner = 0;
-            if (x < 0 || y < 0 || x >= DK_map_size || y >= DK_map_size) {
+            if (x < 0 || y < 0 || x >= gMapSize || y >= gMapSize) {
                 // Solid rock when out of bounds.
                 z = 4;
                 texture_top = DK_TEX_ROCK_TOP;
                 texture_side = DK_TEX_ROCK_SIDE;
             } else {
-                const DK_Block* block = DK_block_at(x, y);
+                const DK_Block* block = DK_GetBlockAt(x, y);
 
                 // Selected by the local player?
-                if (!picking && DK_IsBlockSelected(DK_PLAYER_ONE, x, y)) {
+                if (!gIsPicking && DK_IsBlockSelected(DK_PLAYER_ONE, x, y)) {
                     //const float intensity = 0.6f + sinf(SDL_GetTicks() * M_PI * (DK_MAP_SELECTED_PULSE_FREQUENCY)) * 0.3f;
                     //glColorMaterial(GL_FRONT, GL_EMISSION);
                     //glColor3f(DK_MAP_SELECTED_COLOR(intensity));
@@ -1376,7 +1434,7 @@ void DK_render_map(void) {
 
             draw_top(x, y, z, texture_top);
 
-            if (!picking && (texture_top_wall || texture_top_owner)) {
+            if (!gIsPicking && (texture_top_wall || texture_top_owner)) {
                 glEnable(GL_BLEND);
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -1393,22 +1451,22 @@ void DK_render_map(void) {
             // Check if we need to render walls.
             if (z == 4) {
                 // North wall.
-                if (y + 1 < DK_map_size && DK_block_is_open(DK_block_at(x, y + 1))) {
+                if (y + 1 < gMapSize && DK_IsBlockOpen(DK_GetBlockAt(x, y + 1))) {
                     draw_north(x, y + 1, 2, texture_side);
                 }
 
                 // South wall.
-                if (y > 0 && DK_block_is_open(DK_block_at(x, y - 1))) {
+                if (y > 0 && DK_IsBlockOpen(DK_GetBlockAt(x, y - 1))) {
                     draw_south(x, y, 2, texture_side);
                 }
 
                 // West wall.
-                if (x > 0 && DK_block_is_open(DK_block_at(x - 1, y))) {
+                if (x > 0 && DK_IsBlockOpen(DK_GetBlockAt(x - 1, y))) {
                     draw_west(x, y, 2, texture_side);
                 }
 
                 // East wall.
-                if (x + 1 < DK_map_size && DK_block_is_open(DK_block_at(x + 1, y))) {
+                if (x + 1 < gMapSize && DK_IsBlockOpen(DK_GetBlockAt(x + 1, y))) {
                     draw_east(x + 1, y, 2, texture_side);
                 }
             }
@@ -1416,29 +1474,29 @@ void DK_render_map(void) {
             // Check if we need to render water walls.
             if (z == 0) {
                 // North wall.
-                if (y + 1 < DK_map_size && !DK_block_is_fluid(DK_block_at(x, y + 1))) {
+                if (y + 1 < gMapSize && !DK_IsBlockFluid(DK_GetBlockAt(x, y + 1))) {
                     draw_south(x, y + 1, 0, DK_TEX_FLUID_SIDE);
                 }
 
                 // South wall.
-                if (y > 0 && !DK_block_is_fluid(DK_block_at(x, y - 1))) {
+                if (y > 0 && !DK_IsBlockFluid(DK_GetBlockAt(x, y - 1))) {
                     draw_north(x, y, 0, DK_TEX_FLUID_SIDE);
                 }
 
                 // West wall.
-                if (x > 0 && !DK_block_is_fluid(DK_block_at(x - 1, y))) {
+                if (x > 0 && !DK_IsBlockFluid(DK_GetBlockAt(x - 1, y))) {
                     draw_east(x, y, 0, DK_TEX_FLUID_SIDE);
                 }
 
                 // East wall.
-                if (x + 1 < DK_map_size && !DK_block_is_fluid(DK_block_at(x + 1, y))) {
+                if (x + 1 < gMapSize && !DK_IsBlockFluid(DK_GetBlockAt(x + 1, y))) {
                     draw_west(x + 1, y, 0, DK_TEX_FLUID_SIDE);
                 }
             }
         }
     }
 
-    if (!picking) {
+    if (!gIsPicking) {
         DK_Selection selection = DK_GetSelection();
         draw_outline(selection.startX, selection.startY, selection.endX, selection.endY);
     }
@@ -1448,10 +1506,10 @@ void DK_render_map(void) {
 // Save / Load
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_map_load(const char* filename) {
+void DK_LoadMap(const char* filename) {
     int i, j;
 
-    DK_init_map(128);
+    DK_InitMap(128);
     DK_InitSelection();
     DK_InitAStar();
     DK_InitUnits();
@@ -1459,20 +1517,20 @@ void DK_map_load(const char* filename) {
     for (i = 0; i < 7; ++i) {
         for (j = 0; j < 7; ++j) {
             if (i <= 1 || j <= 1) {
-                DK_block_set_owner(DK_block_at(4 + i, 5 + j), DK_PLAYER_ONE);
+                DK_SetBlockOwner(DK_GetBlockAt(4 + i, 5 + j), DK_PLAYER_ONE);
             }
             if (i > 0 && j > 0 && i < 6 && j < 6) {
-                DK_block_set_type(DK_block_at(4 + i, 5 + j), DK_BLOCK_NONE);
+                DK_SetBlockType(DK_GetBlockAt(4 + i, 5 + j), DK_BLOCK_NONE);
             }
         }
     }
 
-    DK_block_set_type(DK_block_at(7, 8), DK_BLOCK_DIRT);
-    DK_block_set_type(DK_block_at(8, 8), DK_BLOCK_DIRT);
+    DK_SetBlockType(DK_GetBlockAt(7, 8), DK_BLOCK_DIRT);
+    DK_SetBlockType(DK_GetBlockAt(8, 8), DK_BLOCK_DIRT);
 
-    DK_block_set_type(DK_block_at(10, 8), DK_BLOCK_WATER);
-    DK_block_set_type(DK_block_at(11, 8), DK_BLOCK_WATER);
-    DK_block_set_type(DK_block_at(11, 9), DK_BLOCK_WATER);
+    DK_SetBlockType(DK_GetBlockAt(10, 8), DK_BLOCK_WATER);
+    DK_SetBlockType(DK_GetBlockAt(11, 8), DK_BLOCK_WATER);
+    DK_SetBlockType(DK_GetBlockAt(11, 9), DK_BLOCK_WATER);
     //DK_block_at(9, 8)->owner = DK_PLAYER_RED;
 
     for (i = 0; i < 2; ++i) {
@@ -1480,7 +1538,7 @@ void DK_map_load(const char* filename) {
     }
 }
 
-void DK_map_save(const char* filename) {
+void DK_SaveMap(const char* filename) {
 
 }
 
@@ -1488,42 +1546,42 @@ void DK_map_save(const char* filename) {
 // Accessors
 ///////////////////////////////////////////////////////////////////////////////
 
-DK_Block* DK_block_at(int x, int y) {
-    if (x >= 0 && y >= 0 && x < DK_map_size && y < DK_map_size) {
-        return &map[y * DK_map_size + x];
+DK_Block* DK_GetBlockAt(int x, int y) {
+    if (x >= 0 && y >= 0 && x < gMapSize && y < gMapSize) {
+        return &gMap[y * gMapSize + x];
     }
     return NULL;
 }
 
-int DK_block_coordinates(unsigned short* x, unsigned short* y, const DK_Block* block) {
+int DK_GetBlockCoordinates(unsigned short* x, unsigned short* y, const DK_Block* block) {
     if (block) {
-        unsigned int idx = block - map;
-        *x = idx % DK_map_size;
-        *y = idx / DK_map_size;
+        unsigned int idx = block - gMap;
+        *x = idx % gMapSize;
+        *y = idx / gMapSize;
         return 1;
     }
     return 0;
 }
 
-DK_Block* DK_block_under_cursor(int* block_x, int* block_y) {
+DK_Block* DK_GetBlockUnderCursor(int* block_x, int* block_y) {
     *block_x = cursor_x;
     *block_y = cursor_y;
-    return DK_block_at(cursor_x, cursor_y);
+    return DK_GetBlockAt(cursor_x, cursor_y);
 }
 
-int DK_block_is_fluid(const DK_Block* block) {
+int DK_IsBlockFluid(const DK_Block* block) {
     return block && (block->type == DK_BLOCK_LAVA || block->type == DK_BLOCK_WATER);
 }
 
-int DK_block_is_wall(const DK_Block* block, DK_Player player) {
+int DK_IsBlockWall(const DK_Block* block, DK_Player player) {
     return block && (block->type == DK_BLOCK_DIRT) && (block->owner == player);
 }
 
-int DK_block_is_open(const DK_Block* block) {
-    return block && (block->type == DK_BLOCK_NONE || DK_block_is_fluid(block));
+int DK_IsBlockOpen(const DK_Block* block) {
+    return block && (block->type == DK_BLOCK_NONE || DK_IsBlockFluid(block));
 }
 
-int DK_block_is_passable(const DK_Block* block, const DK_Unit* unit) {
+int DK_IsBlockPassable(const DK_Block* block, const DK_Unit* unit) {
     if (block) {
         switch (block->type) {
             case DK_BLOCK_WATER:
@@ -1543,7 +1601,7 @@ int DK_block_is_passable(const DK_Block* block, const DK_Unit* unit) {
     return 0;
 }
 
-int DK_block_damage(DK_Block* block, unsigned int damage) {
+int DK_DamageBlock(DK_Block* block, unsigned int damage) {
     // Already destroyed (nothing to do)?
     if (block->health == 0) {
         return 1;
@@ -1567,10 +1625,10 @@ int DK_block_damage(DK_Block* block, unsigned int damage) {
     return 1;
 }
 
-int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
+int DK_ConvertBlock(DK_Block* block, unsigned int strength, DK_Player player) {
     // Get the actual coordinates.
     unsigned short x = 0, y = 0;
-    DK_block_coordinates(&x, &y, block);
+    DK_GetBlockCoordinates(&x, &y, block);
 
     // First reduce any enemy influence.
     if (block->owner != player) {
@@ -1581,7 +1639,7 @@ int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
         }
 
         // Block is completely converted.
-        DK_block_set_owner(block, player);
+        DK_SetBlockOwner(block, player);
 
         // See if we're now cornering a neutral block. In that case we automatically
         // convert that one, too.
@@ -1599,14 +1657,14 @@ int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
             };
 
             DK_Block * neighbors[8] = {
-                [TOP_LEFT] = DK_block_at(x - 1, y - 1),
-                [TOP] = DK_block_at(x, y - 1),
-                [TOP_RIGHT] = DK_block_at(x + 1, y - 1),
-                [LEFT] = DK_block_at(x - 1, y),
-                [RIGHT] = DK_block_at(x + 1, y),
-                [BOTTOM_LEFT] = DK_block_at(x - 1, y + 1),
-                [BOTTOM] = DK_block_at(x, y + 1),
-                [BOTTOM_RIGHT] = DK_block_at(x + 1, y + 1),
+                [TOP_LEFT] = DK_GetBlockAt(x - 1, y - 1),
+                [TOP] = DK_GetBlockAt(x, y - 1),
+                [TOP_RIGHT] = DK_GetBlockAt(x + 1, y - 1),
+                [LEFT] = DK_GetBlockAt(x - 1, y),
+                [RIGHT] = DK_GetBlockAt(x + 1, y),
+                [BOTTOM_LEFT] = DK_GetBlockAt(x - 1, y + 1),
+                [BOTTOM] = DK_GetBlockAt(x, y + 1),
+                [BOTTOM_RIGHT] = DK_GetBlockAt(x + 1, y + 1),
             };
 
             if (neighbors[TOP_LEFT] &&
@@ -1617,13 +1675,13 @@ int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
                         neighbors[TOP]->owner == player &&
                         neighbors[LEFT]->type == DK_BLOCK_DIRT &&
                         neighbors[LEFT]->owner == DK_PLAYER_NONE) {
-                    DK_block_set_owner(neighbors[LEFT], player);
+                    DK_SetBlockOwner(neighbors[LEFT], player);
                 }
                 if (neighbors[LEFT]->type == DK_BLOCK_NONE &&
                         neighbors[LEFT]->owner == player &&
                         neighbors[TOP]->type == DK_BLOCK_DIRT &&
                         neighbors[TOP]->owner == DK_PLAYER_NONE) {
-                    DK_block_set_owner(neighbors[TOP], player);
+                    DK_SetBlockOwner(neighbors[TOP], player);
                 }
             }
             if (neighbors[TOP_RIGHT] &&
@@ -1634,13 +1692,13 @@ int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
                         neighbors[TOP]->owner == player &&
                         neighbors[RIGHT]->type == DK_BLOCK_DIRT &&
                         neighbors[RIGHT]->owner == DK_PLAYER_NONE) {
-                    DK_block_set_owner(neighbors[RIGHT], player);
+                    DK_SetBlockOwner(neighbors[RIGHT], player);
                 }
                 if (neighbors[RIGHT]->type == DK_BLOCK_NONE &&
                         neighbors[RIGHT]->owner == player &&
                         neighbors[TOP]->type == DK_BLOCK_DIRT &&
                         neighbors[TOP]->owner == DK_PLAYER_NONE) {
-                    DK_block_set_owner(neighbors[TOP], player);
+                    DK_SetBlockOwner(neighbors[TOP], player);
                 }
             }
             if (neighbors[BOTTOM_LEFT] &&
@@ -1651,13 +1709,13 @@ int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
                         neighbors[BOTTOM]->owner == player &&
                         neighbors[LEFT]->type == DK_BLOCK_DIRT &&
                         neighbors[LEFT]->owner == DK_PLAYER_NONE) {
-                    DK_block_set_owner(neighbors[LEFT], player);
+                    DK_SetBlockOwner(neighbors[LEFT], player);
                 }
                 if (neighbors[LEFT]->type == DK_BLOCK_NONE &&
                         neighbors[LEFT]->owner == player &&
                         neighbors[BOTTOM]->type == DK_BLOCK_DIRT &&
                         neighbors[BOTTOM]->owner == DK_PLAYER_NONE) {
-                    DK_block_set_owner(neighbors[BOTTOM], player);
+                    DK_SetBlockOwner(neighbors[BOTTOM], player);
                 }
             }
             if (neighbors[BOTTOM_RIGHT] &&
@@ -1668,13 +1726,13 @@ int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
                         neighbors[BOTTOM]->owner == player &&
                         neighbors[RIGHT]->type == DK_BLOCK_DIRT &&
                         neighbors[RIGHT]->owner == DK_PLAYER_NONE) {
-                    DK_block_set_owner(neighbors[RIGHT], player);
+                    DK_SetBlockOwner(neighbors[RIGHT], player);
                 }
                 if (neighbors[RIGHT]->type == DK_BLOCK_NONE &&
                         neighbors[RIGHT]->owner == player &&
                         neighbors[BOTTOM]->type == DK_BLOCK_DIRT &&
                         neighbors[BOTTOM]->owner == DK_PLAYER_NONE) {
-                    DK_block_set_owner(neighbors[BOTTOM], player);
+                    DK_SetBlockOwner(neighbors[BOTTOM], player);
                 }
             }
         }
@@ -1697,19 +1755,19 @@ int DK_block_convert(DK_Block* block, unsigned int strength, DK_Player player) {
     return 1;
 }
 
-void DK_block_set_type(DK_Block* block, DK_BlockType type) {
+void DK_SetBlockType(DK_Block* block, DK_BlockType type) {
     block->type = type;
     update_block(block);
 }
 
-void DK_block_set_owner(DK_Block* block, DK_Player player) {
+void DK_SetBlockOwner(DK_Block* block, DK_Player player) {
     block->owner = player;
     update_block(block);
 }
 
-#undef XYZD2I
-#undef XYZ2IF
-#undef XYZ2IH
-
-#undef DK_NEQ
-#undef DK_NLT
+void DK_OnMapSizeChange(callback method) {
+    if (!gMapChangeCallbacks) {
+        gMapChangeCallbacks = CB_New();
+    }
+    CB_Add(gMapChangeCallbacks, method);
+}

@@ -103,6 +103,18 @@ extern "C" {
 
     void mimulm(mat4 *ma, const mat4 *mb);
 
+    void mmulv(vec4* result, const vec4* v, const mat4* m);
+
+    void mimulv(vec4* v, const mat4* m);
+
+    void mtranspose(mat4* to, const mat4* from);
+
+    void mitranspose(mat4* m);
+
+    int minvert(mat4* inverse, const mat4* m);
+
+    int miinvert(mat4* m);
+
     void mirotatex(mat4* m, float angle);
 
     void mirotatey(mat4* m, float angle);
@@ -112,16 +124,6 @@ extern "C" {
     void miscale(mat4* m, float x, float y, float z);
 
     void mitranslate(mat4* m, float tx, float ty, float tz);
-
-    ///////////////////////////////////////////////////////////////////////////////
-    // Projection and view matrix generation
-    ///////////////////////////////////////////////////////////////////////////////
-
-    void perspective(mat4* m, float fov, float ratio, float near, float far);
-
-    void orthogonal(mat4* m, float left, float right, float bottom, float top, float near, float far);
-
-    void lookat(mat4* m, const vec4* position, const vec4* target);
 
 #ifdef	__cplusplus
 }

@@ -8,6 +8,7 @@
 #ifndef RENDER_H
 #define	RENDER_H
 
+#include "callbacks.h"
 #include "vmath.h"
 
 #ifdef	__cplusplus
@@ -49,6 +50,13 @@ extern "C" {
 
     /** Initialize a material to its default values */
     void DK_material_init(DK_Material* material);
+
+    /**
+     * Register a method that should be called when an render pass is performed.
+     * Methods are called in the order in which they are registered.
+     * @param callback the method to call.
+     */
+    void DK_OnRender(callback method);
 
 #ifdef	__cplusplus
 }

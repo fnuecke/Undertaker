@@ -7,6 +7,7 @@
 #include "camera.h"
 #include "config.h"
 #include "cursor.h"
+#include "graphics.h"
 #include "jobs.h"
 #include "map.h"
 #include "render.h"
@@ -29,27 +30,6 @@
 
 /** The ids for the uniforms in our shader program we bind our texture to */
 //GLuint diffuse_id = 0, position_id = 0, normals_id = 0, camera_id = 0, texture_id = 0;
-
-/** Matrices we use for resolving vertex positions to screen positions */
-static struct {
-    /** The current projection transform */
-    mat4 projection;
-
-    /** The current view transform */
-    mat4 view;
-
-    /** Precomputed view-projection transform */
-    mat4 vp;
-
-    /** The current model transform */
-    mat4 model;
-
-    /** The current model-view-projection transform */
-    mat4 mvp;
-
-    /** Precomputed surface normal transform (transpose of inverse of current model transform) */
-    mat3 normal;
-} matrix;
 
 /** Holds information on our GBuffer */
 static struct {
@@ -334,14 +314,6 @@ void DK_init_gl(void) {
      */
 }
 
-static void update_matrices(void) {
-    // Precompute view-projection transform.
-    mmulm(&matrix.vp, &matrix.projection, &matrix.view);
-
-    // Precompute model-view-projection transform.
-    mmulm(&matrix.mvp, &matrix.vp, &matrix.model);
-}
-
 static void camera_position(vec4* position) {
     const vec2* camera = DK_GetCameraPosition();
     position->v[0] = camera->v[0];
@@ -363,17 +335,14 @@ static void begin_render(void) {
     vec4 cam_position, cam_target;
     camera_position(&cam_position);
     camera_target(&cam_target);
-    lookat(&matrix.view, &cam_position, &cam_target);
+    DK_SetLookAt(cam_position.v[0], cam_position.v[1], cam_position.v[2],
+            cam_target.v[0], cam_target.v[1], cam_target.v[2]);
 
     // Set projection matrix.
-    perspective(&matrix.projection, DK_field_of_view, DK_ASPECT_RATIO, 0.1f, 1000.0f);
+    DK_SetPerspective(DK_field_of_view, DK_ASPECT_RATIO, 0.1f, 1000.0f);
 
     // Reset model transform.
-    matrix.model = IDENTITY_MATRIX4;
-    matrix.normal = IDENTITY_MATRIX3;
-
-    // Update precomputed matrics.
-    update_matrices();
+    DK_SetModelMatrix(&IDENTITY_MATRIX4);
 
     // Clear to black and set default vertex color to white.
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -382,7 +351,7 @@ static void begin_render(void) {
     glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
     // Update cursor position (depends on view being set up).
-    //DK_update_cursor();
+    DK_UpdateCursor();
 
     // Get cursor position and update hand light accordingly.
     /*
@@ -415,12 +384,9 @@ static void begin_deferred(void) {
     glUseProgram(geometry_shader.program);
 
     // Set uniforms for geometry shader.
-    glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelMatrix, 1, GL_FALSE, matrix.model.m);
-    glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, matrix.mvp.m);
-    glUniformMatrix4fv(geometry_shader.vs_uniforms.NormalMatrix, 1, GL_FALSE, matrix.normal.m);
-
-    //glActiveTexture(GL_TEXTURE0);
-    //glEnable(GL_TEXTURE_2D);
+    glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelMatrix, 1, GL_FALSE, DK_GetModelMatrix());
+    glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix());
+    //glUniformMatrix4fv(geometry_shader.vs_uniforms.NormalMatrix, 1, GL_FALSE, DK_GetNormalMatrix());
 
     // Use our three buffers.
     glDrawBuffers(3, buffers);
@@ -437,22 +403,17 @@ static void render_deferred(void) {
         vec4 cam_position;
 
         // Set projection matrix.
-        orthogonal(&matrix.projection, 0, DK_resolution_x, 0, DK_resolution_y, 0.1f, 2.0f);
+        DK_SetOrthogonal(0, DK_resolution_x, 0, DK_resolution_y, 0.1f, 2.0f);
 
         // Reset other matrices, set view a bit back to avoid clipping.
-        matrix.model = IDENTITY_MATRIX4;
-        matrix.normal = IDENTITY_MATRIX3;
-        matrix.view = IDENTITY_MATRIX4;
-        mitranslate(&matrix.view, 0, 0, -1.0f);
-
-        // Update precomputed matrices.
-        update_matrices();
+        DK_SetModelMatrix(&IDENTITY_MATRIX4);
+        DK_SetLookAt(0, 0, -1, 0, 0, 0);
 
         // We use our shader to do the actual shading computations.
         glUseProgram(light_shader.program);
 
         // The the global transformation matrix.
-        glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, matrix.mvp.m);
+        glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix());
 
         // Set camera position.
         camera_position(&cam_position);
@@ -549,7 +510,7 @@ void DK_render(void) {
     }
 
     // Render game components.
-    DK_render_map();
+    DK_RenderMap();
     DK_RenderUnits();
     DK_RenderJobs();
 

@@ -85,6 +85,6 @@ void DK_Init(void) {
     fprintf(DK_log_target, "INFO: Done initializing OpenGL.\n");
 
     // Initialize a test map.
-    DK_map_load("test");
+    DK_LoadMap("test");
 }
 
