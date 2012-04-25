@@ -12,12 +12,17 @@
 extern "C" {
 #endif
 
-/** Pick the topmost object at the specified cursor position */
-GLuint DK_pick(int x, int y, void(*render)(void));
+/**
+ * Pick the topmost object at the specified cursor position.
+ * @param x the x coordinate of the cursor.
+ * @param y the y coordinate of the cursor.
+ * @param render the method to use for rendering objects while in select mode.
+ * @return the name (identifier) of the object that was picked.
+ */
+GLuint DK_Pick(int x, int y, void(*render)(void));
 
 #ifdef	__cplusplus
 }
 #endif
 
 #endif	/* PICKING_H */
-

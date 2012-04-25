@@ -54,11 +54,13 @@ typedef enum {
 
 /**
  * Get the current camera position as in world space on the x-y plane.
+ * @return the current camera position in world space.
  */
 const vec2* DK_GetCameraPosition(void);
 
 /**
  * Get the current camera zoom.
+ * @return the current camera zoom, as a percentage.
  */
 float DK_GetCameraZoom(void);
 

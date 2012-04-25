@@ -8,17 +8,44 @@
 #ifndef PLAYERS_H
 #define	PLAYERS_H
 
-/** Player ids */
+/**
+ * Player IDs for possible players in a game.
+ */
 typedef enum {
+    /**
+     * No player / invalid player.
+     */
     DK_PLAYER_NONE,
-    DK_PLAYER_RED,
-    DK_PLAYER_BLUE,
-    DK_PLAYER_GREEN,
-    DK_PLAYER_YELLOW,
-    DK_PLAYER_WHITE,
 
-    DK_PLAYER_COUNT //< Number of possible values, used for array init.
+    /**
+     * First player.
+     */
+    DK_PLAYER_ONE,
+
+    /**
+     * Second player.
+     */
+    DK_PLAYER_TWO,
+
+    /**
+     * Third player.
+     */
+    DK_PLAYER_THREE,
+
+    /**
+     * Fourth player.
+     */
+    DK_PLAYER_FOUR,
+
+    /**
+     * Fifth player.
+     */
+    DK_PLAYER_FIVE,
+
+    /**
+     * Number of possible values, used for array initialization.
+     */
+    DK_PLAYER_COUNT
 } DK_Player;
 
 #endif	/* PLAYERS_H */
-

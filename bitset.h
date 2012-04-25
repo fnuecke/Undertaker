@@ -20,7 +20,7 @@ typedef char* BitSet;
 /**
  * Allocate a new bit set that can represent the specified number of bits.
  * @param size the size of the bit set, in bits.
- * @returns a new bit set with the specified capacity.
+ * @return a new bit set with the specified capacity.
  */
 BitSet BS_New(unsigned int size);
 
@@ -47,7 +47,7 @@ void BS_Unset(BitSet bitset, unsigned int idx);
 /**
  * Test if the bit at the specified index is set in the specified bit set.
  * @param bitset the bit set to test the bit in.
- * @returns whether the bit is set (1) or not (0).
+ * @return whether the bit is set (1) or not (0).
  */
 int BS_Test(const BitSet bitset, unsigned int idx);
 

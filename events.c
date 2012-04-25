@@ -53,7 +53,7 @@ static void key_up(const SDL_Event* e) {
             DK_d_draw_jobs = 1 - DK_d_draw_jobs;
             break;
         case SDLK_F4:
-            DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+            DK_add_unit(DK_PLAYER_ONE, DK_UNIT_IMP, 5, 10);
             break;
         case SDLK_F5:
             DK_d_draw_deferred = (DK_d_draw_deferred + 1) % DK_D_DEFERRED_COUNT;
@@ -72,10 +72,10 @@ static void mouse_down(const SDL_Event* e) {
             DK_CameraZoomOut();
             break;
         case SDL_BUTTON_LEFT:
-            DK_selection_begin();
+            DK_BeginSelection();
             break;
         case SDL_BUTTON_RIGHT:
-            if (DK_selection_cancel()) {
+            if (DK_DiscardSelection()) {
                 break;
             }
             break;
@@ -87,7 +87,7 @@ static void mouse_down(const SDL_Event* e) {
 static void mouse_up(const SDL_Event* e) {
     switch (e->button.button) {
         case SDL_BUTTON_LEFT:
-            DK_selection_end();
+            DK_ConfirmSelection();
             break;
         default:
             break;

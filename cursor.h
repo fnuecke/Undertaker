@@ -16,12 +16,12 @@ extern "C" {
 
 /**
  * Get the current cursor coordinate.
+ * @return the current cursor coordinate on the x/y plane.
  */
 const vec2* DK_GetCursor(void);
 
 /**
- * Update the cursor coordinate (i.e. where it is on the X/Y plane). This should
- * be called each frame.
+ * Update the cursor coordinate. This should be called each frame.
  */
 void DK_UpdateCursor(void);
 

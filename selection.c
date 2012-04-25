@@ -4,113 +4,77 @@
 #include "players.h"
 #include "selection.h"
 
+///////////////////////////////////////////////////////////////////////////////
+// Globals
+///////////////////////////////////////////////////////////////////////////////
+
 /**
  * Selected blocks, per player.
  * This is a bitset, where each bit represents a block in the map.
  */
-static BitSet selection[DK_PLAYER_COUNT] = {0};
+static BitSet gPlayerSelection[DK_PLAYER_COUNT] = {0};
 
-/** Point where our selection started */
-static int selection_x = 0, selection_y = 0;
-
-/** Current selection mode */
+/**
+ * Current local selection mode.
+ */
 static enum {
+    /**
+     * Not currently selecting anything.
+     */
     MODE_NONE,
+
+    /**
+     * Currently choosing area to select more blocks.
+     */
     MODE_SELECT,
+
+    /**
+     * Currently choosing area to deselect some blocks.
+     */
     MODE_DESELECT
-} mode = MODE_NONE;
+} gMode = MODE_NONE;
 
-inline static int block_index_valid(int x, int y) {
-    return x >= 0 && y >= 0 && x < DK_map_size && y < DK_map_size;
-}
+/**
+ * The current area selection for the local player.
+ */
+static DK_Selection gCurrentSelection;
 
-void DK_init_selection(void) {
-    int i;
-    for (i = 0; i < DK_PLAYER_COUNT; ++i) {
-        BS_Delete(selection[i]);
-        selection[i] = BS_New(DK_map_size * DK_map_size);
+// TODO use local player via some variable (for network gaming)
+static DK_Player gLocalPlayer = DK_PLAYER_ONE;
+
+///////////////////////////////////////////////////////////////////////////////
+// Utility
+///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Validates a selection by inverting coordinates if necessary, so that start
+ * coordinates are lower than or equal to end coordinates.
+ * @param selection the selection to validate.
+ */
+static void validate(DK_Selection* selection) {
+    if (selection->startX > selection->endX) {
+        int tmp = selection->endX;
+        selection->endX = selection->startX;
+        selection->startX = tmp;
+    }
+    if (selection->startY > selection->endY) {
+        int tmp = selection->endY;
+        selection->endY = selection->startY;
+        selection->startY = tmp;
     }
 }
 
-void DK_selection(int* start_x, int* start_y, int* end_x, int* end_y) {
-    DK_block_under_cursor(end_x, end_y);
-    if (mode == MODE_NONE) {
-        *start_x = *end_x;
-        *start_y = *end_y;
-    } else {
-        *start_x = selection_x;
-        *start_y = selection_y;
-        if (*start_x > *end_x) {
-            int tmp = *end_x;
-            *end_x = *start_x;
-            *start_x = tmp;
-        }
-        if (*start_y > *end_y) {
-            int tmp = *end_y;
-            *end_y = *start_y;
-            *start_y = tmp;
-        }
-    }
+///////////////////////////////////////////////////////////////////////////////
+// Accessors
+///////////////////////////////////////////////////////////////////////////////
+
+DK_Selection DK_GetSelection(void) {
+    DK_Selection currentSelection = gCurrentSelection;
+    validate(&currentSelection);
+    return currentSelection;
 }
 
-void DK_selection_begin(void) {
-    DK_block_under_cursor(&selection_x, &selection_y);
-    if (DK_block_is_selectable(DK_PLAYER_RED, selection_x, selection_y)) {
-        // OK, if it's selectable, start selection.
-        if (DK_block_is_selected(DK_PLAYER_RED, selection_x, selection_y)) {
-            mode = MODE_DESELECT;
-        } else {
-            mode = MODE_SELECT;
-        }
-    } else {
-        mode = MODE_NONE;
-    }
-}
-
-int DK_selection_cancel(void) {
-    if (mode != MODE_NONE) {
-        // Reset mode.
-        mode = MODE_NONE;
-        return 1;
-    }
-    return 0;
-}
-
-void DK_selection_end(void) {
-    if (mode != MODE_NONE) {
-        // Find the block we released over.
-        int x, y, end_x = selection_x, end_y = selection_y;
-        DK_block_under_cursor(&end_x, &end_y);
-
-        // Swap corners if necessary.
-        if (end_x < selection_x) {
-            const int tmp = end_x;
-            end_x = selection_x;
-            selection_x = tmp;
-        }
-        if (end_y < selection_y) {
-            const int tmp = end_y;
-            end_y = selection_y;
-            selection_y = tmp;
-        }
-
-        // Set selection for the drawn area.
-        for (x = selection_x; x <= end_x; ++x) {
-            for (y = selection_y; y <= end_y; ++y) {
-                if (mode == MODE_SELECT) {
-                    DK_block_select(DK_PLAYER_RED, x, y);
-                } else if (mode == MODE_DESELECT) {
-                    DK_block_deselect(DK_PLAYER_RED, x, y);
-                }
-            }
-        }
-
-        // Reset mode.
-        mode = MODE_NONE;
-    }
-}
-
-int DK_block_is_selectable(DK_Player player, int x, int y) {
+int DK_IsBlockSelectable(DK_Player player, int x, int y) {
     const DK_Block* block = DK_block_at(x, y);
     return block &&
             (block->type == DK_BLOCK_DIRT ||
@@ -119,24 +83,104 @@ int DK_block_is_selectable(DK_Player player, int x, int y) {
             (block->owner == DK_PLAYER_NONE || block->owner == player);
 }
 
-void DK_block_select(DK_Player player, unsigned short x, unsigned short y) {
-    if (DK_block_is_selectable(player, x, y)) {
-        const unsigned int idx = y * DK_map_size + x;
-        BS_Set(selection[player], idx);
+int DK_IsBlockSelected(DK_Player player, unsigned short x, unsigned short y) {
+    return BS_Test(gPlayerSelection[player], y * DK_map_size + x);
+}
 
-        DK_FindJobs(player, x, y);
+///////////////////////////////////////////////////////////////////////////////
+// User area selection
+///////////////////////////////////////////////////////////////////////////////
+
+int DK_BeginSelection(void) {
+    if (gMode == MODE_NONE) {
+        if (DK_IsBlockSelectable(gLocalPlayer, gCurrentSelection.startX, gCurrentSelection.startY)) {
+            // OK, if it's selectable, start selection.
+            if (DK_IsBlockSelected(gLocalPlayer, gCurrentSelection.startX, gCurrentSelection.startY)) {
+                gMode = MODE_DESELECT;
+            } else {
+                gMode = MODE_SELECT;
+            }
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int DK_DiscardSelection(void) {
+    if (gMode != MODE_NONE) {
+        // Reset mode.
+        gMode = MODE_NONE;
+        gCurrentSelection.startX = gCurrentSelection.endX;
+        gCurrentSelection.startY = gCurrentSelection.endY;
+        return 1;
+    }
+    return 0;
+}
+
+void DK_ConfirmSelection(void) {
+    if (gMode != MODE_NONE) {
+        // Validate the selection.
+        validate(&gCurrentSelection);
+
+        // Set selection for the drawn area.
+        for (int x = gCurrentSelection.startX; x <= gCurrentSelection.endX; ++x) {
+            for (int y = gCurrentSelection.startY; y <= gCurrentSelection.endY; ++y) {
+                if (gMode == MODE_SELECT) {
+                    DK_SelectBlock(gLocalPlayer, x, y);
+                } else if (gMode == MODE_DESELECT) {
+                    DK_DeselectBlock(gLocalPlayer, x, y);
+                }
+            }
+        }
+
+        // Reset mode.
+        gMode = MODE_NONE;
     }
 }
 
-void DK_block_deselect(DK_Player player, unsigned short x, unsigned short y) {
-    if (block_index_valid(x, y)) {
-        const unsigned int idx = y * DK_map_size + x;
-        BS_Unset(selection[player], idx);
+///////////////////////////////////////////////////////////////////////////////
+// Modifiers
+///////////////////////////////////////////////////////////////////////////////
 
-        DK_FindJobs(player, x, y);
+void DK_SelectBlock(DK_Player player, int x, int y) {
+    if (DK_IsBlockSelectable(player, x, y)) {
+        const unsigned int idx = y * DK_map_size + x;
+
+        // Only update if something changed.
+        if (!BS_Test(gPlayerSelection[player], idx)) {
+            BS_Set(gPlayerSelection[player], idx);
+            DK_FindJobs(player, x, y);
+        }
     }
 }
 
-int DK_block_is_selected(DK_Player player, unsigned short x, unsigned short y) {
-    return BS_Test(selection[player], y * DK_map_size + x);
+void DK_DeselectBlock(DK_Player player, int x, int y) {
+    if (x >= 0 && y >= 0 && x < DK_map_size && y < DK_map_size) {
+        const unsigned int idx = y * DK_map_size + x;
+
+        // Only update if something changed.
+        if (BS_Test(gPlayerSelection[player], idx)) {
+            BS_Unset(gPlayerSelection[player], idx);
+            DK_FindJobs(player, x, y);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Initialization / Update
+///////////////////////////////////////////////////////////////////////////////
+
+void DK_InitSelection(void) {
+    for (int i = 0; i < DK_PLAYER_COUNT; ++i) {
+        BS_Delete(gPlayerSelection[i]);
+        gPlayerSelection[i] = BS_New(DK_map_size * DK_map_size);
+    }
+}
+
+void DK_UpdateSelection(void) {
+    DK_block_under_cursor(&gCurrentSelection.endX, &gCurrentSelection.endY);
+    if (gMode == MODE_NONE) {
+        gCurrentSelection.startX = gCurrentSelection.endX;
+        gCurrentSelection.startY = gCurrentSelection.endY;
+    }
 }

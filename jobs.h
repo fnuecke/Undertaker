@@ -81,6 +81,7 @@ void DK_FindJobs(DK_Player player, unsigned short x, unsigned short y);
  * to the actual job data.
  * @param player the player to get all jobs for.
  * @param count the number of jobs.
+ * @return a list of jobs for the specified player.
  */
 DK_Job** DK_GetJobs(DK_Player player, unsigned int* count);
 

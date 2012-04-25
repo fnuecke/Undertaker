@@ -82,7 +82,7 @@ static const float z_coords[5] = {
 inline static GLuint pick_block(int x, int y) {
     GLuint result;
     picking = 1;
-    result = DK_pick(x, y, &DK_render_map);
+    result = DK_Pick(x, y, &DK_render_map);
     picking = 0;
     return result;
 }
@@ -443,7 +443,7 @@ static void update_block(DK_Block* block) {
     {
         int i;
         for (i = 0; i < DK_PLAYER_COUNT; ++i) {
-            DK_block_deselect(i, x, y);
+            DK_DeselectBlock(i, x, y);
         }
     }
 }
@@ -929,7 +929,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
         map_x = x - DK_MAP_BORDER / 2;
         for (y = start_y; y <= end_y; ++y) {
             map_y = y - DK_MAP_BORDER / 2;
-            if (!DK_block_is_selectable(DK_PLAYER_RED, map_x, map_y)) {
+            if (!DK_IsBlockSelectable(DK_PLAYER_ONE, map_x, map_y)) {
                 continue;
             }
 
@@ -1319,7 +1319,7 @@ void DK_render_map(void) {
                 const DK_Block* block = DK_block_at(x, y);
 
                 // Selected by the local player?
-                if (!picking && DK_block_is_selected(DK_PLAYER_RED, x, y)) {
+                if (!picking && DK_IsBlockSelected(DK_PLAYER_ONE, x, y)) {
                     //const float intensity = 0.6f + sinf(SDL_GetTicks() * M_PI * (DK_MAP_SELECTED_PULSE_FREQUENCY)) * 0.3f;
                     //glColorMaterial(GL_FRONT, GL_EMISSION);
                     //glColor3f(DK_MAP_SELECTED_COLOR(intensity));
@@ -1441,7 +1441,7 @@ void DK_render_map(void) {
 
     if (!picking) {
         int sx, sy, ex, ey;
-        DK_selection(&sx, &sy, &ex, &ey);
+        DK_GetSelection(&sx, &sy, &ex, &ey);
         draw_outline(sx, sy, ex, ey);
     }
 }
@@ -1454,14 +1454,14 @@ void DK_map_load(const char* filename) {
     int i, j;
 
     DK_init_map(128);
-    DK_init_selection();
+    DK_InitSelection();
     DK_InitAStar();
     DK_init_units();
 
     for (i = 0; i < 7; ++i) {
         for (j = 0; j < 7; ++j) {
             if (i <= 1 || j <= 1) {
-                DK_block_set_owner(DK_block_at(4 + i, 5 + j), DK_PLAYER_RED);
+                DK_block_set_owner(DK_block_at(4 + i, 5 + j), DK_PLAYER_ONE);
             }
             if (i > 0 && j > 0 && i < 6 && j < 6) {
                 DK_block_set_type(DK_block_at(4 + i, 5 + j), DK_BLOCK_NONE);
@@ -1478,7 +1478,7 @@ void DK_map_load(const char* filename) {
     //DK_block_at(9, 8)->owner = DK_PLAYER_RED;
 
     for (i = 0; i < 2; ++i) {
-        DK_add_unit(DK_PLAYER_RED, DK_UNIT_IMP, 5, 10);
+        DK_add_unit(DK_PLAYER_ONE, DK_UNIT_IMP, 5, 10);
     }
 }
 

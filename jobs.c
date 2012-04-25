@@ -95,9 +95,9 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
     }
 
 
-    if (DK_block_is_selectable(player, x, y)) {
+    if (DK_IsBlockSelectable(player, x, y)) {
         // Valid block for working on.
-        if (DK_block_is_selected(player, x, y)) {
+        if (DK_IsBlockSelected(player, x, y)) {
             // It's selected, start digging.
             // Check if a neighboring tile is passable.
             DK_Block* b;
@@ -278,8 +278,8 @@ void DK_FindJobs(DK_Player player, unsigned short x, unsigned short y) {
 void DK_RenderJobs(void) {
     if (DK_d_draw_jobs) {
         unsigned int i;
-        for (i = 0; i < jobs_count[DK_PLAYER_RED]; ++i) {
-            const DK_Job* job = jobs[DK_PLAYER_RED][i];
+        for (i = 0; i < jobs_count[DK_PLAYER_ONE]; ++i) {
+            const DK_Job* job = jobs[DK_PLAYER_ONE][i];
 
             if (job->worker) {
                 if (job->type == DK_JOB_DIG) {
