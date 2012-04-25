@@ -13,16 +13,16 @@
 static void key_down(const SDL_Event* e) {
     switch (e->key.keysym.sym) {
         case SDLK_UP:
-            DK_camera_set_direction(DK_CAMD_NORTH);
+            DK_CameraStartScrolling(DK_CAMERA_DIRECTION_NORTH);
             break;
         case SDLK_DOWN:
-            DK_camera_set_direction(DK_CAMD_SOUTH);
+            DK_CameraStartScrolling(DK_CAMERA_DIRECTION_SOUTH);
             break;
         case SDLK_LEFT:
-            DK_camera_set_direction(DK_CAMD_WEST);
+            DK_CameraStartScrolling(DK_CAMERA_DIRECTION_WEST);
             break;
         case SDLK_RIGHT:
-            DK_camera_set_direction(DK_CAMD_EAST);
+            DK_CameraStartScrolling(DK_CAMERA_DIRECTION_EAST);
             break;
         default:
             break;
@@ -32,16 +32,16 @@ static void key_down(const SDL_Event* e) {
 static void key_up(const SDL_Event* e) {
     switch (e->key.keysym.sym) {
         case SDLK_UP:
-            DK_camera_unset_direction(DK_CAMD_NORTH);
+            DK_CameraStopScrolling(DK_CAMERA_DIRECTION_NORTH);
             break;
         case SDLK_DOWN:
-            DK_camera_unset_direction(DK_CAMD_SOUTH);
+            DK_CameraStopScrolling(DK_CAMERA_DIRECTION_SOUTH);
             break;
         case SDLK_LEFT:
-            DK_camera_unset_direction(DK_CAMD_WEST);
+            DK_CameraStopScrolling(DK_CAMERA_DIRECTION_WEST);
             break;
         case SDLK_RIGHT:
-            DK_camera_unset_direction(DK_CAMD_EAST);
+            DK_CameraStopScrolling(DK_CAMERA_DIRECTION_EAST);
             break;
         case SDLK_F1:
             DK_d_draw_test_texture = 1 - DK_d_draw_test_texture;
@@ -66,10 +66,10 @@ static void key_up(const SDL_Event* e) {
 static void mouse_down(const SDL_Event* e) {
     switch (e->button.button) {
         case SDL_BUTTON_WHEELUP:
-            DK_camera_zoom_in();
+            DK_CameraZoomIn();
             break;
         case SDL_BUTTON_WHEELDOWN:
-            DK_camera_zoom_out();
+            DK_CameraZoomOut();
             break;
         case SDL_BUTTON_LEFT:
             DK_selection_begin();
@@ -98,7 +98,7 @@ static void mouse_up(const SDL_Event* e) {
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_input(void) {
+void DK_Events(void) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         switch (event.type) {

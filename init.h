@@ -12,8 +12,10 @@
 extern "C" {
 #endif
 
-/** Initialize SDL and game data */
-void DK_init(void);
+/**
+ * Initialize SDL and game data.
+ */
+void DK_Init(void);
 
 #ifdef	__cplusplus
 }

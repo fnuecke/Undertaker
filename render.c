@@ -343,15 +343,15 @@ static void update_matrices(void) {
 }
 
 static void camera_position(vec4* position) {
-    const vec2* camera = DK_camera_position();
+    const vec2* camera = DK_GetCameraPosition();
     position->v[0] = camera->v[0];
     position->v[1] = camera->v[1];
-    position->v[2] = DK_CAMERA_HEIGHT - DK_camera_zoom() * DK_CAMERA_MAX_ZOOM;
+    position->v[2] = DK_CAMERA_HEIGHT - DK_GetCameraZoom() * DK_CAMERA_MAX_ZOOM;
     position->v[3] = 1.0f;
 }
 
 static void camera_target(vec4* target) {
-    const vec2* camera = DK_camera_position();
+    const vec2* camera = DK_GetCameraPosition();
     target->v[0] = camera->v[0];
     target->v[1] = camera->v[1] + DK_CAMERA_TARGET_DISTANCE;
     target->v[2] = 0.0f;
@@ -559,7 +559,7 @@ void DK_render(void) {
     }
 }
 
-static const GLint textureUnits[4] = {0, 1, 2, 3};
+//static const GLint textureUnits[4] = {0, 1, 2, 3};
 
 void DK_render_set_material(const DK_Material* material) {
     for (unsigned int i = 0; i < sizeof (material->textures); ++i) {

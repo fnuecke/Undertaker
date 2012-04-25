@@ -10,17 +10,24 @@
 
 #include "units.h"
 
-/** Represents a single waypoint along a path found using A* search */
-typedef struct {
-    float x, y;
-} AStar_Waypoint;
-
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-/** (Re)Initializes data structures after a map change */
-void DK_init_a_star(void);
+/**
+ * Represents a single waypoint along a path found using A* search.
+ */
+typedef struct {
+    /**
+     * The coordinates of the waypoint in map space.
+     */
+    float x, y;
+} DK_AStarWaypoint;
+
+/**
+ * (Re)Initializes data structures after a map change.
+ */
+void DK_InitAStar(void);
 
 /**
  * Performs an A* path search using JPS.
@@ -32,11 +39,10 @@ void DK_init_a_star(void);
  * @param length the length of the found path.
  * @return 1 if a path was found, 0 if there was no path to the target.
  */
-int DK_a_star(const DK_Unit* unit, float tx, float ty, AStar_Waypoint* path, unsigned int* depth, float* length);
+int DK_AStar(const DK_Unit* unit, float tx, float ty, DK_AStarWaypoint* path, unsigned int* depth, float* length);
 
 #ifdef	__cplusplus
 }
 #endif
 
 #endif	/* ASTAR_H */
-

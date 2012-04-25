@@ -12,8 +12,10 @@
 extern "C" {
 #endif
 
-/** Handle user input */
-void DK_input(void);
+/**
+ * Handle SDL events.
+ */
+void DK_Events(void);
 
 #ifdef	__cplusplus
 }

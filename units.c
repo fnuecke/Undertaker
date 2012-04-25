@@ -106,7 +106,7 @@ typedef struct {
     DK_Job* job;
 
     /** The path the unit currently follows (if moving) */
-    AStar_Waypoint path[DK_AI_PATH_MAX + 2];
+    DK_AStarWaypoint path[DK_AI_PATH_MAX + 2];
 
     /** The total depth of the path (number of nodes) */
     unsigned int path_depth;
@@ -217,7 +217,7 @@ static void update_ai(DK_Unit* unit) {
                     DK_Job* job = jobs[job_count - 1];
 
                     // For path finding results.
-                    AStar_Waypoint path[DK_AI_PATH_MAX];
+                    DK_AStarWaypoint path[DK_AI_PATH_MAX];
                     unsigned int depth = DK_AI_PATH_MAX;
 
                     // Test direct distance; if that's longer than our best we
@@ -231,7 +231,7 @@ static void update_ai(DK_Unit* unit) {
 
                     // Find a path to it. Use temporary output data to avoid
                     // overriding existing path that may be shorter.
-                    if (DK_a_star(unit, job->x, job->y, path, &depth, &distance)) {
+                    if (DK_AStar(unit, job->x, job->y, path, &depth, &distance)) {
                         float penalty = 0;
 
                         // Factor in priorities.
@@ -270,7 +270,7 @@ static void update_ai(DK_Unit* unit) {
                             best_distance = distance;
                             best_penalty = penalty;
                             best_job = job;
-                            memcpy(&moveNode->path[1], path, depth * sizeof (AStar_Waypoint));
+                            memcpy(&moveNode->path[1], path, depth * sizeof (DK_AStarWaypoint));
                             moveNode->path_depth = depth;
                             // Generate endpoints for catmull-rom spline; just
                             // extend the path in the direction of the last two

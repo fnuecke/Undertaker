@@ -111,7 +111,7 @@ static AStar_Node* pop_to_closed(void) {
     closed[closed_count] = open[0];
 
     // Mark as closed in our bitset.
-    BS_set(a_star_closed_set, open[0].y * a_star_grid_size + open[0].x);
+    BS_Set(a_star_closed_set, open[0].y * a_star_grid_size + open[0].x);
 
     // Shift open list to the left to remove first entry.
     --open_count;
@@ -204,7 +204,7 @@ static int jps(int* jx, int* jy, int dx, int dy, int sx, int sy, unsigned int gx
     }
 
     // If we already handled this one, skip it.
-    if (BS_test(a_star_closed_set, sy * a_star_grid_size + sx)) {
+    if (BS_Test(a_star_closed_set, sy * a_star_grid_size + sx)) {
         return 0;
     }
 
@@ -309,7 +309,7 @@ static int line_of_sight(const AStar_Node* a, const AStar_Node* b) {
  * @param goal_y the goal y coordinate in map space.
  * @return whether the goal was reached or not.
  */
-static int is_goal(AStar_Waypoint* path, unsigned int* depth, float* length,
+static int is_goal(DK_AStarWaypoint* path, unsigned int* depth, float* length,
         AStar_Node* node,
         unsigned int local_goal_x, unsigned int local_goal_y,
         float start_x, float start_y,
@@ -378,7 +378,7 @@ static int is_goal(AStar_Waypoint* path, unsigned int* depth, float* length,
         // Push the remaining nodes' coordinates (in reverse walk order to
         // make it forward work order).
         for (int i = real_depth - 2; i > 0; --i) {
-            AStar_Waypoint* waypoint = &path[i];
+            DK_AStarWaypoint* waypoint = &path[i];
             if (node->x == local_goal_x &&
                     node->y == local_goal_y) {
                 // Use the actual goal coordinates instead of those of the
@@ -417,13 +417,13 @@ static int is_goal(AStar_Waypoint* path, unsigned int* depth, float* length,
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_init_a_star(void) {
-    BS_free(a_star_closed_set);
+void DK_InitAStar(void) {
+    BS_Delete(a_star_closed_set);
     a_star_grid_size = DK_map_size * DK_ASTAR_GRANULARITY;
-    a_star_closed_set = BS_alloc(a_star_grid_size * a_star_grid_size);
+    a_star_closed_set = BS_New(a_star_grid_size * a_star_grid_size);
 }
 
-int DK_a_star(const DK_Unit* unit, float goal_x, float goal_y, AStar_Waypoint* path, unsigned int* depth, float* length) {
+int DK_AStar(const DK_Unit* unit, float goal_x, float goal_y, DK_AStarWaypoint* path, unsigned int* depth, float* length) {
     unsigned int gx, gy, begin_x, begin_y, end_x, end_y, neighbor_x, neighbor_y;
     int x, y;
     float start_x, start_y, gscore, fscore;
@@ -445,7 +445,7 @@ int DK_a_star(const DK_Unit* unit, float goal_x, float goal_y, AStar_Waypoint* p
     closed_count = 0;
 
     // Clear closed set bitset representation.
-    BS_reset(a_star_closed_set, a_star_grid_size * a_star_grid_size);
+    BS_Reset(a_star_closed_set, a_star_grid_size * a_star_grid_size);
 
     // Get goal in local coordinates.
     gx = (unsigned int) (goal_x * DK_ASTAR_GRANULARITY);
@@ -528,7 +528,7 @@ int DK_a_star(const DK_Unit* unit, float goal_x, float goal_y, AStar_Waypoint* p
                 }
 #else
                 // If we already handled this one, skip it.
-                if (BS_test(a_star_closed_set, y * a_star_grid_size + x)) {
+                if (BS_Test(a_star_closed_set, y * a_star_grid_size + x)) {
                     continue;
                 }
 

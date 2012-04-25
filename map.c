@@ -922,7 +922,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
     glDisable(GL_LIGHTING);
 
     // Set up for line drawing.
-    glLineWidth(3.0f + DK_camera_zoom() * 3.0f);
+    glLineWidth(3.0f + DK_GetCameraZoom() * 3.0f);
     //glColor4f(DK_MAP_OUTLINE_COLOR, 0.5f);
 
     for (x = start_x; x <= end_x; ++x) {
@@ -1287,7 +1287,7 @@ void DK_update_map(void) {
 #define M_PI 3.14159265358979323846
 
 void DK_render_map(void) {
-    const vec2* cam_position = DK_camera_position();
+    const vec2* cam_position = DK_GetCameraPosition();
     int x_begin = (int) (cam_position->v[0] / DK_BLOCK_SIZE) - DK_RENDER_AREA_X / 2;
     int y_begin = (int) (cam_position->v[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA_Y_OFFSET;
     int x_end = x_begin + DK_RENDER_AREA_X;
@@ -1455,7 +1455,7 @@ void DK_map_load(const char* filename) {
 
     DK_init_map(128);
     DK_init_selection();
-    DK_init_a_star();
+    DK_InitAStar();
     DK_init_units();
 
     for (i = 0; i < 7; ++i) {

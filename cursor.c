@@ -5,28 +5,29 @@
 #include "config.h"
 #include "cursor.h"
 
-float cursor_x, cursor_y;
+static vec2 gCursorPosition;
 
-void DK_cursor(float* x, float* y) {
-    *x = cursor_x;
-    *y = cursor_y;
+const vec2* DK_GetCursor(void) {
+    return &gCursorPosition;
 }
 
-void DK_update_cursor(void) {
+void DK_UpdateCursor(void) {
     // Get environment info.
-    GLdouble model[16];
-    GLdouble proj[16];
-    GLint view[4];
+    const vec2* camera_position = DK_GetCameraPosition();
+    mat4 model;
+    mat4 proj;
+    GLint view;
     GLdouble ox, oy, oz;
     int mouseX, mouseY;
     GLdouble objXn, objYn, objZn;
     GLdouble objXf, objYf, objZf;
 
+    
     glGetDoublev(GL_MODELVIEW_MATRIX, model);
     glGetDoublev(GL_PROJECTION_MATRIX, proj);
     glGetIntegerv(GL_VIEWPORT, view);
 
-    //gluProject(DK_camera_position()[0], DK_camera_position()[1] + DK_CAMERA_TARGET_DISTANCE, 0, model, proj, view, &ox, &oy, &oz);
+    gluProject(camera_position->x, camera_position->y + DK_CAMERA_TARGET_DISTANCE, 0, model->m, proj->m, view, &ox, &oy, &oz);
 
     // Get window mouse coordinates.
     SDL_GetMouseState(&mouseX, &mouseY);
@@ -46,7 +47,7 @@ void DK_update_cursor(void) {
 
         // Intersection with xy plane -- at block height.
         const GLdouble m = (DK_BLOCK_HEIGHT - objZn) / vz;
-        cursor_x = objXn + vx * m;
-        cursor_y = objYn + vy * m;
+        gCursorPosition.x = objXn + vx * m;
+        gCursorPosition.y = objYn + vy * m;
     }
 }

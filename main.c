@@ -30,13 +30,13 @@ int main(int argc, char** argv) {
     int delay;
 
     // Initialize basics, such as SDL and data.
-    DK_init();
+    DK_Init();
 
     // Start the main loop.
     while (running) {
         start = SDL_GetTicks();
 
-        DK_input();
+        DK_Events();
         DK_update();
         DK_render();
 

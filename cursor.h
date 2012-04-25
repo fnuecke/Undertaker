@@ -8,15 +8,22 @@
 #ifndef CURSOR_H
 #define	CURSOR_H
 
+#include "vmath.h"
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-/** Update the cursor coordinate (i.e. where it is on the X/Y plane) */
-void DK_update_cursor(void);
+/**
+ * Get the current cursor coordinate.
+ */
+const vec2* DK_GetCursor(void);
 
-/** Get the current cursor coordinate */
-void DK_cursor(float* x, float* y);
+/**
+ * Update the cursor coordinate (i.e. where it is on the X/Y plane). This should
+ * be called each frame.
+ */
+void DK_UpdateCursor(void);
 
 #ifdef	__cplusplus
 }

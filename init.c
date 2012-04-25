@@ -16,7 +16,7 @@ static void shutdown(void) {
     DK_save_config();
 }
 
-void DK_init(void) {
+void DK_Init(void) {
     SDL_Surface* screen;
 
     DK_load_config();
