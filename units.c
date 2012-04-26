@@ -180,7 +180,7 @@ static float catmull_rom(float p0, float p1, float p2, float p3, float t) {
     return (2 * p1 - 2 * p2 + m1 + m2) * t * t * t + (-3 * p1 + 3 * p2 - 2 * m1 - m2) * t * t + m1 * t + p1;
 }
 
-static void update_ai(DK_Unit* unit) {
+static void update(DK_Unit* unit) {
     AI_Node* ai;
     if (unit->ai_count == 0) {
         // Switch to idle state if there is none set.
@@ -487,7 +487,7 @@ static void onUpdate(void) {
     for (unsigned int i = 0; i < total_unit_count; ++i) {
         DK_Unit* unit = &units[i];
 
-        update_ai(unit);
+        update(unit);
     }
 }
 
@@ -504,34 +504,44 @@ static void onMapChange(void) {
 
 static void onRender(void) {
     DK_Material material;
-    DK_material_init(&material);
-    DK_render_set_material(&material);
+    DK_InitMaterial(&material);
 
     if (!quadratic) {
         quadratic = gluNewQuadric();
     }
 
     for (unsigned int i = 0; i < total_unit_count; ++i) {
-        DK_Unit* unit = &units[i];
-        AI_Node* ai = &unit->ai[unit->ai_count - 1];
+        const DK_Unit* unit = &units[i];
+        const AI_Node* ai = &unit->ai[unit->ai_count - 1];
+        material.emissivity = 0;
         switch (unit->type) {
             default:
+            {
                 // Push name of the unit.
                 glLoadName(i);
                 switch (ai->state) {
                     case DK_AI_MOVE:
-                        glColor3f(0.9f, 0.9f, 0.9f);
+                        material.diffuse_color.v[0] = 0.9f;
+                        material.diffuse_color.v[1] = 0.9f;
+                        material.diffuse_color.v[2] = 0.9f;
                         break;
                     case DK_AI_IMP_DIG:
-                        glColor3f(0.6f, 0.9f, 0.6f);
+                        material.diffuse_color.v[0] = 0.6f;
+                        material.diffuse_color.v[1] = 0.9f;
+                        material.diffuse_color.v[2] = 0.6f;
                         break;
                     case DK_AI_IMP_CONVERT:
-                        glColor3f(0.6f, 0.6f, 0.9f);
+                        material.diffuse_color.v[0] = 0.6f;
+                        material.diffuse_color.v[1] = 0.6f;
+                        material.diffuse_color.v[2] = 0.9f;
                         break;
                     default:
-                        glColor3f(0.6f, 0.6f, 0.6f);
+                        material.diffuse_color.v[0] = 0.6f;
+                        material.diffuse_color.v[1] = 0.6f;
+                        material.diffuse_color.v[2] = 0.6f;
                         break;
                 }
+                DK_SetMaterial(&material);
                 DK_PushModelMatrix();
                 {
                     mat4 model = IDENTITY_MATRIX4;
@@ -541,50 +551,69 @@ static void onRender(void) {
                 gluSphere(quadratic, DK_BLOCK_SIZE / 6.0f, 8, 8);
                 DK_PopModelMatrix();
                 break;
+            }
         }
 
-        if (DK_d_draw_paths) {
-            if (ai->state == DK_AI_MOVE) {
-                glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT);
-
-                glColor3f(0.8f, 0.8f, 0.9f);
-                glLineWidth(1.25f);
-                glDisable(GL_LIGHTING);
-                glBegin(GL_LINES);
-                {
-                    unsigned int j;
-                    glVertex3f(ai->path[1].x * DK_BLOCK_SIZE, ai->path[1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
-                    for (j = 2; j <= ai->path_depth; ++j) {
-                        // Somewhere in the middle, smooth the path.
-                        for (unsigned int k = 1; k < 20; ++k) {
-                            const float t = k / 20.0f;
-                            const float x = catmull_rom(ai->path[j - 2].x, ai->path[j - 1].x, ai->path[j].x, ai->path[j + 1].x, t);
-                            const float y = catmull_rom(ai->path[j - 2].y, ai->path[j - 1].y, ai->path[j].y, ai->path[j + 1].y, t);
-                            glVertex3f(x * DK_BLOCK_SIZE, y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
-                            glVertex3f(x * DK_BLOCK_SIZE, y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
-                        }
+        if (DK_d_draw_paths && ai->state == DK_AI_MOVE) {
+            material.diffuse_color.v[0] = 0.8f;
+            material.diffuse_color.v[1] = 0.8f;
+            material.diffuse_color.v[2] = 0.9f;
+            material.emissivity = 1;
+            DK_SetMaterial(&material);
+            glLineWidth(1.75f);
+            glBegin(GL_LINES);
+            {
+                unsigned int j;
+                glVertex3f(ai->path[1].x * DK_BLOCK_SIZE, ai->path[1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                for (j = 2; j <= ai->path_depth; ++j) {
+                    // Somewhere in the middle, smooth the path.
+                    for (unsigned int k = 1; k < 20; ++k) {
+                        const float t = k / 20.0f;
+                        const float x = catmull_rom(ai->path[j - 2].x, ai->path[j - 1].x, ai->path[j].x, ai->path[j + 1].x, t);
+                        const float y = catmull_rom(ai->path[j - 2].y, ai->path[j - 1].y, ai->path[j].y, ai->path[j + 1].y, t);
+                        glVertex3f(x * DK_BLOCK_SIZE, y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                        glVertex3f(x * DK_BLOCK_SIZE, y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
                     }
-                    glVertex3f(ai->path[j - 1].x * DK_BLOCK_SIZE, ai->path[j - 1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
                 }
-                glEnd();
+                glVertex3f(ai->path[j - 1].x * DK_BLOCK_SIZE, ai->path[j - 1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+            }
+            glEnd();
 
-                glColor3f(0.8f, 0.4f, 0.4f);
-                for (unsigned int j = 1; j <= ai->path_depth; ++j) {
-                    glPushMatrix();
-                    glTranslatef(ai->path[j].x * DK_BLOCK_SIZE, ai->path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
-                    gluSphere(quadratic, 0.5f, 8, 8);
-                    glPopMatrix();
+            material.diffuse_color.v[0] = 0.8f;
+            material.diffuse_color.v[1] = 0.4f;
+            material.diffuse_color.v[2] = 0.4f;
+            DK_SetMaterial(&material);
+            for (unsigned int j = 1; j <= ai->path_depth; ++j) {
+                DK_PushModelMatrix();
+                {
+                    mat4 model = IDENTITY_MATRIX4;
+                    mitranslate(&model, ai->path[j].x * DK_BLOCK_SIZE, ai->path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                    DK_SetModelMatrix(&model);
                 }
-                glPopAttrib();
+                gluSphere(quadratic, 0.5f, 8, 8);
+                DK_PopModelMatrix();
             }
         }
     }
 }
 
-void DK_InitUnits(void) {
-    DK_OnUpdate(onUpdate);
-    DK_OnRender(onRender);
-    DK_OnMapChange(onMapChange);
+///////////////////////////////////////////////////////////////////////////////
+// Header implementation
+///////////////////////////////////////////////////////////////////////////////
+
+const vec2* DK_GetUnitPosition(const DK_Unit* unit) {
+    if (unit) {
+        return &unit->position;
+    }
+    return NULL;
+}
+
+int DK_IsUnitImmuneToLava(const DK_Unit* unit) {
+    return unit && unit->immune_to_lava;
+}
+
+DK_Player DK_GetUnitOwner(const DK_Unit* unit) {
+    return unit ? unit->owner : DK_PLAYER_NONE;
 }
 
 int DK_AddUnit(DK_Player player, DK_UnitType type, unsigned short x, unsigned short y) {
@@ -627,17 +656,8 @@ void DK_CancelJob(DK_Unit* unit) {
     }
 }
 
-const vec2* DK_GetUnitPosition(const DK_Unit* unit) {
-    if (unit) {
-        return &unit->position;
-    }
-    return NULL;
-}
-
-int DK_IsUnitImmuneToLava(const DK_Unit* unit) {
-    return unit && unit->immune_to_lava;
-}
-
-DK_Player DK_GetUnitOwner(const DK_Unit* unit) {
-    return unit ? unit->owner : DK_PLAYER_NONE;
+void DK_InitUnits(void) {
+    DK_OnUpdate(onUpdate);
+    DK_OnRender(onRender);
+    DK_OnMapChange(onMapChange);
 }

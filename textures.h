@@ -45,10 +45,10 @@ extern "C" {
     } DK_Texture;
 
     /** Loads textures into the textures array */
-    void DK_load_textures(void);
+    void DK_LoadTextures(void);
 
     /** Initializes textures for openGL after video reset */
-    void init_textures(void);
+    void DK_InitTextures(void);
 
     /** Get a specific texture; the variant is determined by the given hash */
     GLuint DK_opengl_texture(DK_Texture texture, unsigned int hash);

@@ -80,12 +80,15 @@ void DK_Init(void) {
     fprintf(DK_log_target, "INFO: OpenGL 3.3 supported.\n");
 
     // Load all textures we may need.
-    DK_load_textures();
+    DK_LoadTextures();
 
     fprintf(DK_log_target, "INFO: Done loading textures.\n");
 
     // Initialize openGL.
-    DK_init_gl();
+    DK_InitRender();
+
+    // Load all textures into the GPU.
+    DK_InitTextures();
 
     fprintf(DK_log_target, "INFO: Done initializing OpenGL.\n");
 
@@ -94,10 +97,12 @@ void DK_Init(void) {
     DK_InitCamera();
     DK_InitCursor();
     DK_InitSelection();
-    DK_InitJobs();
     DK_InitUnits();
     DK_InitMap();
-    
+    DK_InitJobs();
+
+    fprintf(DK_log_target, "INFO: Done initializing internal hooks.\n");
+
     // Initialize a test map.
     DK_LoadMap("test");
 }

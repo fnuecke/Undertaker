@@ -1,9 +1,14 @@
 #include <math.h>
 #include <GL/glew.h>
 
+#include "callbacks.h"
 #include "config.h"
 #include "graphics.h"
 #include "vmath.h"
+
+///////////////////////////////////////////////////////////////////////////////
+// Globals
+///////////////////////////////////////////////////////////////////////////////
 
 /** It's pie. Yummy! */
 static const float PI = 3.14159265358979323846f;
@@ -44,6 +49,13 @@ static struct {
     unsigned int model;
 } stack = {MATRIX_STACK_SIZE - 1, MATRIX_STACK_SIZE - 1, MATRIX_STACK_SIZE - 1};
 
+/** Methods to call when the model matrix changes */
+static Callbacks* gModelMatrixChangedCallbacks = 0;
+
+///////////////////////////////////////////////////////////////////////////////
+// Utility methods
+///////////////////////////////////////////////////////////////////////////////
+
 static void updateMatrices(int modelViewChanged) {
     if (modelViewChanged) {
         // Pre-compute model-view transform, as either model or view changed.
@@ -60,6 +72,10 @@ static void updateMatrices(int modelViewChanged) {
 
     // Pre-compute model-view-projection transform.
     mmulm(&matrix.mvp, DK_GetProjectionMatrix(), &matrix.mv);
+
+    if (modelViewChanged) {
+        CB_Call(gModelMatrixChangedCallbacks);
+    }
 }
 
 static int pushProjection(void) {
@@ -119,6 +135,10 @@ static int popModel(void) {
     return 0;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// Accessors
+///////////////////////////////////////////////////////////////////////////////
+
 const mat4* DK_GetModelMatrix(void) {
     return &matrix.model[stack.model];
 }
@@ -159,12 +179,13 @@ void DK_SetModelMatrix(const mat4* m) {
 
 int DK_BeginPerspective(void) {
     const float f = 1.0f / tanf(DK_field_of_view * (PI / 360.0f));
-    float* m = matrix.projection[stack.projection].m;
+    float* m;
 
     if (!pushProjection()) {
         return 0;
     }
 
+    m = matrix.projection[stack.projection].m;
 #define M(row, col) m[col * 4 + row]
     M(0, 0) = f / DK_ASPECT_RATIO;
     M(1, 1) = f;
@@ -184,12 +205,13 @@ int DK_EndPerspective(void) {
 }
 
 int DK_BeginOrthogonal(void) {
-    float* m = matrix.projection[stack.projection].m;
+    float* m;
 
     if (!pushProjection()) {
         return 0;
     }
 
+    m = matrix.projection[stack.projection].m;
 #define M(row, col) m[col * 4 + row]
     M(0, 0) = 2.0f / DK_resolution_x;
     M(0, 1) = 0.0f;
@@ -238,7 +260,7 @@ int DK_BeginPerspectiveForPicking(float x, float y) {
 }
 
 int DK_BeginLookAt(float eyex, float eyey, float eyez, float lookatx, float lookaty, float lookatz) {
-    mat4* m = &matrix.view[stack.view];
+    mat4* m;
     vec4 up = {
         {0.0f, 0.0f, 1.0f, 1.0f}
     };
@@ -247,6 +269,8 @@ int DK_BeginLookAt(float eyex, float eyey, float eyez, float lookatx, float look
     if (!pushView()) {
         return 0;
     }
+
+    m = &matrix.view[stack.view];
 
     // Compute direction vectors and set up base matrix.
     direction.v[0] = (lookatx - eyex);
@@ -374,4 +398,15 @@ int DK_UnProject(float winx, float winy, float winz,
     *objz = out.v[2] / out.v[3];
 
     return 1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Events
+///////////////////////////////////////////////////////////////////////////////
+
+void DK_OnModelMatrixChanged(callback method) {
+    if (!gModelMatrixChangedCallbacks) {
+        gModelMatrixChangedCallbacks = CB_New();
+    }
+    CB_Add(gModelMatrixChangedCallbacks, method);
 }

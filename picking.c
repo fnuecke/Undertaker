@@ -12,7 +12,7 @@ GLuint DK_Pick(int x, int y, void(*render)(void)) {
     GLuint closest, depth;
     GLint hits, hit;
 
-    glSelectBuffer(sizeof (buffer), buffer);
+    glSelectBuffer(64, buffer);
     glRenderMode(GL_SELECT);
     glInitNames();
     glPushName(0);

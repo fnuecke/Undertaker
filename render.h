@@ -13,6 +13,9 @@
 #include "callbacks.h"
 #include "vmath.h"
 
+/** Maximum number of textures on one material */
+#define DK_MAX_MATERIAL_TEXTURES 4
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
@@ -20,7 +23,7 @@ extern "C" {
     /** Used to configure material used for rendering */
     typedef struct {
         /** Textures used for multi-texturing */
-        GLuint textures[4];
+        GLuint textures[DK_MAX_MATERIAL_TEXTURES];
 
         /** Number of textures to use */
         unsigned int texture_count;
@@ -36,10 +39,13 @@ extern "C" {
 
         /** Specular multiplier for texture */
         vec3 specular_color;
+
+        /** Emissivity of the color, i.e. how much light it provides to itself */
+        float emissivity;
     } DK_Material;
 
     /** (Re)initialize openGL */
-    void DK_init_gl(void);
+    void DK_InitRender(void);
 
     /** Render the game to the screen */
     void DK_Render(void);
@@ -48,10 +54,10 @@ extern "C" {
     void DK_render_set_camera(const float* position, const float* target);
 
     /** Set material information to use from now on */
-    void DK_render_set_material(const DK_Material* material);
+    void DK_SetMaterial(const DK_Material* material);
 
     /** Initialize a material to its default values */
-    void DK_material_init(DK_Material* material);
+    void DK_InitMaterial(DK_Material* material);
 
     /**
      * Initialize rendering system for events.

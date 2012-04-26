@@ -45,18 +45,24 @@ out vec3 Color;
 // Main routing, does what a main does. Freakin' EVERYTHING!
 void main(void) {
 	// Get position in the world.
-	vec3 position = texture2D(PositionBuffer, fs_TextureCoordinate).xyz;
+	vec4 tmp = texture2D(PositionBuffer, fs_TextureCoordinate);
+	vec3 position = tmp.xyz;
+	float emissivity = tmp.w;
+
 	// Get surface normal.
 	vec3 normal = texture2D(NormalBuffer, fs_TextureCoordinate).xyz;
+
 	// Get material color components.
-	vec4 materialColor = texture2D(ColorBuffer, fs_TextureCoordinate);
-	vec3 materialDiffuse = materialColor.rgb;
-	vec3 materialSpecular = vec3(materialColor.a);
+	tmp = texture2D(ColorBuffer, fs_TextureCoordinate);
+	vec3 materialDiffuse = tmp.rgb;
+	vec3 materialSpecular = vec3(tmp.a);
 
 	// Apply lighting.
 	//vec3 toLight = normalize(LightWorldPosition - position);
-	vec3 toLight = normalize(vec3(0, 0, 128) - position);
-	vec3 diffuse = max(dot(normal, toLight), 0) * materialDiffuse;
+	vec3 toLight = vec3(0, 0, 128) - position;
+	float distance = length(toLight);
+	toLight = normalize(toLight);
+	vec3 diffuse = max(dot(normal, toLight), emissivity) * materialDiffuse * 100 / distance;
 
 	// Write final color.
 	Color = diffuse;

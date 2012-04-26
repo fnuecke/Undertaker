@@ -494,12 +494,12 @@ static void update_block(DK_Block* block) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static void set_texture(int x, int y, unsigned int z, DK_Texture texture) {
-    unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
+    const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
     DK_Material material;
-    DK_material_init(&material);
+    DK_InitMaterial(&material);
     material.textures[0] = DK_opengl_texture(texture, variation);
     material.texture_count = 1;
-    DK_render_set_material(&material);
+    DK_SetMaterial(&material);
 }
 
 static void draw_top(int x, int y, unsigned int z, DK_Texture texture) {
@@ -1312,6 +1312,7 @@ static void onRender(void) {
             draw_top(x, y, z, texture_top);
 
             if (!gIsPicking && (texture_top_wall || texture_top_owner)) {
+/*
                 glEnable(GL_BLEND);
                 glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -1323,6 +1324,7 @@ static void onRender(void) {
                 }
 
                 glDisable(GL_BLEND);
+*/
             }
 
             // Check if we need to render walls.

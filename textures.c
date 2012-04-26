@@ -74,7 +74,7 @@ static GLuint surface2glTex(const SDL_Surface* surface) {
     return texture;
 }
 
-void DK_load_textures(void) {
+void DK_LoadTextures(void) {
     int textureId;
     char filename[64];
     SDL_Surface* texture;
@@ -108,7 +108,7 @@ void DK_load_textures(void) {
     DK_test_texture = IMG_Load(filename);
 }
 
-void init_textures(void) {
+void DK_InitTextures(void) {
     int textureId;
     for (textureId = 0; textureId < DK_TEX_COUNT; ++textureId) {
         int count;

@@ -8,6 +8,7 @@
 #ifndef GRAPHICS_H
 #define	GRAPHICS_H
 
+#include "callbacks.h"
 #include "vmath.h"
 
 #ifdef	__cplusplus
@@ -61,6 +62,16 @@ extern "C" {
 
     int DK_UnProject(float winx, float winy, float winz,
             float *objx, float *objy, float *objz);
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Events
+    ///////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Register a method to be notified whenever the model matrix changes.
+     * @param method the method to call when the model matrix changes.
+     */
+    void DK_OnModelMatrixChanged(callback method);
 
 #ifdef	__cplusplus
 }

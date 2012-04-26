@@ -22,6 +22,8 @@ uniform int TextureCount;
 uniform vec3 ColorDiffuse;
 // The specular color of the object.
 uniform vec3 ColorSpecular;
+// How much light the texture emits.
+uniform float ColorEmissivity;
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -35,7 +37,7 @@ in vec2 fs_TextureCoordinate;
 
 ///////////////////////////////////////////////////////////////////////////////
 // We return the vertex position in world space.
-out vec3 Vertex;
+out vec4 Vertex;
 // And the normal direction in world space.
 out vec3 Normal;
 // We store the diffuse and specular color in a single vec4 by making the
@@ -54,10 +56,14 @@ float brightness(vec3 color) {
 ///////////////////////////////////////////////////////////////////////////////
 // Main routing, does what a main does. Freakin' EVERYTHING!
 void main(void) {
-	vec4 textureColor = texture2D(Textures, fs_TextureCoordinate);
-	//Color = vec4(textureColor.rgb * ColorDiffuse, brightness(textureColor.rgb * ColorSpecular));
-	Color = textureColor;
-	Vertex = fs_WorldVertex;
+	if (TextureCount > 0) {
+		vec4 textureColor = texture2D(Textures, fs_TextureCoordinate);
+		Color = vec4(textureColor.rgb * ColorDiffuse, brightness(textureColor.rgb * ColorSpecular));
+		Color = textureColor;
+	} else {
+		Color = vec4(ColorDiffuse.rgb, brightness(ColorSpecular));
+	}
+	Vertex = vec4(fs_WorldVertex.xyz, ColorEmissivity);
 	Normal = fs_WorldNormal;
 }
 ///////////////////////////////////////////////////////////////////////////////

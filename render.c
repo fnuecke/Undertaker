@@ -16,20 +16,14 @@
 #include "units.h"
 #include "vmath.h"
 
-/** Shader programs */
-//GLuint deferred_render = 0, deferred_shade = 0;
-
-/** Our framebuffer for deferred shading */
-//GLuint frame_buffer = 0;
-
-/** Renderbuffers for diffuse, position, normals and depth */
-//GLuint diffuse_buffer = 0, position_buffer = 0, normals_buffer = 0, depth_buffer = 0;
-
-/** The OpenGL textures for the render targets */
-//GLuint diffuse_texture = 0, position_texture = 0, normals_texture = 0;
-
-/** The ids for the uniforms in our shader program we bind our texture to */
-//GLuint diffuse_id = 0, position_id = 0, normals_id = 0, camera_id = 0, texture_id = 0;
+#define EXIT_ON_OPENGL_ERROR()\
+    { \
+        GLenum error = glGetError(); \
+        if (error != GL_FALSE) { \
+            fprintf(DK_log_target, "ERROR: OpenGL broke (%d) here: %s:%d\n", error, __FILE__, __LINE__); \
+            exit(EXIT_FAILURE); \
+        } \
+    }
 
 /** Holds information on our GBuffer */
 static struct {
@@ -95,6 +89,9 @@ static struct {
 
         /** The specular color multiplier */
         GLint ColorSpecular;
+
+        /** The emissivity of the color */
+        GLint ColorEmissivity;
     } fs_uniforms;
 } geometry_shader;
 
@@ -159,49 +156,14 @@ static Callbacks* gPreRenderCallbacks = 0;
 static Callbacks* gRenderCallbacks = 0;
 static Callbacks* gPostRenderCallbacks = 0;
 
+/** Flag if we're currently in the geometry rendering stage */
+static int gGeometryPass = 0;
+
 ///////////////////////////////////////////////////////////////////////////////
-// Helper methods
+// Shader and GBuffer setup
 ///////////////////////////////////////////////////////////////////////////////
 
-static GLenum create_render_buffer(GLenum internalformat, GLenum attachment) {
-    // Generate and bind the render buffer.
-    GLuint render_buffer;
-    glGenRenderbuffers(1, &render_buffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, render_buffer);
-
-    // Set it up.
-    glRenderbufferStorage(GL_RENDERBUFFER, internalformat, DK_resolution_x, DK_resolution_y);
-
-    // Bind it to the frame buffer.
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, render_buffer);
-
-    // And return it.
-    return render_buffer;
-}
-
-static GLenum create_texture(GLenum internalformat, GLenum type, GLenum attachment) {
-    // Generate and bind the texture.
-    GLenum texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-
-    // Allocate it.
-    glTexImage2D(GL_TEXTURE_2D, 0, internalformat, DK_resolution_x, DK_resolution_y, 0, GL_RGBA, type, NULL);
-
-    // Set some more parameters.
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    // Attach it to the frame buffer.
-    glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, texture, 0);
-
-    // And return it.
-    return texture;
-}
-
-static void init_shaders(void) {
+static void initShaders(void) {
     // Load shader for deferred shading.
     GLuint vs = DK_shader_load("data/shaders/geom.vert", GL_VERTEX_SHADER);
     GLuint fs = DK_shader_load("data/shaders/geom.frag", GL_FRAGMENT_SHADER);
@@ -221,6 +183,8 @@ static void init_shaders(void) {
             geometry_shader.fs_uniforms.TextureCount = glGetUniformLocation(geometry_shader.program, "TextureCount");
             geometry_shader.fs_uniforms.ColorDiffuse = glGetUniformLocation(geometry_shader.program, "ColorDiffuse");
             geometry_shader.fs_uniforms.ColorSpecular = glGetUniformLocation(geometry_shader.program, "ColorSpecular");
+            geometry_shader.fs_uniforms.ColorEmissivity = glGetUniformLocation(geometry_shader.program, "ColorEmissivity");
+            EXIT_ON_OPENGL_ERROR();
         }
     } else {
         geometry_shader.program = 0;
@@ -244,26 +208,81 @@ static void init_shaders(void) {
             light_shader.fs_uniforms.LightDiffuseColor = glGetUniformLocation(light_shader.program, "LightDiffuseColor");
             light_shader.fs_uniforms.LightSpecularColor = glGetUniformLocation(light_shader.program, "LightSpecularColor");
             light_shader.fs_uniforms.LightWorldPosition = glGetUniformLocation(light_shader.program, "LightWorldPosition");
+            EXIT_ON_OPENGL_ERROR();
         }
     } else {
         light_shader.program = 0;
         return;
     }
+}
 
+static GLenum createRenderBuffer(GLenum internalformat, GLenum attachment) {
+    // Generate and bind the render buffer.
+    GLuint render_buffer;
+    glGenRenderbuffers(1, &render_buffer);
+    EXIT_ON_OPENGL_ERROR();
+
+    glBindRenderbuffer(GL_RENDERBUFFER, render_buffer);
+    EXIT_ON_OPENGL_ERROR();
+
+    // Set it up.
+    glRenderbufferStorage(GL_RENDERBUFFER, internalformat, DK_resolution_x, DK_resolution_y);
+    EXIT_ON_OPENGL_ERROR();
+
+    // Bind it to the frame buffer.
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, render_buffer);
+    EXIT_ON_OPENGL_ERROR();
+
+    // And return it.
+    return render_buffer;
+}
+
+static GLenum createTexture(GLenum internalformat, GLenum type, GLenum attachment) {
+    // Generate and bind the texture.
+    GLenum texture;
+    glGenTextures(1, &texture);
+    EXIT_ON_OPENGL_ERROR();
+
+    glBindTexture(GL_TEXTURE_2D, texture);
+    EXIT_ON_OPENGL_ERROR();
+
+    // Allocate it.
+    glTexImage2D(GL_TEXTURE_2D, 0, internalformat, DK_resolution_x, DK_resolution_y, 0, GL_RGBA, type, NULL);
+    EXIT_ON_OPENGL_ERROR();
+
+    // Set some more parameters.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    EXIT_ON_OPENGL_ERROR();
+
+    // Attach it to the frame buffer.
+    glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, texture, 0);
+    EXIT_ON_OPENGL_ERROR();
+
+    // And return it.
+    return texture;
+}
+
+static void initGBuffer(void) {
     // Generate and bind our frame buffer.
     glGenFramebuffers(1, &g_buffer.frame_buffer);
+    EXIT_ON_OPENGL_ERROR();
+
     glBindFramebuffer(GL_FRAMEBUFFER, g_buffer.frame_buffer);
+    EXIT_ON_OPENGL_ERROR();
 
     // Create our render buffers.
-    g_buffer.position_buffer = create_render_buffer(GL_RGB32F, GL_COLOR_ATTACHMENT0);
-    g_buffer.normal_buffer = create_render_buffer(GL_RGB16F, GL_COLOR_ATTACHMENT1);
-    g_buffer.color_buffer = create_render_buffer(GL_RGB, GL_COLOR_ATTACHMENT2);
-    g_buffer.depth_buffer = create_render_buffer(GL_DEPTH_COMPONENT24, GL_DEPTH_ATTACHMENT);
+    g_buffer.position_buffer = createRenderBuffer(GL_RGBA32F, GL_COLOR_ATTACHMENT0);
+    g_buffer.normal_buffer = createRenderBuffer(GL_RGB16F, GL_COLOR_ATTACHMENT1);
+    g_buffer.color_buffer = createRenderBuffer(GL_RGBA, GL_COLOR_ATTACHMENT2);
+    g_buffer.depth_buffer = createRenderBuffer(GL_DEPTH_COMPONENT24, GL_DEPTH_ATTACHMENT);
 
     // Create our textures.
-    g_buffer.position_texture = create_texture(GL_RGB32F, GL_FLOAT, GL_COLOR_ATTACHMENT0);
-    g_buffer.normal_texture = create_texture(GL_RGB16F, GL_FLOAT, GL_COLOR_ATTACHMENT1);
-    g_buffer.color_texture = create_texture(GL_RGB, GL_UNSIGNED_BYTE, GL_COLOR_ATTACHMENT2);
+    g_buffer.position_texture = createTexture(GL_RGBA32F, GL_FLOAT, GL_COLOR_ATTACHMENT0);
+    g_buffer.normal_texture = createTexture(GL_RGB16F, GL_FLOAT, GL_COLOR_ATTACHMENT1);
+    g_buffer.color_texture = createTexture(GL_RGBA, GL_UNSIGNED_BYTE, GL_COLOR_ATTACHMENT2);
 
     // Check if all worked fine and unbind the FBO
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -273,75 +292,62 @@ static void init_shaders(void) {
 
     // All done, unbind frame buffer.
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    EXIT_ON_OPENGL_ERROR();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Header implementation
+// Helper methods
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_init_gl(void) {
-    // We do use textures, so enable that.
-    glEnable(GL_TEXTURE_2D);
-
-    // We want triangle surface pixels to be shaded using interpolated values.
-    glShadeModel(GL_SMOOTH);
-
-    // We do manual lighting via deferred shading.
-    glDisable(GL_LIGHTING);
-
-    // Also enable depth testing to get stuff in the right order.
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
-    glDepthMask(GL_TRUE);
-
-    // We'll make sure stuff is rotated correctly, so we can cull back-faces.
-    glEnable(GL_CULL_FACE);
-    glFrontFace(GL_CCW);
-
-    glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-
-    // Initialize our deferred shaders.
-    init_shaders();
-
-    // Load all textures we may need.
-    init_textures();
-
-    // Define our viewport as the size of our window.
-    glViewport(0, 0, DK_resolution_x, DK_resolution_y);
-
-    // Set our projection matrix to match our viewport. Null the OpenGL internal
-    // ones, as we'll use our own because we use shaders.
-    /*
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
-     */
-}
-
-static void camera_position(vec4* position) {
+static vec4 getCameraPosition(void) {
     const vec2* camera = DK_GetCameraPosition();
-    position->v[0] = camera->v[0];
-    position->v[1] = camera->v[1];
-    position->v[2] = DK_CAMERA_HEIGHT - DK_GetCameraZoom() * DK_CAMERA_MAX_ZOOM;
-    position->v[3] = 1.0f;
+    vec4 position = {
+        {
+            camera->v[0],
+            camera->v[1],
+            DK_CAMERA_HEIGHT - DK_GetCameraZoom() * DK_CAMERA_MAX_ZOOM,
+            1.0f
+        }
+    };
+    return position;
 }
 
-static void camera_target(vec4* target) {
+static vec4 getCameraTarget(void) {
     const vec2* camera = DK_GetCameraPosition();
-    target->v[0] = camera->v[0];
-    target->v[1] = camera->v[1] + DK_CAMERA_TARGET_DISTANCE;
-    target->v[2] = 0.0f;
-    target->v[3] = 1.0f;
+    vec4 target = {
+        {
+            camera->v[0],
+            camera->v[1] + DK_CAMERA_TARGET_DISTANCE,
+            0.0f,
+            1.0f
+        }
+    };
+    return target;
 }
 
-static const GLenum buffers[] = {
-    GL_COLOR_ATTACHMENT0,
-    GL_COLOR_ATTACHMENT1,
-    GL_COLOR_ATTACHMENT2
-};
+static void onModelMatrixChanged(void) {
+    if (gGeometryPass) {
+        // Set uniforms for geometry shader.
+        glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelMatrix, 1, GL_FALSE, DK_GetModelMatrix()->m);
+        glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
+        // TODO Pre-compute the normal matrix.
+        //glUniformMatrix4fv(geometry_shader.vs_uniforms.NormalMatrix, 1, GL_FALSE, DK_GetNormalMatrix());
 
-static void begin_deferred(void) {
+        EXIT_ON_OPENGL_ERROR();
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Deferred lighting
+///////////////////////////////////////////////////////////////////////////////
+
+static void geometryPass(void) {
+    static const GLenum buffers[] = {
+        GL_COLOR_ATTACHMENT0,
+        GL_COLOR_ATTACHMENT1,
+        GL_COLOR_ATTACHMENT2
+    };
+
     // Bind our frame buffer.
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, g_buffer.frame_buffer);
 
@@ -352,17 +358,13 @@ static void begin_deferred(void) {
     // Start using the geometry shader.
     glUseProgram(geometry_shader.program);
 
-    // Set uniforms for geometry shader.
-    glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelMatrix, 1, GL_FALSE, DK_GetModelMatrix()->m);
-    glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
-    // TODO Pre-compute the normal matrix.
-    //glUniformMatrix4fv(geometry_shader.vs_uniforms.NormalMatrix, 1, GL_FALSE, DK_GetNormalMatrix());
-
     // Use our three buffers.
     glDrawBuffers(3, buffers);
+
+    EXIT_ON_OPENGL_ERROR();
 }
 
-static void finalize_deferred(void) {
+static void lightPass(void) {
     // Stop using geometry buffer.
     glUseProgram(0);
 
@@ -381,7 +383,8 @@ static void finalize_deferred(void) {
 
     // Figure out what to draw.
     if (DK_d_draw_deferred == DK_D_DEFERRED_FINAL) {
-        vec4 cam_position;
+        // Get camera position.
+        vec4 cam_position = getCameraPosition();
 
         // We use our shader to do the actual shading computations.
         glUseProgram(light_shader.program);
@@ -390,7 +393,6 @@ static void finalize_deferred(void) {
         glUniformMatrix4fv(light_shader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
 
         // Set camera position.
-        camera_position(&cam_position);
         glUniform3fv(light_shader.fs_uniforms.WorldCameraPosition, 1, cam_position.v);
 
         // Set our three g-buffer textures.
@@ -408,10 +410,9 @@ static void finalize_deferred(void) {
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, g_buffer.normal_texture);
         glUniform1i(light_shader.fs_uniforms.NormalBuffer, 2);
-    } else {
-        glDisable(GL_LIGHTING);
-        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
+        EXIT_ON_OPENGL_ERROR();
+    } else {
         glActiveTexture(GL_TEXTURE0);
         glEnable(GL_TEXTURE_2D);
         switch (DK_d_draw_deferred) {
@@ -427,6 +428,8 @@ static void finalize_deferred(void) {
             default:
                 break;
         }
+
+        EXIT_ON_OPENGL_ERROR();
     }
 
     // Render the quad
@@ -443,6 +446,8 @@ static void finalize_deferred(void) {
     }
     glEnd();
 
+    EXIT_ON_OPENGL_ERROR();
+
     // Unbind the textures we used.
     glActiveTexture(GL_TEXTURE0);
     glDisable(GL_TEXTURE_2D);
@@ -458,21 +463,28 @@ static void finalize_deferred(void) {
 
         // Done with our lighting shader.
         glUseProgram(0);
+
+        EXIT_ON_OPENGL_ERROR();
     }
 
     // Reset matrices.
     DK_PopModelMatrix();
     DK_EndLookAt();
     DK_EndOrthogonal();
+
+    EXIT_ON_OPENGL_ERROR();
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// Initialization and rendering
+///////////////////////////////////////////////////////////////////////////////
 
 void DK_Render(void) {
     // Set camera position.
-    vec4 cam_position, cam_target;
-    camera_position(&cam_position);
-    camera_target(&cam_target);
-    DK_BeginLookAt(cam_position.v[0], cam_position.v[1], cam_position.v[2],
-            cam_target.v[0], cam_target.v[1], cam_target.v[2]);
+    const vec4 cameraPosition = getCameraPosition();
+    const vec4 cameraTarget = getCameraTarget();
+    DK_BeginLookAt(cameraPosition.v[0], cameraPosition.v[1], cameraPosition.v[2],
+            cameraTarget.v[0], cameraTarget.v[1], cameraTarget.v[2]);
 
     // Set projection matrix.
     if (DK_d_draw_picking_mode) {
@@ -496,14 +508,16 @@ void DK_Render(void) {
     CB_Call(gPreRenderCallbacks);
 
     if (DK_d_draw_deferred_shader && geometry_shader.program && light_shader.program) {
-        begin_deferred();
+        geometryPass();
+        gGeometryPass = 1;
     }
 
     // Render game components.
     CB_Call(gRenderCallbacks);
 
     if (DK_d_draw_deferred_shader && geometry_shader.program && light_shader.program) {
-        finalize_deferred();
+        gGeometryPass = 0;
+        lightPass();
     }
 
     // Trigger post render hooks.
@@ -514,23 +528,94 @@ void DK_Render(void) {
     DK_EndLookAt();
 }
 
+void DK_InitRender(void) {
+    // We do use textures, so enable that.
+    glEnable(GL_TEXTURE_2D);
+    EXIT_ON_OPENGL_ERROR();
+
+    // We want triangle surface pixels to be shaded using interpolated values.
+    glShadeModel(GL_SMOOTH);
+    EXIT_ON_OPENGL_ERROR();
+
+    // We do manual lighting via deferred shading.
+    //glDisable(GL_LIGHTING);
+
+    // Also enable depth testing to get stuff in the right order.
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_TRUE);
+    EXIT_ON_OPENGL_ERROR();
+
+    // We'll make sure stuff is rotated correctly, so we can cull back-faces.
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW);
+    EXIT_ON_OPENGL_ERROR();
+
+    glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+    EXIT_ON_OPENGL_ERROR();
+
+    // Initialize our deferred shaders.
+    initShaders();
+    initGBuffer();
+
+    // Define our viewport as the size of our window.
+    glViewport(0, 0, DK_resolution_x, DK_resolution_y);
+    EXIT_ON_OPENGL_ERROR();
+
+    // Set our projection matrix to match our viewport. Null the OpenGL internal
+    // ones, as we'll use our own because we use shaders.
+    /*
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+     */
+
+    DK_OnModelMatrixChanged(onModelMatrixChanged);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Material
+///////////////////////////////////////////////////////////////////////////////
+
 //static const GLint textureUnits[4] = {0, 1, 2, 3};
 
-void DK_render_set_material(const DK_Material* material) {
-    for (unsigned int i = 0; i < sizeof (material->textures); ++i) {
+void DK_SetMaterial(const DK_Material* material) {
+    for (unsigned int i = 0; i < DK_MAX_MATERIAL_TEXTURES; ++i) {
         glActiveTexture(GL_TEXTURE0 + i);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
-    for (unsigned int i = 0; i < material->texture_count; ++i) {
-        glActiveTexture(GL_TEXTURE0 + i);
-        glBindTexture(GL_TEXTURE_2D, material->textures[i]);
+    EXIT_ON_OPENGL_ERROR();
+
+    if (gGeometryPass) {
+        glColor3f(1.0f, 1.0f, 1.0f);
+        glDisable(GL_TEXTURE_2D);
+
+        for (unsigned int i = 0; i < material->texture_count; ++i) {
+            glActiveTexture(GL_TEXTURE0 + i);
+            glBindTexture(GL_TEXTURE_2D, material->textures[i]);
+        }
+
+        glUniform1i(geometry_shader.fs_uniforms.Textures, 0);
+        glUniform1i(geometry_shader.fs_uniforms.TextureCount, material->texture_count);
+
+        glUniform3fv(geometry_shader.fs_uniforms.ColorDiffuse, 1, material->diffuse_color.v);
+        glUniform3fv(geometry_shader.fs_uniforms.ColorSpecular, 1, material->specular_color.v);
+
+        glUniform1f(geometry_shader.fs_uniforms.ColorEmissivity, material->emissivity);
+        EXIT_ON_OPENGL_ERROR();
+    } else {
+        glColor3f(material->diffuse_color.v[0], material->diffuse_color.v[1], material->diffuse_color.v[2]);
+        if (material->texture_count > 0) {
+            glActiveTexture(GL_TEXTURE0);
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, material->textures[0]);
+        }
     }
-    glUniform1i(geometry_shader.fs_uniforms.Textures, 0);
-    glUniform1i(geometry_shader.fs_uniforms.TextureCount, material->texture_count);
 }
 
-void DK_material_init(DK_Material* material) {
-    for (unsigned int i = 0; i < sizeof (material->textures); ++i) {
+void DK_InitMaterial(DK_Material* material) {
+    for (unsigned int i = 0; i < DK_MAX_MATERIAL_TEXTURES; ++i) {
         material->textures[i] = 0;
     }
     material->texture_count = 0;
@@ -540,9 +625,14 @@ void DK_material_init(DK_Material* material) {
     material->specular_color.v[0] = 1.0f;
     material->specular_color.v[1] = 1.0f;
     material->specular_color.v[2] = 1.0f;
+    material->emissivity = 0;
     material->bump_map = 0;
     material->normal_map = 0;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// Events
+///////////////////////////////////////////////////////////////////////////////
 
 void DK_OnPreRender(callback method) {
     if (!gPreRenderCallbacks) {
