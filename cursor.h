@@ -21,9 +21,9 @@ extern "C" {
     const vec2* DK_GetCursor(void);
 
     /**
-     * Update the cursor coordinate. This should be called each frame.
+     * Initialize cursor bindings.
      */
-    void DK_UpdateCursor(void);
+    void DK_InitCursor(void);
 
 #ifdef	__cplusplus
 }

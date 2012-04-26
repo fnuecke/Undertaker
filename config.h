@@ -28,6 +28,12 @@ int DK_resolution_y;
 /** The field of view to use */
 int DK_field_of_view;
 
+/** Near clip plane for rendering */
+#define DK_CLIP_NEAR 0.1f
+
+/** Far clip plane for rendering */
+#define DK_CLIP_FAR 500.0f
+
 /** Whether to use anti aliasing or not */
 int DK_use_antialiasing;
 
@@ -254,6 +260,12 @@ typedef enum {
 
 /** What part of the deferred rendering process to output */
 DK_DeferredDisplay DK_d_draw_deferred;
+
+/** Show what the picking matrix sees */
+int DK_d_draw_picking_mode;
+
+/** Render using the deferred shading pipeline (shaders)? */
+int DK_d_draw_deferred_shader;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Debugging

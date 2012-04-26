@@ -9,7 +9,9 @@ BitSet BS_New(unsigned int size) {
 }
 
 void BS_Delete(BitSet bitset) {
-    free(bitset);
+    if (bitset) {
+        free(bitset);
+    }
 }
 
 void BS_Set(BitSet bitset, unsigned int idx) {

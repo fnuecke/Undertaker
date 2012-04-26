@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <string.h>
 
+
+#include "render.h"
+
 #include "jobs.h"
 #include "selection.h"
 #include "config.h"
@@ -233,14 +236,45 @@ static void jobs_add(DK_Player player, unsigned short x, unsigned short y) {
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_InitJobs(void) {
-    int player, job_index;
-    for (player = 0; player < DK_PLAYER_COUNT; ++player) {
-        for (job_index = jobs_count[player] - 1; job_index >= 0; --job_index) {
-            free(jobs[player][job_index]);
+static void onRender(void) {
+    if (DK_d_draw_jobs) {
+        for (unsigned int i = 0; i < jobs_count[DK_PLAYER_ONE]; ++i) {
+            const DK_Job* job = jobs[DK_PLAYER_ONE][i];
+
+            if (job->worker) {
+                if (job->type == DK_JOB_DIG) {
+                    glColor3f(0.4f, 0.8f, 0.4f);
+                } else {
+                    glColor3f(0.4f, 0.4f, 0.8f);
+                }
+            } else {
+                glColor3f(0.4f, 0.4f, 0.4f);
+            }
+
+            glBegin(GL_QUADS);
+            {
+                glVertex3f((job->position.v[0] - 0.1f) * DK_BLOCK_SIZE, (job->position.v[1] - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+                glVertex3f((job->position.v[0] + 0.1f) * DK_BLOCK_SIZE, (job->position.v[1] - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+                glVertex3f((job->position.v[0] + 0.1f) * DK_BLOCK_SIZE, (job->position.v[1] + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+                glVertex3f((job->position.v[0] - 0.1f) * DK_BLOCK_SIZE, (job->position.v[1] + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+            }
+            glEnd();
+        }
+    }
+}
+
+static void onMapChange(void) {
+    for (unsigned int player = 0; player < DK_PLAYER_COUNT; ++player) {
+        for (unsigned int job_index = jobs_count[player]; job_index > 0; --job_index) {
+            free(jobs[player][job_index - 1]);
         }
         jobs_count[player] = 0;
     }
+}
+
+void DK_InitJobs(void) {
+    DK_OnMapChange(onMapChange);
+    DK_OnRender(onRender);
 }
 
 void DK_FindJobs(DK_Player player, unsigned short x, unsigned short y) {
@@ -272,37 +306,6 @@ void DK_FindJobs(DK_Player player, unsigned short x, unsigned short y) {
     }
     if (y < DK_GetMapSize() - 1) {
         jobs_add(player, x, y + 1);
-    }
-}
-
-void DK_RenderJobs(void) {
-    if (DK_d_draw_jobs) {
-        unsigned int i;
-        for (i = 0; i < jobs_count[DK_PLAYER_ONE]; ++i) {
-            const DK_Job* job = jobs[DK_PLAYER_ONE][i];
-
-            if (job->worker) {
-                if (job->type == DK_JOB_DIG) {
-                    glColor3f(0.4f, 0.8f, 0.4f);
-                } else {
-                    glColor3f(0.4f, 0.4f, 0.8f);
-                }
-            } else {
-                glColor3f(0.4f, 0.4f, 0.4f);
-            }
-            glDisable(GL_LIGHTING);
-
-            glBegin(GL_QUADS);
-            {
-                glVertex3f((job->position.v[0] - 0.1f) * DK_BLOCK_SIZE, (job->position.v[1] - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-                glVertex3f((job->position.v[0] + 0.1f) * DK_BLOCK_SIZE, (job->position.v[1] - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-                glVertex3f((job->position.v[0] + 0.1f) * DK_BLOCK_SIZE, (job->position.v[1] + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-                glVertex3f((job->position.v[0] - 0.1f) * DK_BLOCK_SIZE, (job->position.v[1] + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-            }
-            glEnd();
-
-            glEnable(GL_LIGHTING);
-        }
     }
 }
 

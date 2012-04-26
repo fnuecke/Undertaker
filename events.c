@@ -58,6 +58,12 @@ static void key_up(const SDL_Event* e) {
         case SDLK_F5:
             DK_d_draw_deferred = (DK_d_draw_deferred + 1) % DK_D_DEFERRED_COUNT;
             break;
+        case SDLK_F6:
+            DK_d_draw_picking_mode = 1 - DK_d_draw_picking_mode;
+            break;
+        case SDLK_F7:
+            DK_d_draw_deferred_shader = 1 - DK_d_draw_deferred_shader;
+            break;
         default:
             break;
     }

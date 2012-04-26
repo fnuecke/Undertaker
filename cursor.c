@@ -6,14 +6,15 @@
 #include "cursor.h"
 #include "vmath.h"
 #include "graphics.h"
+#include "update.h"
+#include "render.h"
 
+/**
+ * The current cursor position.
+ */
 static vec2 gCursorPosition;
 
-const vec2* DK_GetCursor(void) {
-    return &gCursorPosition;
-}
-
-void DK_UpdateCursor(void) {
+static void update(void) {
     // Get environment info.
     int mouseX, mouseY;
     float objXn, objYn, objZn;
@@ -42,4 +43,12 @@ void DK_UpdateCursor(void) {
         gCursorPosition.v[0] = objXn + vx * m;
         gCursorPosition.v[1] = objYn + vy * m;
     }
+}
+
+const vec2* DK_GetCursor(void) {
+    return &gCursorPosition;
+}
+
+void DK_InitCursor(void) {
+    DK_OnPreRender(update);
 }

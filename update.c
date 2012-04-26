@@ -3,8 +3,15 @@
 #include "units.h"
 #include "update.h"
 
+static Callbacks* gUpdateCallbacks = 0;
+
 void DK_Update(void) {
-    DK_UpdateCamera();
-    DK_UpdateMap();
-    DK_UpdateUnits();
+    CB_Call(gUpdateCallbacks);
+}
+
+void DK_OnUpdate(callback method) {
+    if (!gUpdateCallbacks) {
+        gUpdateCallbacks = CB_New();
+    }
+    CB_Add(gUpdateCallbacks, method);
 }

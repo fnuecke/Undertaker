@@ -126,37 +126,41 @@ extern "C" {
     // Modifiers
     ///////////////////////////////////////////////////////////////////////////
 
-    /** Change the type of a block */
+    /**
+     * Change the type of a block.
+     */
     void DK_SetBlockType(DK_Block* block, DK_BlockType type);
 
-    /** Change the owner of a block */
+    /**
+     * Change the owner of a block.
+     */
     void DK_SetBlockOwner(DK_Block* block, DK_Player player);
 
-    /** Apply damage to a block (dirt, gold or gem); return 1 if destroyed */
+    /**
+     * Apply damage to a block (dirt, gold or gem); return 1 if destroyed.
+     */
     int DK_DamageBlock(DK_Block* block, unsigned int damage);
 
-    /** Apply conversion to a block (dirt, wall, empty); return 1 if successful */
+    /**
+     * Apply conversion to a block (dirt, wall, empty); return 1 if successful.
+     */
     int DK_ConvertBlock(DK_Block* block, unsigned int strength, DK_Player player);
 
     ///////////////////////////////////////////////////////////////////////////
-    // Initialization / Update / Render
+    // Initialization / Events
     ///////////////////////////////////////////////////////////////////////////
 
-    /** Clears the current map and initializes a new one with the specified size */
-    void DK_InitMap(unsigned short size);
-
-    /** Update map data such as currently hovered block */
-    void DK_UpdateMap(void);
-
-    /** Render the current map (blocks) */
-    void DK_RenderMap(void);
+    /**
+     * Initialize map related event logic.
+     */
+    void DK_InitMap(void);
 
     /**
      * Register a method that should be called when the map size changes.
      * Methods are called in the order in which they are registered.
      * @param callback the method to call.
      */
-    void DK_OnMapSizeChange(callback method);
+    void DK_OnMapChange(callback method);
 
 #ifdef	__cplusplus
 }

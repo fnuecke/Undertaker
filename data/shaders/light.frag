@@ -14,12 +14,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
-// Color render target of our g-buffer.
-uniform sampler2D ColorBuffer;
 // Position render target of our g-buffer.
 uniform sampler2D PositionBuffer; 
 // Normal render target of our g-buffer.
 uniform sampler2D NormalBuffer;
+// Color render target of our g-buffer.
+uniform sampler2D ColorBuffer;
 // The position of the camera.
 uniform vec3 WorldCameraPosition;
 // The light for which we're now shading.
@@ -33,7 +33,7 @@ uniform vec3 LightWorldPosition;
 
 ///////////////////////////////////////////////////////////////////////////////
 // We get the texture coordinate on our g-buffer from the vertex shader.
-in vec4 fs_TextureCoordinate;
+in vec2 fs_TextureCoordinate;
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -45,17 +45,17 @@ out vec3 Color;
 // Main routing, does what a main does. Freakin' EVERYTHING!
 void main(void) {
 	// Get position in the world.
-	vec3 position = texture2D(PositionBuffer, fs_TextureCoordinate.st).xyz;
+	vec3 position = texture2D(PositionBuffer, fs_TextureCoordinate).xyz;
 	// Get surface normal.
-	vec3 normal = texture2D(NormalBuffer, fs_TextureCoordinate.st).xyz;
+	vec3 normal = texture2D(NormalBuffer, fs_TextureCoordinate).xyz;
 	// Get material color components.
-	vec4 materialColor = texture2D(ColorBuffer, fs_TextureCoordinate.st);
+	vec4 materialColor = texture2D(ColorBuffer, fs_TextureCoordinate);
 	vec3 materialDiffuse = materialColor.rgb;
 	vec3 materialSpecular = vec3(materialColor.a);
 
 	// Apply lighting.
 	//vec3 toLight = normalize(LightWorldPosition - position);
-	vec3 toLight = normalize(vec3(0, 0, 32) - position);
+	vec3 toLight = normalize(vec3(0, 0, 128) - position);
 	vec3 diffuse = max(dot(normal, toLight), 0) * materialDiffuse;
 
 	// Write final color.

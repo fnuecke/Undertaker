@@ -147,9 +147,9 @@ void vinormalize(vec4* v) {
 ///////////////////////////////////////////////////////////////////////////////
 
 void mmulm(mat4* result, const mat4* ma, const mat4* mb) {
-#define A(row,col) ma->m[(col << 2) + row]
-#define B(row,col) mb->m[(col << 2) + row]
-#define P(row,col) result->m[(col << 2) + row]
+#define A(row, col) ma->m[(col << 2) + row]
+#define B(row, col) mb->m[(col << 2) + row]
+#define P(row, col) result->m[(col << 2) + row]
     for (int i = 0; i < 4; i++) {
         const float ai0 = A(i, 0), ai1 = A(i, 1), ai2 = A(i, 2), ai3 = A(i, 3);
         P(i, 0) = ai0 * B(0, 0) + ai1 * B(1, 0) + ai2 * B(2, 0) + ai3 * B(3, 0);
@@ -174,10 +174,10 @@ void mmulv(vec4* result, const vec4* v, const mat4* m) {
 #undef V
 #define U(i) result->v[i]
 #define M(row, col) m->m[col * 4 + row]
-    U(0) = v0 * M(0, 0) + v1 * M(1, 0) + v2 * M(2, 0) + v3 * M(3, 0);
-    U(1) = v0 * M(0, 1) + v1 * M(1, 1) + v2 * M(2, 1) + v3 * M(3, 1);
-    U(2) = v0 * M(0, 2) + v1 * M(1, 2) + v2 * M(2, 2) + v3 * M(3, 2);
-    U(3) = v0 * M(0, 3) + v1 * M(1, 3) + v2 * M(2, 3) + v3 * M(3, 3);
+    U(0) = v0 * M(0, 0) + v1 * M(0, 1) + v2 * M(0, 2) + v3 * M(0, 3);
+    U(1) = v0 * M(1, 0) + v1 * M(1, 1) + v2 * M(1, 2) + v3 * M(1, 3);
+    U(2) = v0 * M(2, 0) + v1 * M(2, 1) + v2 * M(2, 2) + v3 * M(2, 3);
+    U(3) = v0 * M(3, 0) + v1 * M(3, 1) + v2 * M(3, 2) + v3 * M(3, 3);
 #undef M
 }
 

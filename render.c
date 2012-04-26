@@ -73,13 +73,13 @@ static struct {
     /** Attributes for the vertex shader */
     struct {
         /** The vertex position model space */
-        GLuint ModelVertex;
+        GLint ModelVertex;
 
         /** The vertex normal in model space */
-        GLuint ModelNormal;
+        GLint ModelNormal;
 
         /** The texture coordinate at the vertex */
-        GLuint TextureCoordinate;
+        GLint TextureCoordinate;
     } vs_attributes;
 
     /** Uniforms for the fragment shader */
@@ -100,45 +100,45 @@ static struct {
 
 static struct {
     /** ID of the shader program */
-    GLuint program;
+    GLint program;
 
     /** Uniforms for the vertex shader */
     struct {
         /** The current model-view-projection matrix */
-        GLuint ModelViewProjectionMatrix;
+        GLint ModelViewProjectionMatrix;
     } vs_uniforms;
 
     /** Attributes for the vertex shader */
     struct {
         /** The vertex position model space */
-        GLuint ModelVertex;
+        GLint ModelVertex;
 
         /** The texture coordinate at the vertex */
-        GLuint TextureCoordinate;
+        GLint TextureCoordinate;
     } vs_attributes;
 
     /** Uniforms for the fragment shader */
     struct {
         /** The color texture of our GBuffer */
-        GLuint ColorBuffer;
+        GLint ColorBuffer;
 
         /** The position texture of our GBuffer */
-        GLuint PositionBuffer;
+        GLint PositionBuffer;
 
         /** The surface normal texture of our GBuffer */
-        GLuint NormalBuffer;
+        GLint NormalBuffer;
 
         /** The current position of the camera in the world */
-        GLuint WorldCameraPosition;
+        GLint WorldCameraPosition;
 
         /** The diffuse color of the current light to shade for */
-        GLuint LightDiffuseColor;
+        GLint LightDiffuseColor;
 
         /** The specular color of the current light to shade for */
-        GLuint LightSpecularColor;
+        GLint LightSpecularColor;
 
         /** The position of the current light to shade for */
-        GLuint LightWorldPosition;
+        GLint LightWorldPosition;
     } fs_uniforms;
 } light_shader;
 
@@ -153,6 +153,11 @@ typedef struct {
     /** The position of the light, in world space. */
     vec4 world_position;
 } DK_Light;
+
+/** Callbacks/hooks for different render stages */
+static Callbacks* gPreRenderCallbacks = 0;
+static Callbacks* gRenderCallbacks = 0;
+static Callbacks* gPostRenderCallbacks = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Helper methods
@@ -201,7 +206,7 @@ static void init_shaders(void) {
     GLuint vs = DK_shader_load("data/shaders/geom.vert", GL_VERTEX_SHADER);
     GLuint fs = DK_shader_load("data/shaders/geom.frag", GL_FRAGMENT_SHADER);
     if (vs && fs) {
-        const char* out_names[3] = {"Color", "Vertex", "Normal"};
+        const char* out_names[3] = {"Vertex", "Normal", "Color"};
         geometry_shader.program = DK_shader_program(vs, fs, out_names, 3);
 
         if (geometry_shader.program) {
@@ -250,15 +255,15 @@ static void init_shaders(void) {
     glBindFramebuffer(GL_FRAMEBUFFER, g_buffer.frame_buffer);
 
     // Create our render buffers.
-    g_buffer.color_buffer = create_render_buffer(GL_RGB, GL_COLOR_ATTACHMENT0);
-    g_buffer.position_buffer = create_render_buffer(GL_RGB32F, GL_COLOR_ATTACHMENT1);
-    g_buffer.normal_buffer = create_render_buffer(GL_RGB16F, GL_COLOR_ATTACHMENT2);
+    g_buffer.position_buffer = create_render_buffer(GL_RGB32F, GL_COLOR_ATTACHMENT0);
+    g_buffer.normal_buffer = create_render_buffer(GL_RGB16F, GL_COLOR_ATTACHMENT1);
+    g_buffer.color_buffer = create_render_buffer(GL_RGB, GL_COLOR_ATTACHMENT2);
     g_buffer.depth_buffer = create_render_buffer(GL_DEPTH_COMPONENT24, GL_DEPTH_ATTACHMENT);
 
     // Create our textures.
-    g_buffer.color_texture = create_texture(GL_RGB, GL_UNSIGNED_BYTE, GL_COLOR_ATTACHMENT0);
-    g_buffer.position_texture = create_texture(GL_RGB32F, GL_FLOAT, GL_COLOR_ATTACHMENT1);
-    g_buffer.normal_texture = create_texture(GL_RGB16F, GL_FLOAT, GL_COLOR_ATTACHMENT2);
+    g_buffer.position_texture = create_texture(GL_RGB32F, GL_FLOAT, GL_COLOR_ATTACHMENT0);
+    g_buffer.normal_texture = create_texture(GL_RGB16F, GL_FLOAT, GL_COLOR_ATTACHMENT1);
+    g_buffer.color_texture = create_texture(GL_RGB, GL_UNSIGNED_BYTE, GL_COLOR_ATTACHMENT2);
 
     // Check if all worked fine and unbind the FBO
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -330,42 +335,6 @@ static void camera_target(vec4* target) {
     target->v[3] = 1.0f;
 }
 
-static void begin_render(void) {
-    // Set camera position.
-    vec4 cam_position, cam_target;
-    camera_position(&cam_position);
-    camera_target(&cam_target);
-    DK_SetLookAt(cam_position.v[0], cam_position.v[1], cam_position.v[2],
-            cam_target.v[0], cam_target.v[1], cam_target.v[2]);
-
-    // Set projection matrix.
-    DK_SetPerspective(DK_field_of_view, DK_ASPECT_RATIO, 0.1f, 1000.0f);
-
-    // Reset model transform.
-    DK_SetModelMatrix(&IDENTITY_MATRIX4);
-
-    // Clear to black and set default vertex color to white.
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClearDepth(1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-
-    // Update cursor position (depends on view being set up).
-    DK_UpdateCursor();
-
-    // Get cursor position and update hand light accordingly.
-    /*
-        {
-            float x, y;
-            DK_cursor(&x, &y);
-            {
-                GLfloat light_position[] = {x, y, DK_BLOCK_HEIGHT * 2, 1};
-                glLightfv(GL_LIGHT1, GL_POSITION, light_position);
-            }
-        }
-     */
-}
-
 static const GLenum buffers[] = {
     GL_COLOR_ATTACHMENT0,
     GL_COLOR_ATTACHMENT1,
@@ -384,36 +353,41 @@ static void begin_deferred(void) {
     glUseProgram(geometry_shader.program);
 
     // Set uniforms for geometry shader.
-    glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelMatrix, 1, GL_FALSE, DK_GetModelMatrix());
-    glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix());
+    glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelMatrix, 1, GL_FALSE, DK_GetModelMatrix()->m);
+    glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
+    // TODO Pre-compute the normal matrix.
     //glUniformMatrix4fv(geometry_shader.vs_uniforms.NormalMatrix, 1, GL_FALSE, DK_GetNormalMatrix());
 
     // Use our three buffers.
     glDrawBuffers(3, buffers);
 }
 
-static void end_deferred(void) {
+static void finalize_deferred(void) {
+    // Stop using geometry buffer.
     glUseProgram(0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-}
 
-static void render_deferred(void) {
+    // Done with our frame buffer.
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+    // Set projection matrix to orthogonal, because we want to draw a quad
+    // filling the complete screen.
+    DK_BeginOrthogonal();
+
+    // Set view a bit back to avoid clipping.
+    DK_BeginLookAt(1, 0, 0, 0, 0, 0);
+
+    // No model transform for us.
+    DK_PushModelMatrix();
+
     // Figure out what to draw.
     if (DK_d_draw_deferred == DK_D_DEFERRED_FINAL) {
         vec4 cam_position;
-
-        // Set projection matrix.
-        DK_SetOrthogonal(0, DK_resolution_x, 0, DK_resolution_y, 0.1f, 2.0f);
-
-        // Reset other matrices, set view a bit back to avoid clipping.
-        DK_SetModelMatrix(&IDENTITY_MATRIX4);
-        DK_SetLookAt(0, 0, -1, 0, 0, 0);
 
         // We use our shader to do the actual shading computations.
         glUseProgram(light_shader.program);
 
         // The the global transformation matrix.
-        glUniformMatrix4fv(geometry_shader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix());
+        glUniformMatrix4fv(light_shader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
 
         // Set camera position.
         camera_position(&cam_position);
@@ -435,16 +409,6 @@ static void render_deferred(void) {
         glBindTexture(GL_TEXTURE_2D, g_buffer.normal_texture);
         glUniform1i(light_shader.fs_uniforms.NormalBuffer, 2);
     } else {
-        glMatrixMode(GL_PROJECTION);
-        glPushMatrix();
-        glLoadIdentity();
-        glOrtho(0, DK_resolution_x, 0, DK_resolution_y, 0.1f, 2.0f);
-
-        glMatrixMode(GL_MODELVIEW);
-        glPushMatrix();
-        glLoadIdentity();
-        glTranslatef(0, 0, -1.0f);
-
         glDisable(GL_LIGHTING);
         glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -471,53 +435,83 @@ static void render_deferred(void) {
         glTexCoord2f(0.0f, 0.0f);
         glVertex3f(0.0f, 0.0f, 0.0f);
         glTexCoord2f(1.0f, 0.0f);
-        glVertex3f((float) DK_resolution_x, 0.0f, 0.0f);
+        glVertex3f(0.0f, (float) DK_resolution_x, 0.0f);
         glTexCoord2f(1.0f, 1.0f);
-        glVertex3f((float) DK_resolution_x, (float) DK_resolution_y, 0.0f);
+        glVertex3f(0.0f, (float) DK_resolution_x, (float) DK_resolution_y);
         glTexCoord2f(0.0f, 1.0f);
-        glVertex3f(0.0f, (float) DK_resolution_y, 0.0f);
+        glVertex3f(0.0f, 0.0f, (float) DK_resolution_y);
     }
     glEnd();
 
-    // Reset OpenGL state.
+    // Unbind the textures we used.
     glActiveTexture(GL_TEXTURE0);
-    glDisable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glActiveTexture(GL_TEXTURE1);
-    glDisable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glActiveTexture(GL_TEXTURE2);
     glDisable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, 0);
 
     if (DK_d_draw_deferred == DK_D_DEFERRED_FINAL) {
+        glActiveTexture(GL_TEXTURE1);
+        glDisable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glActiveTexture(GL_TEXTURE2);
+        glDisable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
         // Done with our lighting shader.
         glUseProgram(0);
-    } else {
-        // Reset to the matrices.
-        glMatrixMode(GL_PROJECTION);
-        glPopMatrix();
-        glMatrixMode(GL_MODELVIEW);
-        glPopMatrix();
     }
+
+    // Reset matrices.
+    DK_PopModelMatrix();
+    DK_EndLookAt();
+    DK_EndOrthogonal();
 }
 
-void DK_render(void) {
-    begin_render();
+void DK_Render(void) {
+    // Set camera position.
+    vec4 cam_position, cam_target;
+    camera_position(&cam_position);
+    camera_target(&cam_target);
+    DK_BeginLookAt(cam_position.v[0], cam_position.v[1], cam_position.v[2],
+            cam_target.v[0], cam_target.v[1], cam_target.v[2]);
 
-    if (geometry_shader.program && light_shader.program) {
+    // Set projection matrix.
+    if (DK_d_draw_picking_mode) {
+        int x, y;
+        SDL_GetMouseState(&x, &y);
+        DK_BeginPerspectiveForPicking(x, DK_resolution_y - y);
+    } else {
+        DK_BeginPerspective();
+    }
+
+    // Reset model transform.
+    DK_PushModelMatrix();
+
+    // Clear to black and set default vertex color to white.
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClearDepth(1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+
+    // Trigger pre render hooks.
+    CB_Call(gPreRenderCallbacks);
+
+    if (DK_d_draw_deferred_shader && geometry_shader.program && light_shader.program) {
         begin_deferred();
     }
 
     // Render game components.
-    DK_RenderMap();
-    DK_RenderUnits();
-    DK_RenderJobs();
+    CB_Call(gRenderCallbacks);
 
-    if (geometry_shader.program && light_shader.program) {
-        end_deferred();
-        render_deferred();
+    if (DK_d_draw_deferred_shader && geometry_shader.program && light_shader.program) {
+        finalize_deferred();
     }
+
+    // Trigger post render hooks.
+    CB_Call(gPostRenderCallbacks);
+
+    DK_PopModelMatrix();
+    DK_EndPerspective();
+    DK_EndLookAt();
 }
 
 //static const GLint textureUnits[4] = {0, 1, 2, 3};
@@ -548,4 +542,25 @@ void DK_material_init(DK_Material* material) {
     material->specular_color.v[2] = 1.0f;
     material->bump_map = 0;
     material->normal_map = 0;
+}
+
+void DK_OnPreRender(callback method) {
+    if (!gPreRenderCallbacks) {
+        gPreRenderCallbacks = CB_New();
+    }
+    CB_Add(gPreRenderCallbacks, method);
+}
+
+void DK_OnRender(callback method) {
+    if (!gRenderCallbacks) {
+        gRenderCallbacks = CB_New();
+    }
+    CB_Add(gRenderCallbacks, method);
+}
+
+void DK_OnPostRender(callback method) {
+    if (!gPostRenderCallbacks) {
+        gPostRenderCallbacks = CB_New();
+    }
+    CB_Add(gPostRenderCallbacks, method);
 }

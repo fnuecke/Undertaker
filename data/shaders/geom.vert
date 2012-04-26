@@ -30,9 +30,9 @@ uniform mat3 NormalMatrix;
 // Position of the vertex in model space.
 layout(location=0) in vec4 ModelVertex;
 // Normal of the vertex in model space.
-layout(location=1) in vec3 ModelNormal;
+layout(location=2) in vec3 ModelNormal;
 // Texture coordinate for the vertex in texture space.
-layout(location=2) in vec4 TextureCoordinate;
+layout(location=8) in vec2 TextureCoordinate;
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -44,7 +44,7 @@ out vec3 fs_WorldVertex;
 // Normal of the vertex in world space.
 out vec3 fs_WorldNormal;
 // Texture coordinate for the vertex in texture space.
-out vec4 fs_TextureCoordinate;
+out vec2 fs_TextureCoordinate;
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -53,14 +53,14 @@ void main(void) {
 	// Transform the vertex to projection space.
 	gl_Position = ModelViewProjectionMatrix * ModelVertex;
 
-	// Pass on the texture coordinate.
-	fs_TextureCoordinate = TextureCoordinate;
-
 	// Transform the vertex to world space.
 	fs_WorldVertex = (ModelMatrix * ModelVertex).xyz;
 
+	// Pass on the texture coordinate.
+	fs_TextureCoordinate = TextureCoordinate;
+
 	// Transform the normal to world space, only rotation applies to normals.
-	fs_WorldNormal = NormalMatrix * ModelNormal;
-	//WorldNormal = transpose(inverse(mat3(ModelMatrix)) * ModelNormal;
+	//fs_WorldNormal = NormalMatrix * ModelNormal;
+	fs_WorldNormal = transpose(inverse(mat3(ModelMatrix))) * ModelNormal;
 }
 ///////////////////////////////////////////////////////////////////////////////

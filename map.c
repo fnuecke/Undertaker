@@ -129,18 +129,6 @@ inline static int DK_NLT(unsigned int a, unsigned int b) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Picking
-///////////////////////////////////////////////////////////////////////////////
-
-inline static GLuint pick_block(int x, int y) {
-    GLuint result;
-    gIsPicking = 1;
-    result = DK_Pick(x, y, &DK_RenderMap);
-    gIsPicking = 0;
-    return result;
-}
-
-///////////////////////////////////////////////////////////////////////////////
 // Map model updating: vertices
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -232,21 +220,21 @@ static float compute_offset(float* offset, float x, float y) {
 
     // Walk all the block necessary.
     factor = 0;
-    for (unsigned int k = x_begin; (int)k <= x_end; ++k) {
-        for (unsigned int l = y_begin; (int)l <= y_end; ++l) {
+    for (unsigned int k = x_begin; (int) k <= x_end; ++k) {
+        for (unsigned int l = y_begin; (int) l <= y_end; ++l) {
             factor += noise_factor_block(&offset_type, DK_GetBlockAt(k, l));
             if (offset_type == OFFSET_INCREASE) {
                 if (!DK_NEQ(k, x)) {
                     if (DK_NLT(k, x)) {
                         offset[0] += 1;
-                    } else if ((int)k >= i) {
+                    } else if ((int) k >= i) {
                         offset[0] -= 1;
                     }
                 }
                 if (!DK_NEQ(l, y)) {
                     if (DK_NLT(l, y)) {
                         offset[1] += 1;
-                    } else if ((int)l >= j) {
+                    } else if ((int) l >= j) {
                         offset[1] -= 1;
                     }
                 }
@@ -1232,118 +1220,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
     glPopAttrib();
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// Header implementation
-///////////////////////////////////////////////////////////////////////////////
-
-unsigned short DK_GetMapSize(void) {
-    return gMapSize;
-}
-
-void DK_InitMap(unsigned short size) {
-    unsigned int x, y, z;
-
-    // Reallocate data only if the size changed.
-    if (size != gMapSize) {
-        // Free old map data.
-        free(gMap);
-
-        // Allocate new map data.
-        if (!(gMap = calloc(size * size, sizeof (DK_Block)))) {
-            fprintf(stderr, "Out of memory while allocating map data.\n");
-            exit(EXIT_FAILURE);
-        }
-
-        // Free old map model data.
-        free(vertices);
-        free(normals_x);
-        free(normals_y);
-        free(normals_z);
-
-        // Allocate new map model data.
-        vertices_count_full = (size + DK_MAP_BORDER) * 2 + 1;
-        vertices_count_semi = (size + DK_MAP_BORDER) + 1;
-        vertices = calloc(vertices_count_full * vertices_count_full * 5, sizeof (v3f));
-        normals_x = calloc(vertices_count_semi * vertices_count_full * 5, sizeof (v3f));
-        normals_y = calloc(vertices_count_semi * vertices_count_full * 5, sizeof (v3f));
-        normals_z = calloc(vertices_count_full * vertices_count_full * 3, sizeof (v3f));
-
-        if (!vertices || !normals_x || !normals_y || !normals_z) {
-            fprintf(stderr, "Out of memory while allocating map model data.\n");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    // Remember new map size (needed *now* for offset computation).
-    gMapSize = size;
-
-    // Initialize map data.
-    for (x = 0; x < size; ++x) {
-        for (y = 0; y < size; ++y) {
-            DK_Block* block = DK_GetBlockAt(x, y);
-            block->type = DK_BLOCK_DIRT;
-            block->health = DK_BLOCK_DIRT_HEALTH;
-            block->strength = DK_BLOCK_DIRT_STRENGTH;
-            block->room = DK_ROOM_NONE;
-        }
-    }
-
-    // Initialize map model data.
-
-    // Pass 1: set vertex positions.
-    for (x = 0; x < vertices_count_full; ++x) {
-        for (y = 0; y < vertices_count_full; ++y) {
-            update_vertices(x, y);
-
-            // Initialize normals to defaults (especially the border cases, i.e.
-            // at 0 and max, because those aren't computed dynamically to avoid
-            // having to check the border cases).
-            for (z = 0; z < 5; ++z) {
-                if ((x & 1) == 0) {
-                    // Compute x normals.
-                    v3f* n = &normals_x[hi(x / 2, y, z)];
-                    n->x = 1;
-                    n->y = 0;
-                    n->z = 0;
-                }
-                if ((y & 1) == 0) {
-                    // Compute y normals.
-                    v3f* n = &normals_y[hi(x, y / 2, z)];
-                    n->x = 0;
-                    n->y = 1;
-                    n->z = 0;
-                }
-                if ((z & 1) == 0) {
-                    v3f* n = &normals_z[fi(x, y, z / 2)];
-                    n->x = 0;
-                    n->y = 0;
-                    n->z = 1;
-                }
-            }
-        }
-    }
-
-    // Pass 2: compute normals.
-    for (x = 1; x < vertices_count_full - 1; ++x) {
-        for (y = 1; y < vertices_count_full - 1; ++y) {
-            update_normals(x, y);
-        }
-    }
-}
-
-void DK_UpdateMap(void) {
-    int mouse_x, mouse_y;
-    GLuint selected_name;
-
-    SDL_GetMouseState(&mouse_x, &mouse_y);
-    selected_name = pick_block(mouse_x, DK_resolution_y - mouse_y);
-    cursor_x = (short) (selected_name & 0xFFFF);
-    cursor_y = (short) (selected_name >> 16);
-}
-
-#define M_PI 3.14159265358979323846
-
-void DK_RenderMap(void) {
+static void onRender(void) {
     const vec2* cam_position = DK_GetCameraPosition();
     int x_begin = (int) (cam_position->v[0] / DK_BLOCK_SIZE) - DK_RENDER_AREA_X / 2;
     int y_begin = (int) (cam_position->v[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA_Y_OFFSET;
@@ -1503,19 +1380,144 @@ void DK_RenderMap(void) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// Updating
+///////////////////////////////////////////////////////////////////////////////
+
+static void onPreRender(void) {
+    int mouse_x, mouse_y;
+    GLuint selected_name;
+
+    SDL_GetMouseState(&mouse_x, &mouse_y);
+
+    gIsPicking = 1;
+    selected_name = DK_Pick(mouse_x, DK_resolution_y - mouse_y, &onRender);
+    gIsPicking = 0;
+
+    cursor_x = (short) (selected_name & 0xFFFF);
+    cursor_y = (short) (selected_name >> 16);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Size changes
+///////////////////////////////////////////////////////////////////////////////
+
+static void resize(unsigned short size) {
+    unsigned int x, y, z;
+
+    // Reallocate data only if the size changed.
+    if (size != gMapSize) {
+        // Free old map data.
+        free(gMap);
+
+        // Allocate new map data.
+        if (!(gMap = calloc(size * size, sizeof (DK_Block)))) {
+            fprintf(stderr, "Out of memory while allocating map data.\n");
+            exit(EXIT_FAILURE);
+        }
+
+        // Free old map model data.
+        free(vertices);
+        free(normals_x);
+        free(normals_y);
+        free(normals_z);
+
+        // Allocate new map model data.
+        vertices_count_full = (size + DK_MAP_BORDER) * 2 + 1;
+        vertices_count_semi = (size + DK_MAP_BORDER) + 1;
+        vertices = calloc(vertices_count_full * vertices_count_full * 5, sizeof (v3f));
+        normals_x = calloc(vertices_count_semi * vertices_count_full * 5, sizeof (v3f));
+        normals_y = calloc(vertices_count_semi * vertices_count_full * 5, sizeof (v3f));
+        normals_z = calloc(vertices_count_full * vertices_count_full * 3, sizeof (v3f));
+
+        if (!vertices || !normals_x || !normals_y || !normals_z) {
+            fprintf(stderr, "Out of memory while allocating map model data.\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    // Remember new map size (needed *now* for offset computation).
+    gMapSize = size;
+
+    // Initialize map data.
+    for (x = 0; x < size; ++x) {
+        for (y = 0; y < size; ++y) {
+            DK_Block* block = DK_GetBlockAt(x, y);
+            block->type = DK_BLOCK_DIRT;
+            block->health = DK_BLOCK_DIRT_HEALTH;
+            block->strength = DK_BLOCK_DIRT_STRENGTH;
+            block->room = DK_ROOM_NONE;
+        }
+    }
+
+    // Initialize map model data.
+
+    // Pass 1: set vertex positions.
+    for (x = 0; x < vertices_count_full; ++x) {
+        for (y = 0; y < vertices_count_full; ++y) {
+            update_vertices(x, y);
+
+            // Initialize normals to defaults (especially the border cases, i.e.
+            // at 0 and max, because those aren't computed dynamically to avoid
+            // having to check the border cases).
+            for (z = 0; z < 5; ++z) {
+                if ((x & 1) == 0) {
+                    // Compute x normals.
+                    v3f* n = &normals_x[hi(x / 2, y, z)];
+                    n->x = 1;
+                    n->y = 0;
+                    n->z = 0;
+                }
+                if ((y & 1) == 0) {
+                    // Compute y normals.
+                    v3f* n = &normals_y[hi(x, y / 2, z)];
+                    n->x = 0;
+                    n->y = 1;
+                    n->z = 0;
+                }
+                if ((z & 1) == 0) {
+                    v3f* n = &normals_z[fi(x, y, z / 2)];
+                    n->x = 0;
+                    n->y = 0;
+                    n->z = 1;
+                }
+            }
+        }
+    }
+
+    // Pass 2: compute normals.
+    for (x = 1; x < vertices_count_full - 1; ++x) {
+        for (y = 1; y < vertices_count_full - 1; ++y) {
+            update_normals(x, y);
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Header implementation
+///////////////////////////////////////////////////////////////////////////////
+
+unsigned short DK_GetMapSize(void) {
+    return gMapSize;
+}
+
+void DK_InitMap(void) {
+    DK_OnPreRender(onPreRender);
+    DK_OnRender(onRender);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Save / Load
 ///////////////////////////////////////////////////////////////////////////////
 
 void DK_LoadMap(const char* filename) {
-    int i, j;
+    resize(128);
 
-    DK_InitMap(128);
-    DK_InitSelection();
-    DK_InitAStar();
-    DK_InitUnits();
+    // Update whatever depends on the map size.
+    CB_Call(gMapChangeCallbacks);
 
-    for (i = 0; i < 7; ++i) {
-        for (j = 0; j < 7; ++j) {
+    // Load a test map.
+    for (unsigned int i = 0; i < 7; ++i) {
+        for (unsigned int j = 0; j < 7; ++j) {
             if (i <= 1 || j <= 1) {
                 DK_SetBlockOwner(DK_GetBlockAt(4 + i, 5 + j), DK_PLAYER_ONE);
             }
@@ -1533,9 +1535,10 @@ void DK_LoadMap(const char* filename) {
     DK_SetBlockType(DK_GetBlockAt(11, 9), DK_BLOCK_WATER);
     //DK_block_at(9, 8)->owner = DK_PLAYER_RED;
 
-    for (i = 0; i < 2; ++i) {
+    for (unsigned int i = 0; i < 2; ++i) {
         DK_AddUnit(DK_PLAYER_ONE, DK_UNIT_IMP, 5, 10);
     }
+
 }
 
 void DK_SaveMap(const char* filename) {
@@ -1765,7 +1768,11 @@ void DK_SetBlockOwner(DK_Block* block, DK_Player player) {
     update_block(block);
 }
 
-void DK_OnMapSizeChange(callback method) {
+///////////////////////////////////////////////////////////////////////////////
+// Events
+///////////////////////////////////////////////////////////////////////////////
+
+void DK_OnMapChange(callback method) {
     if (!gMapChangeCallbacks) {
         gMapChangeCallbacks = CB_New();
     }

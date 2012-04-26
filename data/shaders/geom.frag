@@ -30,17 +30,17 @@ in vec3 fs_WorldVertex;
 // Normal of the vertex in world space.
 in vec3 fs_WorldNormal;
 // The texture coordinate on the object's surface.
-in vec4 fs_TextureCoordinate;
+in vec2 fs_TextureCoordinate;
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
-// We store the diffuse and specular color in a single vec4 by making the
-// specular monochromatic and storing it in the 4th component.
-out vec4 Color;
 // We return the vertex position in world space.
 out vec3 Vertex;
 // And the normal direction in world space.
 out vec3 Normal;
+// We store the diffuse and specular color in a single vec4 by making the
+// specular monochromatic and storing it in the 4th component.
+out vec4 Color;
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -54,7 +54,7 @@ float brightness(vec3 color) {
 ///////////////////////////////////////////////////////////////////////////////
 // Main routing, does what a main does. Freakin' EVERYTHING!
 void main(void) {
-	vec4 textureColor = texture2D(Textures, fs_TextureCoordinate.st);
+	vec4 textureColor = texture2D(Textures, fs_TextureCoordinate);
 	//Color = vec4(textureColor.rgb * ColorDiffuse, brightness(textureColor.rgb * ColorSpecular));
 	Color = textureColor;
 	Vertex = fs_WorldVertex;

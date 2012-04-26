@@ -5,16 +5,22 @@
 #include "graphics.h"
 #include "vmath.h"
 
+/** It's pie. Yummy! */
+static const float PI = 3.14159265358979323846f;
+
+/** Number of pushes we support for each matrix type */
+#define MATRIX_STACK_SIZE 8
+
 /** Matrices we use for resolving vertex positions to screen positions */
 static struct {
     /** The current projection transform */
-    mat4 projection;
+    mat4 projection[MATRIX_STACK_SIZE];
 
     /** The current view transform */
-    mat4 view;
+    mat4 view[MATRIX_STACK_SIZE];
 
     /** The current model transform */
-    mat4 model;
+    mat4 model[MATRIX_STACK_SIZE];
 
     /** Precomputed model-view transform */
     mat4 mv;
@@ -26,16 +32,103 @@ static struct {
     mat3 normal;
 } matrix;
 
+/** Stack depths for the three matrix stacks */
+static struct {
+    /** Projection transform stack depth */
+    unsigned int projection;
+
+    /** View transform stack depth */
+    unsigned int view;
+
+    /** Model transform stack depth */
+    unsigned int model;
+} stack = {MATRIX_STACK_SIZE - 1, MATRIX_STACK_SIZE - 1, MATRIX_STACK_SIZE - 1};
+
+static void updateMatrices(int modelViewChanged) {
+    if (modelViewChanged) {
+        // Pre-compute model-view transform, as either model or view changed.
+        mmulm(&matrix.mv, DK_GetViewMatrix(), DK_GetModelMatrix());
+
+        // And update OpenGLs model-view matrix.
+        glMatrixMode(GL_MODELVIEW);
+        glLoadMatrixf(matrix.mv.m);
+    } else {
+        // Model and view didn't change, so it was the projection matrix.
+        glMatrixMode(GL_PROJECTION);
+        glLoadMatrixf(DK_GetProjectionMatrix()->m);
+    }
+
+    // Pre-compute model-view-projection transform.
+    mmulm(&matrix.mvp, DK_GetProjectionMatrix(), &matrix.mv);
+}
+
+static int pushProjection(void) {
+    if (stack.projection > 0) {
+        --stack.projection;
+        matrix.projection[stack.projection] = IDENTITY_MATRIX4;
+        updateMatrices(0);
+        return 1;
+    }
+    return 0;
+}
+
+static int popProjection(void) {
+    if (stack.projection < MATRIX_STACK_SIZE - 1) {
+        ++stack.projection;
+        updateMatrices(0);
+        return 1;
+    }
+    return 0;
+}
+
+static int pushView(void) {
+    if (stack.view > 0) {
+        --stack.view;
+        matrix.view[stack.view] = IDENTITY_MATRIX4;
+        updateMatrices(1);
+        return 1;
+    }
+    return 0;
+}
+
+static int popView(void) {
+    if (stack.view < MATRIX_STACK_SIZE - 1) {
+        ++stack.view;
+        updateMatrices(1);
+        return 1;
+    }
+    return 0;
+}
+
+static int pushModel(void) {
+    if (stack.model > 0) {
+        --stack.model;
+        matrix.model[stack.model] = IDENTITY_MATRIX4;
+        updateMatrices(1);
+        return 1;
+    }
+    return 0;
+}
+
+static int popModel(void) {
+    if (stack.model < MATRIX_STACK_SIZE - 1) {
+        ++stack.model;
+        updateMatrices(1);
+        return 1;
+    }
+    return 0;
+}
+
 const mat4* DK_GetModelMatrix(void) {
-    return &matrix.model;
+    return &matrix.model[stack.model];
 }
 
 const mat4* DK_GetViewMatrix(void) {
-    return &matrix.view;
+    return &matrix.view[stack.view];
 }
 
 const mat4* DK_GetProjectionMatrix(void) {
-    return &matrix.projection;
+    return &matrix.projection[stack.projection];
 }
 
 const mat4* DK_GetModelViewMatrix(void) {
@@ -46,78 +139,114 @@ const mat4* DK_GetModelViewProjectionMatrix(void) {
     return &matrix.mvp;
 }
 
+int DK_PushModelMatrix(void) {
+    return pushModel();
+}
+
+int DK_PopModelMatrix(void) {
+    return popModel();
+}
+
 void DK_SetModelMatrix(const mat4* m) {
-    matrix.model = *m;
+    matrix.model[stack.model] = *m;
 
-    // Pre-compute model-view transform.
-    mmulm(&matrix.mv, &matrix.view, &matrix.model);
-
-    // Pre-compute model-view-projection transform.
-    mmulm(&matrix.mvp, &matrix.projection, &matrix.mv);
+    updateMatrices(1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Projection and view matrix generation
 ///////////////////////////////////////////////////////////////////////////////
 
-static const float PI = 3.14159265358979323846f;
+int DK_BeginPerspective(void) {
+    const float f = 1.0f / tanf(DK_field_of_view * (PI / 360.0f));
+    float* m = matrix.projection[stack.projection].m;
 
-void DK_SetPerspective(float fov, float ratio, float near, float far) {
-    mat4* m = &matrix.projection;
-    // range = tan(deg2rad(fov / 2)) * near
-    // => near / range = 1 / tan(deg2rad(fov / 2))
-    const float f = 1.0f / tanf(fov * (PI / 360.0f));
+    if (!pushProjection()) {
+        return 0;
+    }
 
-    *m = IDENTITY_MATRIX4;
-
-    m->m[0] = f / ratio;
-    m->m[1 * 4 + 1] = f;
-    m->m[2 * 4 + 2] = (far + near) / (near - far);
-    m->m[3 * 4 + 2] = (2.0f * far * near) / (near - far);
-    m->m[2 * 4 + 3] = -1.0f;
-    m->m[3 * 4 + 3] = 0.0f;
-
-    // Pre-compute model-view-projection transform.
-    mmulm(&matrix.mvp, &matrix.projection, &matrix.mv);
-}
-
-void DK_SetOrthogonal(float left, float right, float bottom, float top, float near, float far) {
-    mat4* m = &matrix.projection;
-    mat4 ortho;
-#define M(row,col) ortho.m[col * 4 + row]
-    M(0, 0) = 2.0F / (right - left);
-    M(0, 1) = 0.0F;
-    M(0, 2) = 0.0F;
-    M(0, 3) = -(right + left) / (right - left);
-
-    M(1, 0) = 0.0F;
-    M(1, 1) = 2.0F / (top - bottom);
-    M(1, 2) = 0.0F;
-    M(1, 3) = -(top + bottom) / (top - bottom);
-
-    M(2, 0) = 0.0F;
-    M(2, 1) = 0.0F;
-    M(2, 2) = -2.0F / (far - near);
-    M(2, 3) = -(far + near) / (far - near);
-
-    M(3, 0) = 0.0F;
-    M(3, 1) = 0.0F;
-    M(3, 2) = 0.0F;
-    M(3, 3) = 1.0F;
+#define M(row, col) m[col * 4 + row]
+    M(0, 0) = f / DK_ASPECT_RATIO;
+    M(1, 1) = f;
+    M(2, 2) = (DK_CLIP_FAR + DK_CLIP_NEAR) / (DK_CLIP_NEAR - DK_CLIP_FAR);
+    M(2, 3) = (2.0f * DK_CLIP_FAR * DK_CLIP_NEAR) / (DK_CLIP_NEAR - DK_CLIP_FAR);
+    M(3, 2) = -1.0f;
+    M(3, 3) = 0.0f;
 #undef M
 
-    mimulm(m, &ortho);
+    updateMatrices(0);
 
-    // Pre-compute model-view-projection transform.
-    mmulm(&matrix.mvp, &matrix.projection, &matrix.mv);
+    return 1;
 }
 
-void DK_SetLookAt(float eyex, float eyey, float eyez, float lookatx, float lookaty, float lookatz) {
-    mat4* m = &matrix.view;
+int DK_EndPerspective(void) {
+    return popProjection();
+}
+
+int DK_BeginOrthogonal(void) {
+    float* m = matrix.projection[stack.projection].m;
+
+    if (!pushProjection()) {
+        return 0;
+    }
+
+#define M(row, col) m[col * 4 + row]
+    M(0, 0) = 2.0f / DK_resolution_x;
+    M(0, 1) = 0.0f;
+    M(0, 2) = 0.0f;
+    M(0, 3) = -1.0f;
+
+    M(1, 0) = 0.0f;
+    M(1, 1) = 2.0f / DK_resolution_y;
+    M(1, 2) = 0.0f;
+    M(1, 3) = -1.0f;
+
+    M(2, 0) = 0.0f;
+    M(2, 1) = 0.0f;
+    M(2, 2) = -2.0f / (DK_CLIP_FAR - DK_CLIP_NEAR);
+    M(2, 3) = -(DK_CLIP_FAR + DK_CLIP_NEAR) / (DK_CLIP_FAR - DK_CLIP_NEAR);
+
+    M(3, 0) = 0.0f;
+    M(3, 1) = 0.0f;
+    M(3, 2) = 0.0f;
+    M(3, 3) = 1.0f;
+#undef M
+
+    updateMatrices(0);
+
+    return 1;
+}
+
+int DK_EndOrthogonal(void) {
+    return popProjection();
+}
+
+int DK_BeginPerspectiveForPicking(float x, float y) {
+    if (DK_BeginPerspective()) {
+        mat4 look = IDENTITY_MATRIX4;
+        mitranslate(&look, DK_resolution_x - 2 * x, DK_resolution_y - 2 * y, 0);
+        miscale(&look, DK_resolution_x, DK_resolution_y, 1.0);
+
+        mimulm(&look, DK_GetProjectionMatrix());
+        matrix.projection[stack.projection] = look;
+
+        updateMatrices(0);
+
+        return 1;
+    }
+    return 0;
+}
+
+int DK_BeginLookAt(float eyex, float eyey, float eyez, float lookatx, float lookaty, float lookatz) {
+    mat4* m = &matrix.view[stack.view];
     vec4 up = {
         {0.0f, 0.0f, 1.0f, 1.0f}
     };
     vec4 direction, right;
+
+    if (!pushView()) {
+        return 0;
+    }
 
     // Compute direction vectors and set up base matrix.
     direction.v[0] = (lookatx - eyex);
@@ -158,11 +287,13 @@ void DK_SetLookAt(float eyex, float eyey, float eyez, float lookatx, float looka
     // Then add translation based on eye position.
     mitranslate(m, -eyex, -eyey, -eyez);
 
-    // Pre-compute model-view transform.
-    mmulm(&matrix.mv, &matrix.view, &matrix.model);
+    updateMatrices(1);
 
-    // Pre-compute model-view-projection transform.
-    mmulm(&matrix.mvp, &matrix.projection, &matrix.mv);
+    return 1;
+}
+
+int DK_EndLookAt(void) {
+    return popView();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -182,7 +313,7 @@ int DK_Project(float objx, float objy, float objz,
     //__gluMultMatrixVecd(modelMatrix, in, out);
     mmulv(&out, &in, &matrix.mv);
     //__gluMultMatrixVecd(projMatrix, out, in);
-    mmulv(&in, &out, &matrix.projection);
+    mmulv(&in, &out, DK_GetProjectionMatrix());
 
     if (in.v[3] * in.v[3] < 1e-25) {
         return 0;

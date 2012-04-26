@@ -8,6 +8,8 @@
 #ifndef RENDER_H
 #define	RENDER_H
 
+#include <GL/glew.h>
+
 #include "callbacks.h"
 #include "vmath.h"
 
@@ -40,7 +42,7 @@ extern "C" {
     void DK_init_gl(void);
 
     /** Render the game to the screen */
-    void DK_render(void);
+    void DK_Render(void);
 
     /** Set up the camera used for rendering, using two 3-component vectors */
     void DK_render_set_camera(const float* position, const float* target);
@@ -52,11 +54,30 @@ extern "C" {
     void DK_material_init(DK_Material* material);
 
     /**
+     * Initialize rendering system for events.
+     */
+    void DK_InitRender(void);
+
+    /**
+     * Register methods here that need to execute before rendering, but after
+     * the view has been set up.
+     * @param callback the method to call.
+     */
+    void DK_OnPreRender(callback method);
+
+    /**
      * Register a method that should be called when an render pass is performed.
      * Methods are called in the order in which they are registered.
      * @param callback the method to call.
      */
     void DK_OnRender(callback method);
+
+    /**
+     * Register methods that need to render on top of the finished world render,
+     * such as overlays.
+     * @param callback the method to call.
+     */
+    void DK_OnPostRender(callback method);
 
 #ifdef	__cplusplus
 }

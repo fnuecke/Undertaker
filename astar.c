@@ -35,6 +35,9 @@ typedef struct {
 // Globals
 ///////////////////////////////////////////////////////////////////////////////
 
+/** Root of two */
+static const float M_SQRT2 = 1.41421356237309504880f;
+
 /** Number of cells in the grid used for our A* algorithm */
 static int a_star_grid_size = 0;
 
@@ -142,8 +145,6 @@ inline static float h(unsigned int from_x, unsigned int from_y, unsigned int to_
     const int dy = to_y - from_y;
     return sqrtf(dx * dx + dy * dy);
 }
-
-#define M_SQRT2 1.41421356237309504880
 
 /** Computes the heuristic */
 inline static float f(unsigned int node_x, unsigned int node_y, unsigned int goal_x, unsigned int goal_y) {
@@ -353,7 +354,7 @@ static int is_goal(DK_AStarWaypoint* path, unsigned int* depth, float* length,
         if (real_depth < 2) {
             real_depth = 2;
         }
-        
+
         // Follow the path until only as many nodes as we can fit into the
         // specified buffer remain.
         while (real_depth >= *depth) {
@@ -415,12 +416,6 @@ static int is_goal(DK_AStarWaypoint* path, unsigned int* depth, float* length,
 ///////////////////////////////////////////////////////////////////////////////
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
-
-void DK_InitAStar(void) {
-    BS_Delete(a_star_closed_set);
-    a_star_grid_size = DK_GetMapSize() * DK_ASTAR_GRANULARITY;
-    a_star_closed_set = BS_New(a_star_grid_size * a_star_grid_size);
-}
 
 int DK_AStar(const DK_Unit* unit, const vec2* goal, DK_AStarWaypoint* path, unsigned int* depth, float* length) {
     unsigned int gx, gy, begin_x, begin_y, end_x, end_y, neighbor_x, neighbor_y;
@@ -574,4 +569,14 @@ int DK_AStar(const DK_Unit* unit, const vec2* goal, DK_AStarWaypoint* path, unsi
     }
 
     return 0;
+}
+
+static void onMapChange(void) {
+    BS_Delete(a_star_closed_set);
+    a_star_grid_size = DK_GetMapSize() * DK_ASTAR_GRANULARITY;
+    a_star_closed_set = BS_New(a_star_grid_size * a_star_grid_size);
+}
+
+void DK_InitAStar(void) {
+    DK_OnMapChange(onMapChange);
 }

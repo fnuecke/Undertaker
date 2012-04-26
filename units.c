@@ -8,8 +8,11 @@
 #include "astar.h"
 #include "bitset.h"
 #include "config.h"
+#include "graphics.h"
 #include "map.h"
 #include "jobs.h"
+#include "render.h"
+#include "update.h"
 #include "vmath.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -168,7 +171,7 @@ static unsigned int total_unit_count = 0;
 static unsigned int unit_count[DK_PLAYER_COUNT] = {0};
 
 ///////////////////////////////////////////////////////////////////////////////
-// Internal update methods
+// Update
 ///////////////////////////////////////////////////////////////////////////////
 
 static float catmull_rom(float p0, float p1, float p2, float p3, float t) {
@@ -480,40 +483,41 @@ static void update_ai(DK_Unit* unit) {
     }
 }
 
-void DK_InitUnits(void) {
-    int i;
-    for (i = 0; i < DK_PLAYER_COUNT; ++i) {
-        unit_count[i] = 0;
-    }
-    total_unit_count = 0;
-}
-
-void DK_UpdateUnits(void) {
-    unsigned int i;
-    for (i = 0; i < total_unit_count; ++i) {
+static void onUpdate(void) {
+    for (unsigned int i = 0; i < total_unit_count; ++i) {
         DK_Unit* unit = &units[i];
 
         update_ai(unit);
     }
 }
 
-void DK_RenderUnits(void) {
-    unsigned int i, j;
+static void onMapChange(void) {
+    for (unsigned int i = 0; i < DK_PLAYER_COUNT; ++i) {
+        unit_count[i] = 0;
+    }
+    total_unit_count = 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Render
+///////////////////////////////////////////////////////////////////////////////
+
+static void onRender(void) {
+    DK_Material material;
+    DK_material_init(&material);
+    DK_render_set_material(&material);
 
     if (!quadratic) {
         quadratic = gluNewQuadric();
     }
 
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    for (i = 0; i < total_unit_count; ++i) {
+    for (unsigned int i = 0; i < total_unit_count; ++i) {
         DK_Unit* unit = &units[i];
         AI_Node* ai = &unit->ai[unit->ai_count - 1];
         switch (unit->type) {
             default:
                 // Push name of the unit.
                 glLoadName(i);
-                glDisable(GL_LIGHTING);
                 switch (ai->state) {
                     case DK_AI_MOVE:
                         glColor3f(0.9f, 0.9f, 0.9f);
@@ -528,11 +532,14 @@ void DK_RenderUnits(void) {
                         glColor3f(0.6f, 0.6f, 0.6f);
                         break;
                 }
-                glPushMatrix();
-                glTranslatef(unit->position.v[0] * DK_BLOCK_SIZE, unit->position.v[1] * DK_BLOCK_SIZE, 4);
+                DK_PushModelMatrix();
+                {
+                    mat4 model = IDENTITY_MATRIX4;
+                    mitranslate(&model, unit->position.v[0] * DK_BLOCK_SIZE, unit->position.v[1] * DK_BLOCK_SIZE, 4);
+                    DK_SetModelMatrix(&model);
+                }
                 gluSphere(quadratic, DK_BLOCK_SIZE / 6.0f, 8, 8);
-                glPopMatrix();
-                glEnable(GL_LIGHTING);
+                DK_PopModelMatrix();
                 break;
         }
 
@@ -545,11 +552,11 @@ void DK_RenderUnits(void) {
                 glDisable(GL_LIGHTING);
                 glBegin(GL_LINES);
                 {
+                    unsigned int j;
                     glVertex3f(ai->path[1].x * DK_BLOCK_SIZE, ai->path[1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
                     for (j = 2; j <= ai->path_depth; ++j) {
                         // Somewhere in the middle, smooth the path.
-                        int k;
-                        for (k = 1; k < 20; ++k) {
+                        for (unsigned int k = 1; k < 20; ++k) {
                             const float t = k / 20.0f;
                             const float x = catmull_rom(ai->path[j - 2].x, ai->path[j - 1].x, ai->path[j].x, ai->path[j + 1].x, t);
                             const float y = catmull_rom(ai->path[j - 2].y, ai->path[j - 1].y, ai->path[j].y, ai->path[j + 1].y, t);
@@ -562,7 +569,7 @@ void DK_RenderUnits(void) {
                 glEnd();
 
                 glColor3f(0.8f, 0.4f, 0.4f);
-                for (j = 1; j <= ai->path_depth; ++j) {
+                for (unsigned int j = 1; j <= ai->path_depth; ++j) {
                     glPushMatrix();
                     glTranslatef(ai->path[j].x * DK_BLOCK_SIZE, ai->path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
                     gluSphere(quadratic, 0.5f, 8, 8);
@@ -572,6 +579,12 @@ void DK_RenderUnits(void) {
             }
         }
     }
+}
+
+void DK_InitUnits(void) {
+    DK_OnUpdate(onUpdate);
+    DK_OnRender(onRender);
+    DK_OnMapChange(onMapChange);
 }
 
 int DK_AddUnit(DK_Player player, DK_UnitType type, unsigned short x, unsigned short y) {

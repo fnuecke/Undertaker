@@ -4,6 +4,7 @@
 #include "config.h"
 #include "map.h"
 #include "vmath.h"
+#include "update.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
@@ -29,40 +30,10 @@ static float gCameraZoom = 0;
 static float gCameraZoomTarget = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
-// Header implementation
+// Updating
 ///////////////////////////////////////////////////////////////////////////////
 
-const vec2* DK_GetCameraPosition(void) {
-    return &gCameraPosition;
-}
-
-float DK_GetCameraZoom(void) {
-    return gCameraZoom;
-}
-
-void DK_CameraStartScrolling(DK_CameraDirection direction) {
-    gCameraDirection |= direction;
-}
-
-void DK_CameraStopScrolling(DK_CameraDirection direction) {
-    gCameraDirection &= ~direction;
-}
-
-void DK_CameraZoomIn(void) {
-    gCameraZoomTarget += DK_CAMERA_ZOOM_STEP;
-    if (gCameraZoomTarget > 1.0f) {
-        gCameraZoomTarget = 1.0f;
-    }
-}
-
-void DK_CameraZoomOut(void) {
-    gCameraZoomTarget -= DK_CAMERA_ZOOM_STEP;
-    if (gCameraZoomTarget < 0) {
-        gCameraZoomTarget = 0;
-    }
-}
-
-void DK_UpdateCamera(void) {
+static void update(void) {
     if (gCameraDirection & DK_CAMERA_DIRECTION_NORTH) {
         gCameraVelocity.v[1] = DK_CAMERA_SPEED;
     }
@@ -104,4 +75,42 @@ void DK_UpdateCamera(void) {
     }
 
     gCameraZoom += (gCameraZoomTarget - gCameraZoom) / 2.0f;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Header implementation
+///////////////////////////////////////////////////////////////////////////////
+
+const vec2* DK_GetCameraPosition(void) {
+    return &gCameraPosition;
+}
+
+float DK_GetCameraZoom(void) {
+    return gCameraZoom;
+}
+
+void DK_CameraStartScrolling(DK_CameraDirection direction) {
+    gCameraDirection |= direction;
+}
+
+void DK_CameraStopScrolling(DK_CameraDirection direction) {
+    gCameraDirection &= ~direction;
+}
+
+void DK_CameraZoomIn(void) {
+    gCameraZoomTarget += DK_CAMERA_ZOOM_STEP;
+    if (gCameraZoomTarget > 1.0f) {
+        gCameraZoomTarget = 1.0f;
+    }
+}
+
+void DK_CameraZoomOut(void) {
+    gCameraZoomTarget -= DK_CAMERA_ZOOM_STEP;
+    if (gCameraZoomTarget < 0) {
+        gCameraZoomTarget = 0;
+    }
+}
+
+void DK_InitCamera(void) {
+    DK_OnUpdate(update);
 }

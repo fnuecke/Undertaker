@@ -113,14 +113,9 @@ extern "C" {
     ///////////////////////////////////////////////////////////////////////////////
 
     /**
-     * (Re)Initialize selection data structures after map change.
+     * Initialize selection logic.
      */
     void DK_InitSelection(void);
-
-    /**
-     * Update the current selection. Should be called each frame.
-     */
-    void DK_UpdateSelection(void);
 
 #ifdef	__cplusplus
 }

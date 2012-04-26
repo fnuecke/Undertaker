@@ -28,17 +28,29 @@ extern "C" {
 
     const mat4* DK_GetModelViewProjectionMatrix(void);
 
+    int DK_PushModelMatrix(void);
+
+    int DK_PopModelMatrix(void);
+
     void DK_SetModelMatrix(const mat4* m);
-    
+
     ///////////////////////////////////////////////////////////////////////////
     // Projection and view matrix generation
     ///////////////////////////////////////////////////////////////////////////
 
-    void DK_SetPerspective(float fov, float ratio, float near, float far);
+    int DK_BeginPerspective(void);
 
-    void DK_SetOrthogonal(float left, float right, float bottom, float top, float near, float far);
+    int DK_EndPerspective(void);
 
-    void DK_SetLookAt(float eyex, float eyey, float eyez, float lookatx, float lookaty, float lookatz);
+    int DK_BeginOrthogonal(void);
+
+    int DK_EndOrthogonal(void);
+
+    int DK_BeginPerspectiveForPicking(float x, float y);
+
+    int DK_BeginLookAt(float eyex, float eyey, float eyez, float lookatx, float lookaty, float lookatz);
+
+    int DK_EndLookAt(void);
 
     ///////////////////////////////////////////////////////////////////////////
     // Projection

@@ -4,41 +4,32 @@
 
 #include "config.h"
 #include "picking.h"
+#include "graphics.h"
+#include "vmath.h"
 
 GLuint DK_Pick(int x, int y, void(*render)(void)) {
     GLuint buffer[64] = {0};
     GLuint closest, depth;
-    GLint view[4];
     GLint hits, hit;
-
-    // Store state.
-    glPushAttrib(GL_TRANSFORM_BIT | GL_ENABLE_BIT | GL_CURRENT_BIT);
 
     glSelectBuffer(sizeof (buffer), buffer);
     glRenderMode(GL_SELECT);
     glInitNames();
     glPushName(0);
 
-    // Now modify the viewing volume, restricting selection area around the cursor
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-
-    // Restrict the draw to an area around the cursor.
-    glGetIntegerv(GL_VIEWPORT, view);
-    gluPickMatrix(x, y, 1.0, 1.0, view);
-    gluPerspective(DK_field_of_view, DK_ASPECT_RATIO, 0.1, 1000.0);
+    // Now modify the viewing volume, restricting selection area around the
+    // cursor. This way only render what's close to it.
+    DK_BeginPerspectiveForPicking(x, y);
 
     render();
 
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
+    // Done with rendering, pop the matrix.
+    DK_EndPerspective();
 
+    // See if we hit anything.
     hits = glRenderMode(GL_RENDER);
 
-    // Restore state.
-    glPopAttrib();
-
+    // Find the element that's closest to the eye.
     closest = 0;
     depth = UINT32_MAX;
     for (hit = 0; hit < hits; ++hit) {

@@ -3,6 +3,8 @@
 #include <SDL/SDL.h>
 #include <GL/glew.h>
 
+#include "astar.h"
+#include "camera.h"
 #include "config.h"
 #include "init.h"
 #include "map.h"
@@ -10,6 +12,9 @@
 #include "selection.h"
 #include "textures.h"
 #include "units.h"
+#include "camera.h"
+#include "cursor.h"
+#include "jobs.h"
 
 static void shutdown(void) {
     fprintf(DK_log_target, "INFO: Game shutting down...\n");
@@ -84,7 +89,15 @@ void DK_Init(void) {
 
     fprintf(DK_log_target, "INFO: Done initializing OpenGL.\n");
 
+    // Set up event bindings.
+    DK_InitAStar();
+    DK_InitCamera();
+    DK_InitCursor();
+    DK_InitSelection();
+    DK_InitJobs();
+    DK_InitUnits();
+    DK_InitMap();
+    
     // Initialize a test map.
     DK_LoadMap("test");
 }
-

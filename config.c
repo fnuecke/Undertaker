@@ -12,6 +12,8 @@ int DK_d_draw_test_texture = 0;
 int DK_d_draw_paths = 0;
 int DK_d_draw_jobs = 0;
 DK_DeferredDisplay DK_d_draw_deferred = DK_D_DEFERRED_FINAL;
+int DK_d_draw_picking_mode = 0;
+int DK_d_draw_deferred_shader = 1;
 
 void DK_load_config(void) {
     DK_log_target = fopen("game.log", "w");

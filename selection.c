@@ -3,6 +3,7 @@
 #include "map.h"
 #include "players.h"
 #include "selection.h"
+#include "update.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
@@ -61,6 +62,25 @@ static void validate(DK_Selection* selection) {
         int tmp = selection->endY;
         selection->endY = selection->startY;
         selection->startY = tmp;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Update
+///////////////////////////////////////////////////////////////////////////////
+
+static void onUpdate(void) {
+    DK_GetBlockUnderCursor(&gCurrentSelection.endX, &gCurrentSelection.endY);
+    if (gMode == MODE_NONE) {
+        gCurrentSelection.startX = gCurrentSelection.endX;
+        gCurrentSelection.startY = gCurrentSelection.endY;
+    }
+}
+
+static void onMapChange(void) {
+    for (int i = 0; i < DK_PLAYER_COUNT; ++i) {
+        BS_Delete(gPlayerSelection[i]);
+        gPlayerSelection[i] = BS_New(DK_GetMapSize() * DK_GetMapSize());
     }
 }
 
@@ -171,20 +191,10 @@ int DK_DeselectBlock(DK_Player player, int x, int y) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Initialization / Update
+// Initialization
 ///////////////////////////////////////////////////////////////////////////////
 
 void DK_InitSelection(void) {
-    for (int i = 0; i < DK_PLAYER_COUNT; ++i) {
-        BS_Delete(gPlayerSelection[i]);
-        gPlayerSelection[i] = BS_New(DK_GetMapSize() * DK_GetMapSize());
-    }
-}
-
-void DK_UpdateSelection(void) {
-    DK_GetBlockUnderCursor(&gCurrentSelection.endX, &gCurrentSelection.endY);
-    if (gMode == MODE_NONE) {
-        gCurrentSelection.startX = gCurrentSelection.endX;
-        gCurrentSelection.startY = gCurrentSelection.endY;
-    }
+    DK_OnUpdate(onUpdate);
+    DK_OnMapChange(onMapChange);
 }

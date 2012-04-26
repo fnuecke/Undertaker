@@ -95,10 +95,9 @@ extern "C" {
     ///////////////////////////////////////////////////////////////////////////////
 
     /**
-     * Updates camera position and speed based on set movement direction. This
-     * should be called each frame.
+     * Set up camera events and logic.
      */
-    void DK_UpdateCamera(void);
+    void DK_InitCamera(void);
 
 #ifdef	__cplusplus
 }
