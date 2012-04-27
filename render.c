@@ -143,30 +143,30 @@ static struct {
         GLint SurfaceNormalAndSpecularExponent;
 
         /** The current position of the camera in the world */
-        GLint WorldCameraPosition;
-
-        /** The diffuse color of the current light to shade for */
-        GLint LightDiffuseColor;
-
-        /** The specular color of the current light to shade for */
-        GLint LightSpecularColor;
+        GLint CameraPosition;
 
         /** The position of the current light to shade for */
-        GLint LightWorldPosition;
+        GLint LightPosition;
+
+        /** The diffuse color of the current light to shade for */
+        GLint DiffuseLightColor;
+
+        /** The power of the diffuse color of the current light to shade for */
+        GLint DiffuseLightPower;
+
+        /** The specular color of the current light to shade for */
+        GLint SpecularLightColor;
+
+        /** The power of the specular color of the current light to shade for */
+        GLint SpecularLightPower;
+
     } fs_uniforms;
 } gLightShader;
 
 /** Represents a single light in a scene */
-typedef struct {
-    /** The diffuse color (and power - can be larger than one). */
-    float diffuseColor[3];
-
-    /** The specular color (and power - can be larger than one). */
-    float specularColor[3];
-
-    /** The position of the light, in world space. */
-    vec4 world_position;
-} DK_Light;
+static const DK_Light** gLights = 0;
+static unsigned int gLightCapacity = 0;
+static unsigned int gLightCount = 0;
 
 /** Callbacks/hooks for different render stages */
 static Callbacks* gPreRenderCallbacks = 0;
@@ -228,10 +228,13 @@ static void initShaders(void) {
             gLightShader.fs_uniforms.EmissiveAlbedo = glGetUniformLocation(gLightShader.program, "EmissiveAlbedo");
             gLightShader.fs_uniforms.VertexPosition = glGetUniformLocation(gLightShader.program, "VertexPosition");
             gLightShader.fs_uniforms.SurfaceNormalAndSpecularExponent = glGetUniformLocation(gLightShader.program, "SurfaceNormalAndSpecularExponent");
-            gLightShader.fs_uniforms.WorldCameraPosition = glGetUniformLocation(gLightShader.program, "WorldCameraPosition");
-            gLightShader.fs_uniforms.LightDiffuseColor = glGetUniformLocation(gLightShader.program, "LightDiffuseColor");
-            gLightShader.fs_uniforms.LightSpecularColor = glGetUniformLocation(gLightShader.program, "LightSpecularColor");
-            gLightShader.fs_uniforms.LightWorldPosition = glGetUniformLocation(gLightShader.program, "LightWorldPosition");
+
+            gLightShader.fs_uniforms.CameraPosition = glGetUniformLocation(gLightShader.program, "CameraPosition");
+            gLightShader.fs_uniforms.LightPosition = glGetUniformLocation(gLightShader.program, "LightPosition");
+            gLightShader.fs_uniforms.DiffuseLightColor = glGetUniformLocation(gLightShader.program, "DiffuseLightColor");
+            gLightShader.fs_uniforms.DiffuseLightPower = glGetUniformLocation(gLightShader.program, "DiffuseLightPower");
+            gLightShader.fs_uniforms.SpecularLightColor = glGetUniformLocation(gLightShader.program, "SpecularLightColor");
+            gLightShader.fs_uniforms.SpecularLightPower = glGetUniformLocation(gLightShader.program, "SpecularLightPower");
             EXIT_ON_OPENGL_ERROR();
         }
     } else {
@@ -414,7 +417,7 @@ static void lightPass(void) {
     // Figure out what to draw.
     if (DK_d_draw_deferred == DK_D_DEFERRED_FINAL) {
         // Get camera position.
-        vec4 cam_position = getCameraPosition();
+        const vec4 camera = getCameraPosition();
 
         // We use our shader to do the actual shading computations.
         glUseProgram(gLightShader.program);
@@ -423,7 +426,7 @@ static void lightPass(void) {
         glUniformMatrix4fv(gLightShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
 
         // Set camera position.
-        glUniform3fv(gLightShader.fs_uniforms.WorldCameraPosition, 1, cam_position.v);
+        glUniform3fv(gLightShader.fs_uniforms.CameraPosition, 1, camera.v);
 
         // Set our three g-buffer textures.
         glActiveTexture(GL_TEXTURE0);
@@ -451,10 +454,55 @@ static void lightPass(void) {
         glBindTexture(GL_TEXTURE_2D, gBuffer.surfaceNormalAndSpecularExponentTexture);
         glUniform1i(gLightShader.fs_uniforms.SurfaceNormalAndSpecularExponent, 4);
 
-        glUniform3f(gLightShader.fs_uniforms.LightDiffuseColor, 1, 1, 1);
-        glUniform3f(gLightShader.fs_uniforms.LightSpecularColor, 1, 1, 1);
-        glUniform3f(gLightShader.fs_uniforms.LightWorldPosition, DK_GetCursor()->v[0], DK_GetCursor()->v[1], 80);
-        
+        EXIT_ON_OPENGL_ERROR();
+
+        // Draw lights.
+        for (unsigned int i = 0; i < gLightCount; ++i) {
+            const DK_Light* light = gLights[i];
+            glUniform3fv(gLightShader.fs_uniforms.DiffuseLightColor, 1, light->diffuseColor.v);
+            glUniform1f(gLightShader.fs_uniforms.DiffuseLightPower, light->diffusePower / gLightCount);
+            glUniform3fv(gLightShader.fs_uniforms.SpecularLightColor, 1, light->specularColor.v);
+            glUniform1f(gLightShader.fs_uniforms.SpecularLightPower, light->specularPower / gLightCount);
+            glUniform3fv(gLightShader.fs_uniforms.LightPosition, 1, light->position.v);
+
+            // Render the quad.
+            glBegin(GL_QUADS);
+            {
+                glTexCoord2f(0.0f, 0.0f);
+                glVertex3f(0.0f, 0.0f, 0.0f);
+                glTexCoord2f(1.0f, 0.0f);
+                glVertex3f(0.0f, (float) DK_resolution_x, 0.0f);
+                glTexCoord2f(1.0f, 1.0f);
+                glVertex3f(0.0f, (float) DK_resolution_x, (float) DK_resolution_y);
+                glTexCoord2f(0.0f, 1.0f);
+                glVertex3f(0.0f, 0.0f, (float) DK_resolution_y);
+            }
+            glEnd();
+
+            EXIT_ON_OPENGL_ERROR();
+        }
+
+        // Unbind the textures we used.
+        glActiveTexture(GL_TEXTURE0);
+        glDisable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        glActiveTexture(GL_TEXTURE1);
+        glDisable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glActiveTexture(GL_TEXTURE2);
+        glDisable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glActiveTexture(GL_TEXTURE3);
+        glDisable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glActiveTexture(GL_TEXTURE4);
+        glDisable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        // Done with our lighting shader.
+        glUseProgram(0);
+
         EXIT_ON_OPENGL_ERROR();
     } else {
         glActiveTexture(GL_TEXTURE0);
@@ -474,45 +522,27 @@ static void lightPass(void) {
         }
 
         EXIT_ON_OPENGL_ERROR();
-    }
 
-    // Render the quad
-    glBegin(GL_QUADS);
-    {
-        glTexCoord2f(0.0f, 0.0f);
-        glVertex3f(0.0f, 0.0f, 0.0f);
-        glTexCoord2f(1.0f, 0.0f);
-        glVertex3f(0.0f, (float) DK_resolution_x, 0.0f);
-        glTexCoord2f(1.0f, 1.0f);
-        glVertex3f(0.0f, (float) DK_resolution_x, (float) DK_resolution_y);
-        glTexCoord2f(0.0f, 1.0f);
-        glVertex3f(0.0f, 0.0f, (float) DK_resolution_y);
-    }
-    glEnd();
+        // Render the quad
+        glBegin(GL_QUADS);
+        {
+            glTexCoord2f(0.0f, 0.0f);
+            glVertex3f(0.0f, 0.0f, 0.0f);
+            glTexCoord2f(1.0f, 0.0f);
+            glVertex3f(0.0f, (float) DK_resolution_x, 0.0f);
+            glTexCoord2f(1.0f, 1.0f);
+            glVertex3f(0.0f, (float) DK_resolution_x, (float) DK_resolution_y);
+            glTexCoord2f(0.0f, 1.0f);
+            glVertex3f(0.0f, 0.0f, (float) DK_resolution_y);
+        }
+        glEnd();
 
-    EXIT_ON_OPENGL_ERROR();
+        EXIT_ON_OPENGL_ERROR();
 
-    // Unbind the textures we used.
-    glActiveTexture(GL_TEXTURE0);
-    glDisable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    if (DK_d_draw_deferred == DK_D_DEFERRED_FINAL) {
-        glActiveTexture(GL_TEXTURE1);
+        // Unbind the textures we used.
+        glActiveTexture(GL_TEXTURE0);
         glDisable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, 0);
-        glActiveTexture(GL_TEXTURE2);
-        glDisable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glActiveTexture(GL_TEXTURE3);
-        glDisable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glActiveTexture(GL_TEXTURE4);
-        glDisable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        // Done with our lighting shader.
-        glUseProgram(0);
 
         EXIT_ON_OPENGL_ERROR();
     }
@@ -616,13 +646,12 @@ void DK_InitRender(void) {
     EXIT_ON_OPENGL_ERROR();
 
     // Set our projection matrix to match our viewport. Null the OpenGL internal
-    // ones, as we'll use our own because we use shaders.
-    /*
-        glMatrixMode(GL_PROJECTION);
-        glLoadIdentity();
-        glMatrixMode(GL_MODELVIEW);
-        glLoadIdentity();
-     */
+    // ones, as we'll use our own because we use shaders, but we still set the
+    // OpenGL ones for test purposes (picking, alternative rendering).
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
 
     DK_OnModelMatrixChanged(onModelMatrixChanged);
 }
@@ -636,13 +665,13 @@ void DK_InitRender(void) {
 void DK_SetMaterial(const DK_Material* material) {
     for (unsigned int i = 0; i < DK_MAX_MATERIAL_TEXTURES; ++i) {
         glActiveTexture(GL_TEXTURE0 + i);
+        glDisable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
     EXIT_ON_OPENGL_ERROR();
 
     if (gIsGeometryPass) {
-        glColor3f(1.0f, 1.0f, 1.0f);
-        glDisable(GL_TEXTURE_2D);
+        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
         for (unsigned int i = 0; i < material->textureCount; ++i) {
             glActiveTexture(GL_TEXTURE0 + i);
@@ -655,14 +684,15 @@ void DK_SetMaterial(const DK_Material* material) {
         glUniform3fv(gGeometryShader.fs_uniforms.ColorDiffuse, 1, material->diffuseColor.v);
         glUniform3fv(gGeometryShader.fs_uniforms.ColorSpecular, 1, material->specularColor.v);
         glUniform3fv(gGeometryShader.fs_uniforms.ColorEmissive, 1, material->emissiveColor.v);
-        
+
         glUniform1f(gGeometryShader.fs_uniforms.SpecularExponent, material->specularExponent);
         EXIT_ON_OPENGL_ERROR();
     } else {
-        glColor4f(material->diffuseColor.v[0],
-                material->diffuseColor.v[1],
-                material->diffuseColor.v[2],
+        glColor4f(material->diffuseColor.v[0] + material->emissiveColor.v[0],
+                material->diffuseColor.v[1] + material->emissiveColor.v[1],
+                material->diffuseColor.v[2] + material->emissiveColor.v[2],
                 material->diffuseColor.v[3]);
+
         if (material->textureCount > 0) {
             glActiveTexture(GL_TEXTURE0);
             glEnable(GL_TEXTURE_2D);
@@ -683,12 +713,38 @@ void DK_InitMaterial(DK_Material* material) {
     material->specularColor.v[0] = 0.0f;
     material->specularColor.v[1] = 0.0f;
     material->specularColor.v[2] = 0.0f;
-    material->specularExponent = 0.0f;
+    material->specularExponent = 1.0f;
     material->emissiveColor.v[0] = 0.0f;
     material->emissiveColor.v[1] = 0.0f;
     material->emissiveColor.v[2] = 0.0f;
     material->bumpMap = 0;
     material->normalMap = 0;
+}
+
+void DK_AddLight(const DK_Light* light) {
+    if (gLightCount >= gLightCapacity) {
+        gLightCapacity = gLightCapacity * 2 + 1;
+        gLights = realloc(gLights, gLightCapacity * sizeof (DK_Light*));
+    }
+
+    // Copy values.
+    gLights[gLightCount] = light;
+
+    // Increment counter.
+    ++gLightCount;
+}
+
+int DK_RemoveLight(const DK_Light* light) {
+    // Find the light.
+    for (unsigned int i = 0; i < gLightCount; ++i) {
+        if (gLights[i] == light) {
+            // Found it. Close the gap by shifting all following entries one up.
+            --gLightCount;
+            memmove(&gLights[i], &gLights[i + 1], (gLightCount - i) * sizeof (DK_Light*));
+            return 1;
+        }
+    }
+    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

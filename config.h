@@ -201,7 +201,7 @@ FILE* DK_log_target;
 #define DK_MAP_SELECTED_COLOR_A_MIN 0.6f
 #define DK_MAP_SELECTED_COLOR_A_MAX 0.9f
 #define DK_MAP_SELECTED_PULSE_FREQUENCY 1 / 750.0f
-#define DK_MAP_SELECTED_COLOR_A (DK_MAP_SELECTED_COLOR_A_MIN + sinf(SDL_GetTicks() * M_PI * (DK_MAP_SELECTED_PULSE_FREQUENCY)) * (DK_MAP_SELECTED_COLOR_A_MAX - DK_MAP_SELECTED_COLOR_A_MIN))
+#define DK_MAP_SELECTED_COLOR_A (DK_MAP_SELECTED_COLOR_A_MIN + sinf(SDL_GetTicks() * 3.14159265358979323846f * (DK_MAP_SELECTED_PULSE_FREQUENCY)) * (DK_MAP_SELECTED_COLOR_A_MAX - DK_MAP_SELECTED_COLOR_A_MIN))
 
 /** The color of the selection outline */
 #define DK_MAP_OUTLINE_COLOR_R 0.4f
@@ -211,6 +211,14 @@ FILE* DK_log_target;
 
 /** Offset for selection outline to not intersect with map blocks */
 #define DK_MAP_SELECTION_OFFSET 0.15f
+
+/** Color of the light at the cursor */
+#define DK_HAND_LIGHT_COLOR_R 1.0f
+#define DK_HAND_LIGHT_COLOR_G 1.0f
+#define DK_HAND_LIGHT_COLOR_B 1.0f
+
+/** Brightness of the light at the cursor */
+#define DK_HAND_LIGHT_POWER 3000.0f
 
 ///////////////////////////////////////////////////////////////////////////////
 // Camera

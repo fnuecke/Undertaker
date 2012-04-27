@@ -513,6 +513,10 @@ static void onRender(void) {
         const DK_Unit* unit = &units[i];
         const AI_Node* ai = &unit->ai[unit->ai_count - 1];
         DK_InitMaterial(&material);
+        material.specularColor.v[0] = 0.9f;
+        material.specularColor.v[1] = 0.9f;
+        material.specularColor.v[2] = 0.9f;
+        material.specularExponent = 25.0f;
         switch (unit->type) {
             default:
             {
@@ -543,13 +547,14 @@ static void onRender(void) {
                 DK_SetMaterial(&material);
                 DK_PushModelMatrix();
                 DK_TranslateModelMatrix(unit->position.v[0] * DK_BLOCK_SIZE, unit->position.v[1] * DK_BLOCK_SIZE, 4);
-                gluSphere(quadratic, DK_BLOCK_SIZE / 6.0f, 8, 8);
+                gluSphere(quadratic, DK_BLOCK_SIZE / 6.0f, 16, 16);
                 DK_PopModelMatrix();
                 break;
             }
         }
 
         if (DK_d_draw_paths && ai->state == DK_AI_MOVE) {
+            DK_InitMaterial(&material);
             material.emissiveColor.v[0] = 0.8f;
             material.emissiveColor.v[1] = 0.8f;
             material.emissiveColor.v[2] = 0.9f;

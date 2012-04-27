@@ -10,6 +10,7 @@
 #include "callbacks.h"
 #include "camera.h"
 #include "config.h"
+#include "cursor.h"
 #include "graphics.h"
 #include "jobs.h"
 #include "map.h"
@@ -37,7 +38,12 @@ static unsigned short gMapSize = 0;
 /**
  * Currently hovered block coordinates.
  */
-static int cursor_x = 0, cursor_y = 0;
+static int gCursorX = 0, gCursorY = 0;
+
+/**
+ * The light the user's cursor emits.
+ */
+static DK_Light gHandLight;
 
 /**
  * Currently doing a picking (select) render pass?
@@ -1222,8 +1228,6 @@ static void renderSelectionOutline(void) {
     DK_PopModelMatrix();
 }
 
-static const float M_PI = 3.14159265358979323846f;
-
 static void renderSelectionOverlay(void) {
     const vec2* camera = DK_GetCameraPosition();
     const int x_begin = (int) (camera->v[0] / DK_BLOCK_SIZE) - DK_RENDER_AREA_X / 2;
@@ -1462,8 +1466,12 @@ static void onPreRender(void) {
     selected_name = DK_Pick(mouse_x, DK_resolution_y - mouse_y, &onRender);
     gIsPicking = 0;
 
-    cursor_x = (short) (selected_name & 0xFFFF);
-    cursor_y = (short) (selected_name >> 16);
+    gCursorX = (short) (selected_name & 0xFFFF);
+    gCursorY = (short) (selected_name >> 16);
+
+    gHandLight.position.v[0] = DK_GetCursor()->v[0];
+    gHandLight.position.v[1] = DK_GetCursor()->v[1];
+    gHandLight.position.v[2] = 80.0f;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1570,6 +1578,16 @@ unsigned short DK_GetMapSize(void) {
 }
 
 void DK_InitMap(void) {
+    gHandLight.diffuseColor.v[0] = DK_HAND_LIGHT_COLOR_R;
+    gHandLight.diffuseColor.v[1] = DK_HAND_LIGHT_COLOR_G;
+    gHandLight.diffuseColor.v[2] = DK_HAND_LIGHT_COLOR_B;
+    gHandLight.diffusePower = DK_HAND_LIGHT_POWER;
+    gHandLight.specularColor.v[0] = DK_HAND_LIGHT_COLOR_R;
+    gHandLight.specularColor.v[1] = DK_HAND_LIGHT_COLOR_G;
+    gHandLight.specularColor.v[2] = DK_HAND_LIGHT_COLOR_B;
+    gHandLight.specularPower = DK_HAND_LIGHT_POWER;
+    DK_AddLight(&gHandLight);
+
     DK_OnPreRender(onPreRender);
     DK_OnRender(onRender);
     DK_OnPostRender(renderSelectionOverlay);
@@ -1638,9 +1656,9 @@ int DK_GetBlockCoordinates(unsigned short* x, unsigned short* y, const DK_Block 
 }
 
 DK_Block * DK_GetBlockUnderCursor(int* block_x, int* block_y) {
-    *block_x = cursor_x;
-    *block_y = cursor_y;
-    return DK_GetBlockAt(cursor_x, cursor_y);
+    *block_x = gCursorX;
+    *block_y = gCursorY;
+    return DK_GetBlockAt(gCursorX, gCursorY);
 }
 
 int DK_IsBlockFluid(const DK_Block * block) {

@@ -20,6 +20,28 @@
 extern "C" {
 #endif
 
+    ///////////////////////////////////////////////////////////////////////////
+    // Types
+    ///////////////////////////////////////////////////////////////////////////
+
+    /** Describes a light in the world */
+    typedef struct {
+        /** The position of the light, in world space */
+        vec3 position;
+
+        /** The diffuse color */
+        vec3 diffuseColor;
+
+        /** The diffuse lightpower */
+        float diffusePower;
+
+        /** The specular color */
+        vec3 specularColor;
+
+        /** The specular light power */
+        float specularPower;
+    } DK_Light;
+
     /** Used to configure material used for rendering */
     typedef struct {
         /** Textures used for multi-texturing */
@@ -42,30 +64,60 @@ extern "C" {
 
         /** Emissivity of the color, i.e. how much light it provides to itself */
         vec3 emissiveColor;
-        
+
         /** Specular exponent for the material */
         float specularExponent;
     } DK_Material;
 
-    /** (Re)initialize openGL */
-    void DK_InitRender(void);
+    ///////////////////////////////////////////////////////////////////////////
+    // Accessors
+    ///////////////////////////////////////////////////////////////////////////
 
-    /** Render the game to the screen */
-    void DK_Render(void);
-
-    /** Set up the camera used for rendering, using two 3-component vectors */
-    void DK_render_set_camera(const float* position, const float* target);
-
-    /** Set material information to use from now on */
+    /**
+     * Set material information to use from now on. Note that no reference will
+     * be kept, all values will be copied into an internal buffer.
+     * @param material the material to set.
+     */
     void DK_SetMaterial(const DK_Material* material);
 
-    /** Initialize a material to its default values */
+    /**
+     * Initialize a material to its default values.
+     * @param material the material to initialize.
+     */
     void DK_InitMaterial(DK_Material* material);
+
+    /**
+     * Add a light to the world. Only the pointer will be tracked, so it is the
+     * responsibility of the caller to make sure the light does not get invalid
+     * before it is removed again.
+     * @param light the light to add.
+     */
+    void DK_AddLight(const DK_Light* light);
+
+    /**
+     * Remove a light from the world.
+     * @param light the light to remove.
+     * @return whether the light was removed (1) or not (0).
+     */
+    int DK_RemoveLight(const DK_Light* light);
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Initialization / Rendering
+    ///////////////////////////////////////////////////////////////////////////
 
     /**
      * Initialize rendering system for events.
      */
     void DK_InitRender(void);
+
+    /**
+     * Render the game to the screen.
+     */
+    void DK_Render(void);
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Events
+    ///////////////////////////////////////////////////////////////////////////
 
     /**
      * Register methods here that need to execute before rendering, but after
