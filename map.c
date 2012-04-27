@@ -499,7 +499,7 @@ static void set_texture(int x, int y, unsigned int z, DK_Texture texture) {
     DK_Material material;
     DK_InitMaterial(&material);
     material.textures[0] = DK_opengl_texture(texture, variation);
-    material.texture_count = 1;
+    material.textureCount = 1;
     DK_SetMaterial(&material);
 }
 
@@ -951,10 +951,10 @@ static void renderSelectionOutline(void) {
     // Set up for line drawing.
     glLineWidth(3.0f + DK_GetCameraZoom() * 3.0f);
     DK_InitMaterial(&material);
-    material.diffuse_color.v[0] = DK_MAP_OUTLINE_COLOR_R;
-    material.diffuse_color.v[1] = DK_MAP_OUTLINE_COLOR_G;
-    material.diffuse_color.v[2] = DK_MAP_OUTLINE_COLOR_B;
-    material.diffuse_color.v[3] = DK_MAP_OUTLINE_COLOR_A;
+    material.diffuseColor.v[0] = DK_MAP_OUTLINE_COLOR_R;
+    material.diffuseColor.v[1] = DK_MAP_OUTLINE_COLOR_G;
+    material.diffuseColor.v[2] = DK_MAP_OUTLINE_COLOR_B;
+    material.diffuseColor.v[3] = DK_MAP_OUTLINE_COLOR_A;
     DK_SetMaterial(&material);
 
     DK_PushModelMatrix();
@@ -1235,10 +1235,10 @@ static void renderSelectionOverlay(void) {
     // Set up coloring.
     DK_InitMaterial(&material);
 
-    material.diffuse_color.v[0] = DK_MAP_SELECTED_COLOR_R;
-    material.diffuse_color.v[1] = DK_MAP_SELECTED_COLOR_G;
-    material.diffuse_color.v[2] = DK_MAP_SELECTED_COLOR_B;
-    material.diffuse_color.v[3] = DK_MAP_SELECTED_COLOR_A;
+    material.diffuseColor.v[0] = DK_MAP_SELECTED_COLOR_R;
+    material.diffuseColor.v[1] = DK_MAP_SELECTED_COLOR_G;
+    material.diffuseColor.v[2] = DK_MAP_SELECTED_COLOR_B;
+    material.diffuseColor.v[3] = DK_MAP_SELECTED_COLOR_A;
     DK_SetMaterial(&material);
 
     glEnable(GL_BLEND);

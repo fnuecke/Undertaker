@@ -22,13 +22,15 @@ uniform int TextureCount;
 uniform vec3 ColorDiffuse;
 // The specular color of the object.
 uniform vec3 ColorSpecular;
+// Specular exponent.
+uniform float SpecularExponent;
 // How much light the texture emits.
-uniform float ColorEmissivity;
+uniform vec3 ColorEmissive;
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
 // Position of the vertex in world space.
-in vec3 fs_WorldVertex;
+in vec4 fs_WorldVertex;
 // Normal of the vertex in world space.
 in vec3 fs_WorldNormal;
 // The texture coordinate on the object's surface.
@@ -36,13 +38,16 @@ in vec2 fs_TextureCoordinate;
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
+// Diffuse albedo material color.
+out vec3 DiffuseAlbedo;
+// Specular albedo material color.
+out vec3 SpecularAlbedo;
+// Emissive albedo material color.
+out vec3 EmissiveAlbedo;
 // We return the vertex position in world space.
-out vec4 Vertex;
+out vec4 VertexPosition;
 // And the normal direction in world space.
-out vec3 Normal;
-// We store the diffuse and specular color in a single vec4 by making the
-// specular monochromatic and storing it in the 4th component.
-out vec4 Color;
+out vec4 SurfaceNormalAndSpecularExponent;
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -57,13 +62,13 @@ float brightness(vec3 color) {
 // Main routing, does what a main does. Freakin' EVERYTHING!
 void main(void) {
 	if (TextureCount > 0) {
-		vec4 textureColor = texture2D(Textures, fs_TextureCoordinate);
-		Color = vec4(textureColor.rgb * ColorDiffuse, brightness(textureColor.rgb * ColorSpecular));
-		Color = textureColor;
+		DiffuseAlbedo = texture2D(Textures, fs_TextureCoordinate).rgb;
 	} else {
-		Color = vec4(ColorDiffuse.rgb, brightness(ColorSpecular));
+		DiffuseAlbedo = ColorDiffuse;
 	}
-	Vertex = vec4(fs_WorldVertex.xyz, ColorEmissivity);
-	Normal = fs_WorldNormal;
+	SpecularAlbedo = ColorSpecular;
+	EmissiveAlbedo = ColorEmissive;
+	VertexPosition = fs_WorldVertex;
+	SurfaceNormalAndSpecularExponent = vec4(fs_WorldNormal, SpecularExponent);
 }
 ///////////////////////////////////////////////////////////////////////////////

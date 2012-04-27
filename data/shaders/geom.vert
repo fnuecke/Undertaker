@@ -40,7 +40,7 @@ layout(location=8) in vec2 TextureCoordinate;
 // to the g-buffer.
 //
 // Position of the vertex in world space.
-out vec3 fs_WorldVertex;
+out vec4 fs_WorldVertex;
 // Normal of the vertex in world space.
 out vec3 fs_WorldNormal;
 // Texture coordinate for the vertex in texture space.
@@ -54,7 +54,7 @@ void main(void) {
 	gl_Position = ModelViewProjectionMatrix * ModelVertex;
 
 	// Transform the vertex to world space.
-	fs_WorldVertex = (ModelMatrix * ModelVertex).xyz;
+	fs_WorldVertex = ModelMatrix * ModelVertex;
 
 	// Pass on the texture coordinate.
 	fs_TextureCoordinate = TextureCoordinate;

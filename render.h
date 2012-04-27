@@ -26,22 +26,25 @@ extern "C" {
         GLuint textures[DK_MAX_MATERIAL_TEXTURES];
 
         /** Number of textures to use */
-        unsigned int texture_count;
+        unsigned int textureCount;
 
         /** Texture to use as a bump map */
-        GLuint bump_map;
+        GLuint bumpMap;
 
         /** Texture to use as a normal map */
-        GLuint normal_map;
+        GLuint normalMap;
 
         /** Diffuse multiplier for texture */
-        vec4 diffuse_color;
+        vec4 diffuseColor;
 
         /** Specular multiplier for texture */
-        vec3 specular_color;
+        vec3 specularColor;
 
         /** Emissivity of the color, i.e. how much light it provides to itself */
-        float emissivity;
+        vec3 emissiveColor;
+        
+        /** Specular exponent for the material */
+        float specularExponent;
     } DK_Material;
 
     /** (Re)initialize openGL */

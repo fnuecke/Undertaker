@@ -240,25 +240,24 @@ static void onRender(void) {
     if (DK_d_draw_jobs) {
         DK_Material material;
         DK_InitMaterial(&material);
-        material.emissivity = 1;
 
         for (unsigned int i = 0; i < jobs_count[DK_PLAYER_ONE]; ++i) {
             const DK_Job* job = jobs[DK_PLAYER_ONE][i];
 
             if (job->worker) {
                 if (job->type == DK_JOB_DIG) {
-                    material.diffuse_color.v[0] = 0.4f;
-                    material.diffuse_color.v[1] = 0.8f;
-                    material.diffuse_color.v[2] = 0.4f;
+                    material.emissiveColor.v[0] = 0.4f;
+                    material.emissiveColor.v[1] = 0.8f;
+                    material.emissiveColor.v[2] = 0.4f;
                 } else {
-                    material.diffuse_color.v[0] = 0.4f;
-                    material.diffuse_color.v[1] = 0.4f;
-                    material.diffuse_color.v[2] = 0.8f;
+                    material.emissiveColor.v[0] = 0.4f;
+                    material.emissiveColor.v[1] = 0.4f;
+                    material.emissiveColor.v[2] = 0.8f;
                 }
             } else {
-                material.diffuse_color.v[0] = 0.4f;
-                material.diffuse_color.v[1] = 0.4f;
-                material.diffuse_color.v[2] = 0.4f;
+                material.emissiveColor.v[0] = 0.4f;
+                material.emissiveColor.v[1] = 0.4f;
+                material.emissiveColor.v[2] = 0.4f;
             }
             DK_SetMaterial(&material);
 

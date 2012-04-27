@@ -14,12 +14,16 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
-// Position render target of our g-buffer.
-uniform sampler2D PositionBuffer; 
-// Normal render target of our g-buffer.
-uniform sampler2D NormalBuffer;
-// Color render target of our g-buffer.
-uniform sampler2D ColorBuffer;
+// Diffuse albedo material color.
+uniform sampler2D DiffuseAlbedo;
+// Specular albedo material color.
+uniform sampler2D SpecularAlbedo;
+// Emissive albedo material color.
+uniform sampler2D EmissiveAlbedo;
+// Pixel position in world space.
+uniform sampler2D VertexPosition;
+// Surface normal and specular exponent.
+uniform sampler2D SurfaceNormalAndSpecularExponent;
 // The position of the camera.
 uniform vec3 WorldCameraPosition;
 // The light for which we're now shading.
@@ -42,29 +46,44 @@ out vec3 Color;
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
+// Local diffuse material color.
+vec3 diffuseAlbedo;
+vec3 specularAlbedo;
+vec3 emissiveAlbedo;
+vec3 position;
+vec3 normal;
+float exponent;
+///////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+// Computes diffuse light term.
+vec3 diffuseTerm() {
+	vec3 toLight = normalize(LightWorldPosition - position);
+	return diffuseAlbedo * LightDiffuseColor * max(dot(normal, toLight), 0);
+}
+// Computes specular light term.
+vec3 specularTerm() {
+	return vec3(0);
+}
+// Reads local information from g-buffer.
+void init() {
+	diffuseAlbedo = texture2D(DiffuseAlbedo, fs_TextureCoordinate).rgb;
+	specularAlbedo = texture2D(SpecularAlbedo, fs_TextureCoordinate).rgb;
+	emissiveAlbedo = texture2D(EmissiveAlbedo, fs_TextureCoordinate).rgb;
+	position = texture2D(VertexPosition, fs_TextureCoordinate).xyz;
+	vec4 tmp = texture2D(SurfaceNormalAndSpecularExponent, fs_TextureCoordinate);
+	normal = tmp.xyz;
+	exponent = tmp.w;
+}
+///////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
 // Main routing, does what a main does. Freakin' EVERYTHING!
 void main(void) {
-	// Get position in the world.
-	vec4 tmp = texture2D(PositionBuffer, fs_TextureCoordinate);
-	vec3 position = tmp.xyz;
-	float emissivity = tmp.w;
-
-	// Get surface normal.
-	vec3 normal = texture2D(NormalBuffer, fs_TextureCoordinate).xyz;
-
-	// Get material color components.
-	tmp = texture2D(ColorBuffer, fs_TextureCoordinate);
-	vec3 materialDiffuse = tmp.rgb;
-	vec3 materialSpecular = vec3(tmp.a);
+	// Get local values.
+	init();
 
 	// Apply lighting.
-	//vec3 toLight = normalize(LightWorldPosition - position);
-	vec3 toLight = vec3(0, 0, 128) - position;
-	float distance = length(toLight);
-	toLight = normalize(toLight);
-	vec3 diffuse = max(dot(normal, toLight), emissivity) * materialDiffuse * 100 / distance;
-
-	// Write final color.
-	Color = diffuse;
+	Color = diffuseTerm() + specularTerm() + emissiveAlbedo;
 }
 ///////////////////////////////////////////////////////////////////////////////

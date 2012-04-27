@@ -504,7 +504,6 @@ static void onMapChange(void) {
 
 static void onRender(void) {
     DK_Material material;
-    DK_InitMaterial(&material);
 
     if (!quadratic) {
         quadratic = gluNewQuadric();
@@ -513,7 +512,7 @@ static void onRender(void) {
     for (unsigned int i = 0; i < total_unit_count; ++i) {
         const DK_Unit* unit = &units[i];
         const AI_Node* ai = &unit->ai[unit->ai_count - 1];
-        material.emissivity = 0;
+        DK_InitMaterial(&material);
         switch (unit->type) {
             default:
             {
@@ -521,24 +520,24 @@ static void onRender(void) {
                 glLoadName(i);
                 switch (ai->state) {
                     case DK_AI_MOVE:
-                        material.diffuse_color.v[0] = 0.9f;
-                        material.diffuse_color.v[1] = 0.9f;
-                        material.diffuse_color.v[2] = 0.9f;
+                        material.diffuseColor.v[0] = 0.9f;
+                        material.diffuseColor.v[1] = 0.9f;
+                        material.diffuseColor.v[2] = 0.9f;
                         break;
                     case DK_AI_IMP_DIG:
-                        material.diffuse_color.v[0] = 0.6f;
-                        material.diffuse_color.v[1] = 0.9f;
-                        material.diffuse_color.v[2] = 0.6f;
+                        material.diffuseColor.v[0] = 0.6f;
+                        material.diffuseColor.v[1] = 0.9f;
+                        material.diffuseColor.v[2] = 0.6f;
                         break;
                     case DK_AI_IMP_CONVERT:
-                        material.diffuse_color.v[0] = 0.6f;
-                        material.diffuse_color.v[1] = 0.6f;
-                        material.diffuse_color.v[2] = 0.9f;
+                        material.diffuseColor.v[0] = 0.6f;
+                        material.diffuseColor.v[1] = 0.6f;
+                        material.diffuseColor.v[2] = 0.9f;
                         break;
                     default:
-                        material.diffuse_color.v[0] = 0.6f;
-                        material.diffuse_color.v[1] = 0.6f;
-                        material.diffuse_color.v[2] = 0.6f;
+                        material.diffuseColor.v[0] = 0.6f;
+                        material.diffuseColor.v[1] = 0.6f;
+                        material.diffuseColor.v[2] = 0.6f;
                         break;
                 }
                 DK_SetMaterial(&material);
@@ -551,10 +550,9 @@ static void onRender(void) {
         }
 
         if (DK_d_draw_paths && ai->state == DK_AI_MOVE) {
-            material.diffuse_color.v[0] = 0.8f;
-            material.diffuse_color.v[1] = 0.8f;
-            material.diffuse_color.v[2] = 0.9f;
-            material.emissivity = 1;
+            material.emissiveColor.v[0] = 0.8f;
+            material.emissiveColor.v[1] = 0.8f;
+            material.emissiveColor.v[2] = 0.9f;
             DK_SetMaterial(&material);
             glLineWidth(1.75f);
             glBegin(GL_LINES);
@@ -575,9 +573,9 @@ static void onRender(void) {
             }
             glEnd();
 
-            material.diffuse_color.v[0] = 0.8f;
-            material.diffuse_color.v[1] = 0.4f;
-            material.diffuse_color.v[2] = 0.4f;
+            material.emissiveColor.v[0] = 0.8f;
+            material.emissiveColor.v[1] = 0.4f;
+            material.emissiveColor.v[2] = 0.4f;
             DK_SetMaterial(&material);
             for (unsigned int j = 1; j <= ai->path_depth; ++j) {
                 DK_PushModelMatrix();
