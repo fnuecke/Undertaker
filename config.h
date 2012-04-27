@@ -195,15 +195,22 @@ FILE* DK_log_target;
 #define DK_MAP_BORDER DK_RENDER_AREA_X
 
 /** The color of the selection outline */
-#define DK_MAP_SELECTED_COLOR(intensity) 0.6f * intensity, 0.7f * intensity, 0.7f * intensity
-
+#define DK_MAP_SELECTED_COLOR_R 0.3f
+#define DK_MAP_SELECTED_COLOR_G 0.5f
+#define DK_MAP_SELECTED_COLOR_B 0.7f
+#define DK_MAP_SELECTED_COLOR_A_MIN 0.6f
+#define DK_MAP_SELECTED_COLOR_A_MAX 0.9f
 #define DK_MAP_SELECTED_PULSE_FREQUENCY 1 / 750.0f
+#define DK_MAP_SELECTED_COLOR_A (DK_MAP_SELECTED_COLOR_A_MIN + sinf(SDL_GetTicks() * M_PI * (DK_MAP_SELECTED_PULSE_FREQUENCY)) * (DK_MAP_SELECTED_COLOR_A_MAX - DK_MAP_SELECTED_COLOR_A_MIN))
 
 /** The color of the selection outline */
-#define DK_MAP_OUTLINE_COLOR 0.4f, 0.5f, 0.9f
+#define DK_MAP_OUTLINE_COLOR_R 0.4f
+#define DK_MAP_OUTLINE_COLOR_G 0.5f
+#define DK_MAP_OUTLINE_COLOR_B 0.9f
+#define DK_MAP_OUTLINE_COLOR_A 0.5f
 
-/** Offset for outline to not intersect with map blocks */
-#define DK_MAP_OUTLINE_OFFSET 0.05f
+/** Offset for selection outline to not intersect with map blocks */
+#define DK_MAP_SELECTION_OFFSET 0.15f
 
 ///////////////////////////////////////////////////////////////////////////////
 // Camera
@@ -236,6 +243,9 @@ FILE* DK_log_target;
 
 /** Factor in surroundings for terrain noise (empty blocks, owned blocks) */
 #define DK_D_USE_NOISE_OFFSET 1
+
+/** Whether the AI is enabled (units are being updated) */
+int DK_d_ai_enabled;
 
 /** Use test texture instead of actual textures */
 int DK_d_draw_test_texture;

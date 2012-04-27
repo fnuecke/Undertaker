@@ -169,7 +169,11 @@ int DK_PopModelMatrix(void) {
 
 void DK_SetModelMatrix(const mat4* m) {
     matrix.model[stack.model] = *m;
+    updateMatrices(1);
+}
 
+void DK_TranslateModelMatrix(float tx, float ty, float tz) {
+    mitranslate(&matrix.model[stack.model], tx, ty, tz);
     updateMatrices(1);
 }
 

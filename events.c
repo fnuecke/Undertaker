@@ -64,6 +64,9 @@ static void key_up(const SDL_Event* e) {
         case SDLK_F7:
             DK_d_draw_deferred_shader = 1 - DK_d_draw_deferred_shader;
             break;
+        case SDLK_F8:
+            DK_d_ai_enabled = 1 - DK_d_ai_enabled;
+            break;
         default:
             break;
     }

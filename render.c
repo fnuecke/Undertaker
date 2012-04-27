@@ -397,17 +397,17 @@ static void lightPass(void) {
 
         // Set our three g-buffer textures.
         glActiveTexture(GL_TEXTURE0);
-        glEnable(GL_TEXTURE_2D);
+        glDisable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, g_buffer.color_texture);
         glUniform1i(light_shader.fs_uniforms.ColorBuffer, 0);
 
         glActiveTexture(GL_TEXTURE1);
-        glEnable(GL_TEXTURE_2D);
+        glDisable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, g_buffer.position_texture);
         glUniform1i(light_shader.fs_uniforms.PositionBuffer, 1);
 
         glActiveTexture(GL_TEXTURE2);
-        glEnable(GL_TEXTURE_2D);
+        glDisable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, g_buffer.normal_texture);
         glUniform1i(light_shader.fs_uniforms.NormalBuffer, 2);
 
@@ -472,6 +472,14 @@ static void lightPass(void) {
     DK_EndLookAt();
     DK_EndOrthogonal();
 
+    // Copy over the depth buffer from our frame buffer, to preserve the depths
+    // in post-rendering (e.g. for selection outline).
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, g_buffer.frame_buffer);
+    glBlitFramebuffer(0, 0, DK_resolution_x, DK_resolution_y,
+            0, 0, DK_resolution_x, DK_resolution_y,
+            GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
     EXIT_ON_OPENGL_ERROR();
 }
 
@@ -531,14 +539,9 @@ void DK_Render(void) {
 void DK_InitRender(void) {
     // We do use textures, so enable that.
     glEnable(GL_TEXTURE_2D);
-    EXIT_ON_OPENGL_ERROR();
 
     // We want triangle surface pixels to be shaded using interpolated values.
     glShadeModel(GL_SMOOTH);
-    EXIT_ON_OPENGL_ERROR();
-
-    // We do manual lighting via deferred shading.
-    //glDisable(GL_LIGHTING);
 
     // Also enable depth testing to get stuff in the right order.
     glEnable(GL_DEPTH_TEST);
@@ -605,7 +608,10 @@ void DK_SetMaterial(const DK_Material* material) {
         glUniform1f(geometry_shader.fs_uniforms.ColorEmissivity, material->emissivity);
         EXIT_ON_OPENGL_ERROR();
     } else {
-        glColor3f(material->diffuse_color.v[0], material->diffuse_color.v[1], material->diffuse_color.v[2]);
+        glColor4f(material->diffuse_color.v[0],
+                material->diffuse_color.v[1],
+                material->diffuse_color.v[2],
+                material->diffuse_color.v[3]);
         if (material->texture_count > 0) {
             glActiveTexture(GL_TEXTURE0);
             glEnable(GL_TEXTURE_2D);
@@ -622,6 +628,7 @@ void DK_InitMaterial(DK_Material* material) {
     material->diffuse_color.v[0] = 1.0f;
     material->diffuse_color.v[1] = 1.0f;
     material->diffuse_color.v[2] = 1.0f;
+    material->diffuse_color.v[3] = 1.0f;
     material->specular_color.v[0] = 1.0f;
     material->specular_color.v[1] = 1.0f;
     material->specular_color.v[2] = 1.0f;

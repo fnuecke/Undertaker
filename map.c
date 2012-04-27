@@ -10,6 +10,7 @@
 #include "callbacks.h"
 #include "camera.h"
 #include "config.h"
+#include "graphics.h"
 #include "jobs.h"
 #include "map.h"
 #include "picking.h"
@@ -502,13 +503,11 @@ static void set_texture(int x, int y, unsigned int z, DK_Texture texture) {
     DK_SetMaterial(&material);
 }
 
-static void draw_top(int x, int y, unsigned int z, DK_Texture texture) {
+static void draw_top(int x, int y, unsigned int z) {
     unsigned int idx;
 
     x += DK_MAP_BORDER / 2;
     y += DK_MAP_BORDER / 2;
-
-    set_texture(x, y, z, texture);
 
     glBegin(GL_QUAD_STRIP);
     {
@@ -591,13 +590,11 @@ static void draw_top(int x, int y, unsigned int z, DK_Texture texture) {
     glEnd();
 }
 
-static void draw_east(int x, int y, unsigned int z, DK_Texture texture) {
+static void draw_east(int x, int y, unsigned int z) {
     unsigned int idx;
 
     x += DK_MAP_BORDER / 2;
     y += DK_MAP_BORDER / 2;
-
-    set_texture(x, y, z, texture);
 
     glBegin(GL_QUAD_STRIP);
     {
@@ -680,13 +677,11 @@ static void draw_east(int x, int y, unsigned int z, DK_Texture texture) {
     glEnd();
 }
 
-static void draw_west(int x, int y, unsigned int z, DK_Texture texture) {
+static void draw_west(int x, int y, unsigned int z) {
     unsigned int idx;
 
     x += DK_MAP_BORDER / 2;
     y += DK_MAP_BORDER / 2;
-
-    set_texture(x, y, z, texture);
 
     glBegin(GL_QUAD_STRIP);
     {
@@ -769,13 +764,11 @@ static void draw_west(int x, int y, unsigned int z, DK_Texture texture) {
     glEnd();
 }
 
-static void draw_north(int x, int y, unsigned int z, DK_Texture texture) {
+static void draw_north(int x, int y, unsigned int z) {
     unsigned int idx;
 
     x += DK_MAP_BORDER / 2;
     y += DK_MAP_BORDER / 2;
-
-    set_texture(x, y, z, texture);
 
     glBegin(GL_QUAD_STRIP);
     {
@@ -858,13 +851,11 @@ static void draw_north(int x, int y, unsigned int z, DK_Texture texture) {
     glEnd();
 }
 
-static void draw_south(int x, int y, unsigned int z, DK_Texture texture) {
+static void draw_south(int x, int y, unsigned int z) {
     unsigned int idx;
 
     x += DK_MAP_BORDER / 2;
     y += DK_MAP_BORDER / 2;
-
-    set_texture(x, y, z, texture);
 
     glBegin(GL_QUAD_STRIP);
     {
@@ -947,37 +938,44 @@ static void draw_south(int x, int y, unsigned int z, DK_Texture texture) {
     glEnd();
 }
 
-static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned int end_x, unsigned int end_y) {
-    unsigned int x, y, map_x, map_y, idx;
+static void renderSelectionOutline(void) {
+    unsigned int idx;
+    DK_Selection selection = DK_GetSelection();
+    DK_Material material;
 
-    start_x += DK_MAP_BORDER / 2;
-    start_y += DK_MAP_BORDER / 2;
-    end_x += DK_MAP_BORDER / 2;
-    end_y += DK_MAP_BORDER / 2;
-
-    // Store state.
-    glPushAttrib(GL_ENABLE_BIT | GL_CURRENT_BIT);
-    glPushMatrix();
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glDisable(GL_LIGHTING);
+    selection.startX += DK_MAP_BORDER / 2;
+    selection.startY += DK_MAP_BORDER / 2;
+    selection.endX += DK_MAP_BORDER / 2;
+    selection.endY += DK_MAP_BORDER / 2;
 
     // Set up for line drawing.
     glLineWidth(3.0f + DK_GetCameraZoom() * 3.0f);
-    //glColor4f(DK_MAP_OUTLINE_COLOR, 0.5f);
+    DK_InitMaterial(&material);
+    material.diffuse_color.v[0] = DK_MAP_OUTLINE_COLOR_R;
+    material.diffuse_color.v[1] = DK_MAP_OUTLINE_COLOR_G;
+    material.diffuse_color.v[2] = DK_MAP_OUTLINE_COLOR_B;
+    material.diffuse_color.v[3] = DK_MAP_OUTLINE_COLOR_A;
+    DK_SetMaterial(&material);
 
-    for (x = start_x; x <= end_x; ++x) {
-        map_x = x - DK_MAP_BORDER / 2;
-        for (y = start_y; y <= end_y; ++y) {
-            map_y = y - DK_MAP_BORDER / 2;
+    DK_PushModelMatrix();
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE);
+
+    for (int x = selection.startX; x <= selection.endX; ++x) {
+        int map_x = x - DK_MAP_BORDER / 2;
+        for (int y = selection.startY; y <= selection.endY; ++y) {
+            int map_y = y - DK_MAP_BORDER / 2;
             if (!DK_IsBlockSelectable(DK_PLAYER_ONE, map_x, map_y)) {
                 continue;
             }
 
             // Draw north outline.
-            if (y == end_y || DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1))) {
-                glPushMatrix();
-                glTranslatef(0, DK_MAP_OUTLINE_OFFSET, DK_MAP_OUTLINE_OFFSET);
+            if (y == selection.endY ||
+                    DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1))) {
+                DK_PushModelMatrix();
+                DK_TranslateModelMatrix(0, DK_MAP_SELECTION_OFFSET, DK_MAP_SELECTION_OFFSET);
 
                 glBegin(GL_LINES);
                 {
@@ -1007,7 +1005,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                     glEnd();
                 }
 
-                if (x == start_x ?
+                if (x == selection.startX ?
                         (DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1)) ||
                         DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y)))
                         :
@@ -1015,7 +1013,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                         DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y + 1))) ||
                         DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y)))) {
                     // Draw north west top-to-bottom line.
-                    glTranslatef(-DK_MAP_OUTLINE_OFFSET, 0, 0);
+                    DK_TranslateModelMatrix(-DK_MAP_SELECTION_OFFSET, 0, 0);
                     glBegin(GL_LINES);
                     {
                         idx = fi(x * 2, y * 2 + 2, 4);
@@ -1028,9 +1026,9 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
                     }
                     glEnd();
-                    glTranslatef(DK_MAP_OUTLINE_OFFSET, 0, 0);
+                    DK_TranslateModelMatrix(DK_MAP_SELECTION_OFFSET, 0, 0);
                 }
-                if (x == end_x ?
+                if (x == selection.endX ?
                         (DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1)) ||
                         DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y)))
                         :
@@ -1038,7 +1036,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                         DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y + 1))) ||
                         DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y)))) {
                     // Draw north east top-to-bottom line.
-                    glTranslatef(DK_MAP_OUTLINE_OFFSET, 0, 0);
+                    DK_TranslateModelMatrix(DK_MAP_SELECTION_OFFSET, 0, 0);
                     glBegin(GL_LINES);
                     {
                         idx = fi(x * 2 + 2, y * 2 + 2, 4);
@@ -1051,16 +1049,17 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
                     }
                     glEnd();
-                    glTranslatef(-DK_MAP_OUTLINE_OFFSET, 0, 0);
+                    DK_TranslateModelMatrix(-DK_MAP_SELECTION_OFFSET, 0, 0);
                 }
 
-                glPopMatrix();
+                DK_PopModelMatrix();
             }
 
             // Draw south outline.
-            if (y == start_y || DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1))) {
-                glPushMatrix();
-                glTranslatef(0, -DK_MAP_OUTLINE_OFFSET, DK_MAP_OUTLINE_OFFSET);
+            if (y == selection.startY ||
+                    DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1))) {
+                DK_PushModelMatrix();
+                DK_TranslateModelMatrix(0, -DK_MAP_SELECTION_OFFSET, DK_MAP_SELECTION_OFFSET);
 
                 glBegin(GL_LINES);
                 {
@@ -1090,7 +1089,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                     glEnd();
                 }
 
-                if (x == start_x ?
+                if (x == selection.startX ?
                         (DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1)) ||
                         DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y)))
                         :
@@ -1098,7 +1097,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                         DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y - 1))) ||
                         DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y)))) {
                     // Draw south west top-to-bottom line.
-                    glTranslatef(-DK_MAP_OUTLINE_OFFSET, 0, 0);
+                    DK_TranslateModelMatrix(-DK_MAP_SELECTION_OFFSET, 0, 0);
                     glBegin(GL_LINES);
                     {
                         idx = fi(x * 2, y * 2, 4);
@@ -1111,9 +1110,9 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
                     }
                     glEnd();
-                    glTranslatef(DK_MAP_OUTLINE_OFFSET, 0, 0);
+                    DK_TranslateModelMatrix(DK_MAP_SELECTION_OFFSET, 0, 0);
                 }
-                if (x == end_x ?
+                if (x == selection.endX ?
                         (DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1)) ||
                         DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y)))
                         :
@@ -1121,7 +1120,7 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                         DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y - 1))) ||
                         DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y)))) {
                     // Draw south east top-to-bottom line.
-                    glTranslatef(DK_MAP_OUTLINE_OFFSET, 0, 0);
+                    DK_TranslateModelMatrix(DK_MAP_SELECTION_OFFSET, 0, 0);
                     glBegin(GL_LINES);
                     {
                         idx = fi(x * 2 + 2, y * 2, 4);
@@ -1134,16 +1133,17 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                         glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
                     }
                     glEnd();
-                    glTranslatef(-DK_MAP_OUTLINE_OFFSET, 0, 0);
+                    DK_TranslateModelMatrix(-DK_MAP_SELECTION_OFFSET, 0, 0);
                 }
 
-                glPopMatrix();
+                DK_PopModelMatrix();
             }
 
             // Draw west outline.
-            if (x == start_x || DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y))) {
-                glPushMatrix();
-                glTranslatef(-DK_MAP_OUTLINE_OFFSET, 0, DK_MAP_OUTLINE_OFFSET);
+            if (x == selection.startX ||
+                    DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y))) {
+                DK_PushModelMatrix();
+                DK_TranslateModelMatrix(-DK_MAP_SELECTION_OFFSET, 0, DK_MAP_SELECTION_OFFSET);
 
                 glBegin(GL_LINES);
                 {
@@ -1173,13 +1173,14 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                     glEnd();
                 }
 
-                glPopMatrix();
+                DK_PopModelMatrix();
             }
 
             // Draw east outline.
-            if (x == end_x || DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y))) {
-                glPushMatrix();
-                glTranslatef(DK_MAP_OUTLINE_OFFSET, 0, DK_MAP_OUTLINE_OFFSET);
+            if (x == selection.endX ||
+                    DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y))) {
+                DK_PushModelMatrix();
+                DK_TranslateModelMatrix(DK_MAP_SELECTION_OFFSET, 0, DK_MAP_SELECTION_OFFSET);
 
                 glBegin(GL_LINES);
                 {
@@ -1209,37 +1210,106 @@ static void draw_outline(unsigned int start_x, unsigned int start_y, unsigned in
                     glEnd();
                 }
 
-                glPopMatrix();
+                DK_PopModelMatrix();
             }
 
         }
     }
 
     // Reset stuff.
-    glPopMatrix();
-    glPopAttrib();
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+    DK_PopModelMatrix();
+}
+
+static const float M_PI = 3.14159265358979323846f;
+
+static void renderSelectionOverlay(void) {
+    const vec2* camera = DK_GetCameraPosition();
+    const int x_begin = (int) (camera->v[0] / DK_BLOCK_SIZE) - DK_RENDER_AREA_X / 2;
+    const int y_begin = (int) (camera->v[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA_Y_OFFSET;
+    const int x_end = x_begin + DK_RENDER_AREA_X;
+    const int y_end = y_begin + DK_RENDER_AREA_Y;
+    DK_Material material;
+
+    // Set up coloring.
+    DK_InitMaterial(&material);
+
+    material.diffuse_color.v[0] = DK_MAP_SELECTED_COLOR_R;
+    material.diffuse_color.v[1] = DK_MAP_SELECTED_COLOR_G;
+    material.diffuse_color.v[2] = DK_MAP_SELECTED_COLOR_B;
+    material.diffuse_color.v[3] = DK_MAP_SELECTED_COLOR_A;
+    DK_SetMaterial(&material);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    glDepthMask(GL_FALSE);
+
+    for (int x = x_begin; x < x_end; ++x) {
+        for (int y = y_begin; y < y_end; ++y) {
+            // Selected by the local player?
+            if (x >= 0 && y >= 0 && x < gMapSize && y < gMapSize &&
+                    DK_IsBlockSelected(DK_PLAYER_ONE, x, y)) {
+                DK_PushModelMatrix();
+                DK_TranslateModelMatrix(0, 0, DK_MAP_SELECTION_OFFSET);
+
+                // Draw top.
+                draw_top(x, y, 4);
+
+                // North wall.
+                if (y + 1 < gMapSize && DK_IsBlockOpen(DK_GetBlockAt(x, y + 1))) {
+                    DK_PushModelMatrix();
+                    DK_TranslateModelMatrix(0, DK_MAP_SELECTION_OFFSET, 0);
+                    draw_north(x, y + 1, 2);
+                    DK_PopModelMatrix();
+                }
+
+                // South wall.
+                if (y > 0 && DK_IsBlockOpen(DK_GetBlockAt(x, y - 1))) {
+                    DK_PushModelMatrix();
+                    DK_TranslateModelMatrix(0, -DK_MAP_SELECTION_OFFSET, 0);
+                    draw_south(x, y, 2);
+                    DK_PopModelMatrix();
+                }
+
+                // West wall.
+                if (x > 0 && DK_IsBlockOpen(DK_GetBlockAt(x - 1, y))) {
+                    DK_PushModelMatrix();
+                    DK_TranslateModelMatrix(-DK_MAP_SELECTION_OFFSET, 0, 0);
+                    draw_west(x, y, 2);
+                    DK_PopModelMatrix();
+                }
+
+                // East wall.
+                if (x + 1 < gMapSize && DK_IsBlockOpen(DK_GetBlockAt(x + 1, y))) {
+                    DK_PushModelMatrix();
+                    DK_TranslateModelMatrix(DK_MAP_SELECTION_OFFSET, 0, 0);
+                    draw_east(x + 1, y, 2);
+                    DK_PopModelMatrix();
+                }
+                DK_PopModelMatrix();
+            }
+        }
+    }
+
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
 }
 
 static void onRender(void) {
-    const vec2* cam_position = DK_GetCameraPosition();
-    int x_begin = (int) (cam_position->v[0] / DK_BLOCK_SIZE) - DK_RENDER_AREA_X / 2;
-    int y_begin = (int) (cam_position->v[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA_Y_OFFSET;
-    int x_end = x_begin + DK_RENDER_AREA_X;
-    int y_end = y_begin + DK_RENDER_AREA_Y;
-    int x, y, z;
+    const vec2* camera = DK_GetCameraPosition();
+    const int x_begin = (int) (camera->v[0] / DK_BLOCK_SIZE) - DK_RENDER_AREA_X / 2;
+    const int y_begin = (int) (camera->v[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA_Y_OFFSET;
+    const int x_end = x_begin + DK_RENDER_AREA_X;
+    const int y_end = y_begin + DK_RENDER_AREA_Y;
+    int z;
     DK_Texture texture_top, texture_side, texture_top_wall, texture_top_owner;
 
-    for (x = x_begin; x < x_end; ++x) {
-        for (y = y_begin; y < y_end; ++y) {
+    for (int x = x_begin; x < x_end; ++x) {
+        for (int y = y_begin; y < y_end; ++y) {
             // Mark for select mode, coordinates of that block.
             if (gIsPicking) {
                 glLoadName(((unsigned short) y << 16) | (unsigned short) x);
-            } else {
-                // Reset tint color.
-                //glColorMaterial(GL_FRONT, GL_EMISSION);
-                //glColor3f(0.0f, 0.0f, 0.0f);
-                //glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
-                //glColor3f(1.0f, 1.0f, 1.0f);
             }
 
             texture_top_wall = 0;
@@ -1251,13 +1321,6 @@ static void onRender(void) {
                 texture_side = DK_TEX_ROCK_SIDE;
             } else {
                 const DK_Block* block = DK_GetBlockAt(x, y);
-
-                // Selected by the local player?
-                if (!gIsPicking && DK_IsBlockSelected(DK_PLAYER_ONE, x, y)) {
-                    //const float intensity = 0.6f + sinf(SDL_GetTicks() * M_PI * (DK_MAP_SELECTED_PULSE_FREQUENCY)) * 0.3f;
-                    //glColorMaterial(GL_FRONT, GL_EMISSION);
-                    //glColor3f(DK_MAP_SELECTED_COLOR(intensity));
-                }
 
                 if (block->type == DK_BLOCK_NONE) {
                     // Render floor.
@@ -1309,44 +1372,49 @@ static void onRender(void) {
                 }
             }
 
-            draw_top(x, y, z, texture_top);
+            set_texture(x, y, z, texture_top);
+            draw_top(x, y, z);
 
             if (!gIsPicking && (texture_top_wall || texture_top_owner)) {
-/*
-                glEnable(GL_BLEND);
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                /*
+                                glEnable(GL_BLEND);
+                                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-                if (texture_top_wall) {
-                    draw_top(x, y, z, texture_top_wall);
-                }
-                if (texture_top_owner) {
-                    draw_top(x, y, z, texture_top_owner);
-                }
+                                if (texture_top_wall) {
+                                    draw_top(x, y, z, texture_top_wall);
+                                }
+                                if (texture_top_owner) {
+                                    draw_top(x, y, z, texture_top_owner);
+                                }
 
-                glDisable(GL_BLEND);
-*/
+                                glDisable(GL_BLEND);
+                 */
             }
 
             // Check if we need to render walls.
             if (z == 4) {
                 // North wall.
                 if (y + 1 < gMapSize && DK_IsBlockOpen(DK_GetBlockAt(x, y + 1))) {
-                    draw_north(x, y + 1, 2, texture_side);
+                    set_texture(x, y + 1, 2, texture_side);
+                    draw_north(x, y + 1, 2);
                 }
 
                 // South wall.
                 if (y > 0 && DK_IsBlockOpen(DK_GetBlockAt(x, y - 1))) {
-                    draw_south(x, y, 2, texture_side);
+                    set_texture(x, y - 1, 2, texture_side);
+                    draw_south(x, y, 2);
                 }
 
                 // West wall.
                 if (x > 0 && DK_IsBlockOpen(DK_GetBlockAt(x - 1, y))) {
-                    draw_west(x, y, 2, texture_side);
+                    set_texture(x - 1, y, 2, texture_side);
+                    draw_west(x, y, 2);
                 }
 
                 // East wall.
                 if (x + 1 < gMapSize && DK_IsBlockOpen(DK_GetBlockAt(x + 1, y))) {
-                    draw_east(x + 1, y, 2, texture_side);
+                    set_texture(x + 1, y, 2, texture_side);
+                    draw_east(x + 1, y, 2);
                 }
             }
 
@@ -1354,30 +1422,29 @@ static void onRender(void) {
             if (z == 0) {
                 // North wall.
                 if (y + 1 < gMapSize && !DK_IsBlockFluid(DK_GetBlockAt(x, y + 1))) {
-                    draw_south(x, y + 1, 0, DK_TEX_FLUID_SIDE);
+                    set_texture(x, y + 1, 0, DK_TEX_FLUID_SIDE);
+                    draw_south(x, y + 1, 0);
                 }
 
                 // South wall.
                 if (y > 0 && !DK_IsBlockFluid(DK_GetBlockAt(x, y - 1))) {
-                    draw_north(x, y, 0, DK_TEX_FLUID_SIDE);
+                    set_texture(x, y - 1, 0, DK_TEX_FLUID_SIDE);
+                    draw_north(x, y, 0);
                 }
 
                 // West wall.
                 if (x > 0 && !DK_IsBlockFluid(DK_GetBlockAt(x - 1, y))) {
-                    draw_east(x, y, 0, DK_TEX_FLUID_SIDE);
+                    set_texture(x - 1, y, 0, DK_TEX_FLUID_SIDE);
+                    draw_east(x, y, 0);
                 }
 
                 // East wall.
                 if (x + 1 < gMapSize && !DK_IsBlockFluid(DK_GetBlockAt(x + 1, y))) {
-                    draw_west(x + 1, y, 0, DK_TEX_FLUID_SIDE);
+                    set_texture(x + 1, y, 0, DK_TEX_FLUID_SIDE);
+                    draw_west(x + 1, y, 0);
                 }
             }
         }
-    }
-
-    if (!gIsPicking) {
-        DK_Selection selection = DK_GetSelection();
-        draw_outline(selection.startX, selection.startY, selection.endX, selection.endY);
     }
 }
 
@@ -1505,6 +1572,8 @@ unsigned short DK_GetMapSize(void) {
 void DK_InitMap(void) {
     DK_OnPreRender(onPreRender);
     DK_OnRender(onRender);
+    DK_OnPostRender(renderSelectionOverlay);
+    DK_OnPostRender(renderSelectionOutline);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1551,14 +1620,14 @@ void DK_SaveMap(const char* filename) {
 // Accessors
 ///////////////////////////////////////////////////////////////////////////////
 
-DK_Block* DK_GetBlockAt(int x, int y) {
+DK_Block * DK_GetBlockAt(int x, int y) {
     if (x >= 0 && y >= 0 && x < gMapSize && y < gMapSize) {
         return &gMap[y * gMapSize + x];
     }
     return NULL;
 }
 
-int DK_GetBlockCoordinates(unsigned short* x, unsigned short* y, const DK_Block* block) {
+int DK_GetBlockCoordinates(unsigned short* x, unsigned short* y, const DK_Block * block) {
     if (block) {
         unsigned int idx = block - gMap;
         *x = idx % gMapSize;
@@ -1568,13 +1637,13 @@ int DK_GetBlockCoordinates(unsigned short* x, unsigned short* y, const DK_Block*
     return 0;
 }
 
-DK_Block* DK_GetBlockUnderCursor(int* block_x, int* block_y) {
+DK_Block * DK_GetBlockUnderCursor(int* block_x, int* block_y) {
     *block_x = cursor_x;
     *block_y = cursor_y;
     return DK_GetBlockAt(cursor_x, cursor_y);
 }
 
-int DK_IsBlockFluid(const DK_Block* block) {
+int DK_IsBlockFluid(const DK_Block * block) {
     return block && (block->type == DK_BLOCK_LAVA || block->type == DK_BLOCK_WATER);
 }
 
@@ -1582,11 +1651,11 @@ int DK_IsBlockWall(const DK_Block* block, DK_Player player) {
     return block && (block->type == DK_BLOCK_DIRT) && (block->owner == player);
 }
 
-int DK_IsBlockOpen(const DK_Block* block) {
+int DK_IsBlockOpen(const DK_Block * block) {
     return block && (block->type == DK_BLOCK_NONE || DK_IsBlockFluid(block));
 }
 
-int DK_IsBlockPassable(const DK_Block* block, const DK_Unit* unit) {
+int DK_IsBlockPassable(const DK_Block* block, const DK_Unit * unit) {
     if (block) {
         switch (block->type) {
             case DK_BLOCK_WATER:

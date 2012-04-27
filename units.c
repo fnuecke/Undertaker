@@ -484,10 +484,10 @@ static void update(DK_Unit* unit) {
 }
 
 static void onUpdate(void) {
-    for (unsigned int i = 0; i < total_unit_count; ++i) {
-        DK_Unit* unit = &units[i];
-
-        update(unit);
+    if (DK_d_ai_enabled) {
+        for (unsigned int i = 0; i < total_unit_count; ++i) {
+            update(&units[i]);
+        }
     }
 }
 
@@ -543,11 +543,7 @@ static void onRender(void) {
                 }
                 DK_SetMaterial(&material);
                 DK_PushModelMatrix();
-                {
-                    mat4 model = IDENTITY_MATRIX4;
-                    mitranslate(&model, unit->position.v[0] * DK_BLOCK_SIZE, unit->position.v[1] * DK_BLOCK_SIZE, 4);
-                    DK_SetModelMatrix(&model);
-                }
+                DK_TranslateModelMatrix(unit->position.v[0] * DK_BLOCK_SIZE, unit->position.v[1] * DK_BLOCK_SIZE, 4);
                 gluSphere(quadratic, DK_BLOCK_SIZE / 6.0f, 8, 8);
                 DK_PopModelMatrix();
                 break;
@@ -585,11 +581,7 @@ static void onRender(void) {
             DK_SetMaterial(&material);
             for (unsigned int j = 1; j <= ai->path_depth; ++j) {
                 DK_PushModelMatrix();
-                {
-                    mat4 model = IDENTITY_MATRIX4;
-                    mitranslate(&model, ai->path[j].x * DK_BLOCK_SIZE, ai->path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
-                    DK_SetModelMatrix(&model);
-                }
+                DK_TranslateModelMatrix(ai->path[j].x * DK_BLOCK_SIZE, ai->path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
                 gluSphere(quadratic, 0.5f, 8, 8);
                 DK_PopModelMatrix();
             }

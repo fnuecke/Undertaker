@@ -35,7 +35,7 @@ extern "C" {
         GLuint normal_map;
 
         /** Diffuse multiplier for texture */
-        vec3 diffuse_color;
+        vec4 diffuse_color;
 
         /** Specular multiplier for texture */
         vec3 specular_color;
