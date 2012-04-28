@@ -280,13 +280,13 @@ int DK_BeginLookAt(float eyex, float eyey, float eyez, float lookatx, float look
     direction.d.x = (lookatx - eyex);
     direction.d.y = (lookaty - eyey);
     direction.d.z = (lookatz - eyez);
-    vinormalize(&direction);
+    v4inormalize(&direction);
 
-    vcross(&right, &direction, &up);
-    vinormalize(&right);
+    v4cross(&right, &direction, &up);
+    v4inormalize(&right);
 
-    vcross(&up, &right, &direction);
-    vinormalize(&up);
+    v4cross(&up, &right, &direction);
+    v4inormalize(&up);
 
     // First row.
     m->m[0] = right.d.x;

@@ -69,46 +69,88 @@ extern "C" {
     };
 
     ///////////////////////////////////////////////////////////////////////////////
-    // Vector math
+    // Vector math (3d)
     ///////////////////////////////////////////////////////////////////////////////
 
-    void vcopy(vec4* into, const vec4* v);
+    void v3copy(vec3* into, const vec3* v);
 
-    void vadd(vec4* sum, const vec4* va, const vec4* vb);
+    void v3add(vec3* sum, const vec3* va, const vec3* vb);
 
-    void viadd(vec4* va, const vec4* vb);
+    void v3iadd(vec3* va, const vec3* vb);
 
-    void vsub(vec4* difference, const vec4* va, const vec4* vb);
+    void v3sub(vec3* difference, const vec3* va, const vec3* vb);
 
-    void visub(vec4* va, const vec4* vb);
+    void v3isub(vec3* va, const vec3* vb);
 
-    void vmul(vec4* product, const vec4* va, const vec4* vb);
+    void v3mul(vec3* product, const vec3* va, const vec3* vb);
 
-    void vimul(vec4* va, const vec4* vb);
+    void v3imul(vec3* va, const vec3* vb);
 
-    void vmuls(vec4* product, const vec4* v, float s);
+    void v3muls(vec3* product, const vec3* v, float s);
 
-    void vimuls(vec4* v, float s);
+    void v3imuls(vec3* v, float s);
 
-    void vdiv(vec4* quotient, const vec4* va, const vec4* vb);
+    void v3div(vec3* quotient, const vec3* va, const vec3* vb);
 
-    void vidiv(vec4* va, const vec4* vb);
+    void v3idiv(vec3* va, const vec3* vb);
 
-    void vdivs(vec4* quotient, const vec4* v, float s);
+    void v3divs(vec3* quotient, const vec3* v, float s);
 
-    void vidivs(vec4* v, float s);
+    void v3idivs(vec3* v, float s);
 
-    float vdot(const vec4* va, const vec4* vb);
+    float v3dot(const vec3* va, const vec3* vb);
 
-    void vcross(vec4* cross, const vec4* va, const vec4* vb);
+    void v3cross(vec3* cross, const vec3* va, const vec3* vb);
 
-    float vnorm(const vec4* v);
+    float v3norm(const vec3* v);
 
-    float vlen(const vec4* v);
+    float v3len(const vec3* v);
 
-    void vnormalize(vec4* normalized, const vec4* v);
+    void v3normalize(vec3* normalized, const vec3* v);
 
-    void vinormalize(vec4* v);
+    void v3inormalize(vec3* v);
+
+    ///////////////////////////////////////////////////////////////////////////////
+    // Vector math (4d)
+    ///////////////////////////////////////////////////////////////////////////////
+
+    void v4copy(vec4* into, const vec4* v);
+
+    void v4add(vec4* sum, const vec4* va, const vec4* vb);
+
+    void v4iadd(vec4* va, const vec4* vb);
+
+    void v4sub(vec4* difference, const vec4* va, const vec4* vb);
+
+    void v4isub(vec4* va, const vec4* vb);
+
+    void v4mul(vec4* product, const vec4* va, const vec4* vb);
+
+    void v4imul(vec4* va, const vec4* vb);
+
+    void v4muls(vec4* product, const vec4* v, float s);
+
+    void v4imuls(vec4* v, float s);
+
+    void v4div(vec4* quotient, const vec4* va, const vec4* vb);
+
+    void v4idiv(vec4* va, const vec4* vb);
+
+    void v4divs(vec4* quotient, const vec4* v, float s);
+
+    void v4idivs(vec4* v, float s);
+
+    float v4dot(const vec4* va, const vec4* vb);
+
+    void v4cross(vec4* cross, const vec4* va, const vec4* vb);
+
+    float v4norm(const vec4* v);
+
+    float v4len(const vec4* v);
+
+    void v4normalize(vec4* normalized, const vec4* v);
+
+    void v4inormalize(vec4* v);
 
     ///////////////////////////////////////////////////////////////////////////////
     // Matrix math

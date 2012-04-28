@@ -29,114 +29,197 @@
 #include "vmath.h"
 
 ///////////////////////////////////////////////////////////////////////////////
-// Vector math
+// Vector math (3d)
 ///////////////////////////////////////////////////////////////////////////////
 
-void vcopy(vec4* into, const vec4* v) {
+void v3copy(vec3* into, const vec3* v) {
     into->d.x = v->d.x;
     into->d.y = v->d.y;
     into->d.z = v->d.z;
 }
 
-void vadd(vec4* sum, const vec4* va, const vec4* vb) {
+void v3add(vec3* sum, const vec3* va, const vec3* vb) {
+    v4add((vec4*) sum, (const vec4*) va, (const vec4*) vb);
+}
+
+void v3iadd(vec3* va, const vec3* vb) {
+    v4iadd((vec4*) va, (const vec4*) vb);
+}
+
+void v3sub(vec3* difference, const vec3* va, const vec3* vb) {
+    v4sub((vec4*) difference, (const vec4*) va, (const vec4*) vb);
+}
+
+void v3isub(vec3* va, const vec3* vb) {
+    v4isub((vec4*) va, (const vec4*) vb);
+}
+
+void v3mul(vec3* product, const vec3* va, const vec3* vb) {
+    v4mul((vec4*) product, (const vec4*) va, (const vec4*) vb);
+}
+
+void v3imul(vec3* va, const vec3* vb) {
+    v4imul((vec4*) va, (const vec4*) vb);
+}
+
+void v3muls(vec3* product, const vec3* v, float s) {
+    v4muls((vec4*) product, (const vec4*) v, s);
+}
+
+void v3imuls(vec3* v, float s) {
+    v4imuls((vec4*) v, s);
+}
+
+void v3div(vec3* quotient, const vec3* va, const vec3* vb) {
+    v4div((vec4*) quotient, (const vec4*) va, (const vec4*) vb);
+}
+
+void v3idiv(vec3* va, const vec3* vb) {
+    v4idiv((vec4*) va, (const vec4*) vb);
+}
+
+void v3divs(vec3* quotient, const vec3* v, float s) {
+    v4divs((vec4*) quotient, (const vec4*) v, s);
+}
+
+void v3idivs(vec3* v, float s) {
+    v4idivs((vec4*) v, s);
+}
+
+float v3dot(const vec3* va, const vec3* vb) {
+    return v4dot((const vec4*) va, (const vec4*) vb);
+}
+
+void v3cross(vec3* cross, const vec3* va, const vec3* vb) {
+    v4cross((vec4*) cross, (const vec4*) va, (const vec4*) vb);
+}
+
+float v3norm(const vec3* v) {
+    return v4norm((const vec4*) v);
+}
+
+float v3len(const vec3* v) {
+    return v4len((const vec4*) v);
+}
+
+void v3normalize(vec3* normalized, const vec3* v) {
+    v4normalize((vec4*) normalized, (const vec4*) v);
+}
+
+void v3inormalize(vec3* v) {
+    v4inormalize((vec4*) v);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Vector math (4d)
+///////////////////////////////////////////////////////////////////////////////
+
+void v4copy(vec4* into, const vec4* v) {
+    into->d.x = v->d.x;
+    into->d.y = v->d.y;
+    into->d.z = v->d.z;
+    into->d.w = v->d.w;
+}
+
+void v4add(vec4* sum, const vec4* va, const vec4* vb) {
     sum->d.x = va->d.x + vb->d.x;
     sum->d.y = va->d.y + vb->d.y;
     sum->d.z = va->d.z + vb->d.z;
 }
 
-void viadd(vec4* va, const vec4* vb) {
+void v4iadd(vec4* va, const vec4* vb) {
     va->d.x += vb->d.x;
     va->d.y += vb->d.y;
     va->d.z += vb->d.z;
 }
 
-void vsub(vec4* difference, const vec4* va, const vec4* vb) {
+void v4sub(vec4* difference, const vec4* va, const vec4* vb) {
     difference->d.x = va->d.x - vb->d.x;
     difference->d.y = va->d.y - vb->d.y;
     difference->d.z = va->d.z - vb->d.z;
 }
 
-void visub(vec4* va, const vec4* vb) {
+void v4isub(vec4* va, const vec4* vb) {
     va->d.x -= vb->d.x;
     va->d.y -= vb->d.y;
     va->d.z -= vb->d.z;
 }
 
-void vmul(vec4* product, const vec4* va, const vec4* vb) {
+void v4mul(vec4* product, const vec4* va, const vec4* vb) {
     product->d.x = va->d.x * vb->d.x;
     product->d.y = va->d.y * vb->d.y;
     product->d.z = va->d.z * vb->d.z;
 }
 
-void vimul(vec4* va, const vec4* vb) {
+void v4imul(vec4* va, const vec4* vb) {
     va->d.x *= vb->d.x;
     va->d.y *= vb->d.y;
     va->d.z *= vb->d.z;
 }
 
-void vmuls(vec4* product, const vec4* v, float s) {
+void v4muls(vec4* product, const vec4* v, float s) {
     product->d.x = v->d.x * s;
     product->d.y = v->d.y * s;
     product->d.z = v->d.z * s;
 }
 
-void vimuls(vec4* v, float s) {
+void v4imuls(vec4* v, float s) {
     v->d.x *= s;
     v->d.y *= s;
     v->d.z *= s;
 }
 
-void vdiv(vec4* quotient, const vec4* va, const vec4* vb) {
+void v4div(vec4* quotient, const vec4* va, const vec4* vb) {
     quotient->d.x = va->d.x / vb->d.x;
     quotient->d.y = va->d.y / vb->d.y;
     quotient->d.z = va->d.z / vb->d.z;
 }
 
-void vidiv(vec4* va, const vec4* vb) {
+void v4idiv(vec4* va, const vec4* vb) {
     va->d.x /= vb->d.x;
     va->d.y /= vb->d.y;
     va->d.z /= vb->d.z;
 }
 
-void vdivs(vec4* quotient, const vec4* v, float s) {
+void v4divs(vec4* quotient, const vec4* v, float s) {
     quotient->d.x = v->d.x / s;
     quotient->d.y = v->d.y / s;
     quotient->d.z = v->d.z / s;
 }
 
-void vidivs(vec4* v, float s) {
+void v4idivs(vec4* v, float s) {
     v->d.x /= s;
     v->d.y /= s;
     v->d.z /= s;
 }
 
-float vdot(const vec4* va, const vec4* vb) {
+float v4dot(const vec4* va, const vec4* vb) {
     return va->d.x * vb->d.x + va->d.y * vb->d.y + va->d.z * vb->d.z;
 }
 
-void vcross(vec4* cross, const vec4* va, const vec4* vb) {
+void v4cross(vec4* cross, const vec4* va, const vec4* vb) {
     cross->d.x = va->d.y * vb->d.z - va->d.z * vb->d.y;
     cross->d.y = va->d.z * vb->d.x - va->d.x * vb->d.z;
     cross->d.z = va->d.x * vb->d.y - va->d.y * vb->d.x;
 }
 
-float vnorm(const vec4* v) {
+float v4norm(const vec4* v) {
     return v->d.x * v->d.x + v->d.y * v->d.y + v->d.z * v->d.z;
 }
 
-float vlen(const vec4* v) {
-    return sqrtf(vnorm(v));
+float v4len(const vec4* v) {
+    return sqrtf(v4norm(v));
 }
 
-void vnormalize(vec4* normalized, const vec4* v) {
-    const float len = vlen(v);
+void v4normalize(vec4* normalized, const vec4* v) {
+    const float len = v4len(v);
     normalized->d.x = v->d.x / len;
     normalized->d.y = v->d.y / len;
     normalized->d.z = v->d.z / len;
 }
 
-void vinormalize(vec4* v) {
-    const float len = vlen(v);
+void v4inormalize(vec4* v) {
+    const float len = v4len(v);
     v->d.x /= len;
     v->d.y /= len;
     v->d.z /= len;

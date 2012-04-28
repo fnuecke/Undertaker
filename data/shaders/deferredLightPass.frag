@@ -71,10 +71,7 @@ void main(void) {
 		float lambertTerm = (dot(normalize(toLight), normal) * 0.5 + 0.5);
 		lambertTerm = lambertTerm * lambertTerm;
 		#else
-		float lambertTerm = dot(normalize(toLight), normal);
-		if (lambertTerm <= 0) {
-			discard;
-		}
+		float lambertTerm = max(0, dot(normalize(toLight), normal));
 		#endif
 		Color = diffuseAlbedo * DiffuseLightColor * lambertTerm * DiffuseLightPower / distance;
 

@@ -20,6 +20,7 @@
 #include "simplexnoise.h"
 #include "textures.h"
 #include "units.h"
+#include "vmath.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Internal variables
@@ -64,18 +65,13 @@ static DK_Material gMaterial;
 // Map model data
 ///////////////////////////////////////////////////////////////////////////////
 
-/** Vector type */
-typedef struct {
-    GLfloat x, y, z;
-} v3f;
-
 /** Vertices making up the map model */
-static v3f* vertices = 0;
+static vec3* vertices = 0;
 
 /** Normals at a specific vertex, for walls and toppings separately */
-static v3f* normals_x = 0;
-static v3f* normals_y = 0;
-static v3f* normals_z = 0;
+static vec3* normals_x = 0;
+static vec3* normals_y = 0;
+static vec3* normals_z = 0;
 
 /** Number of vertices in x and y direction */
 static unsigned int vertices_count_full = 0;
@@ -152,7 +148,7 @@ typedef enum {
 } DK_Offset;
 
 /** Get influence of a specific block on noise */
-static double noise_factor_block(DK_Offset* offset, const DK_Block* block) {
+static double getNoiseFromBlock(DK_Offset* offset, const DK_Block* block) {
     *offset = OFFSET_NONE;
     if (DK_IsBlockOpen(block) && block->owner == DK_PLAYER_NONE) {
         *offset = OFFSET_INCREASE;
@@ -169,7 +165,7 @@ static double noise_factor_block(DK_Offset* offset, const DK_Block* block) {
  * Also gets a directed offset based on where the neighboring block are (away
  * from empty blocks).
  */
-static float compute_offset(float* offset, float x, float y) {
+static float computeOffset(float* offset, float x, float y) {
     DK_Offset offset_type;
     float offset_reduction[2] = {1, 1};
 
@@ -234,7 +230,7 @@ static float compute_offset(float* offset, float x, float y) {
     factor = 0;
     for (unsigned int k = x_begin; (int) k <= x_end; ++k) {
         for (unsigned int l = y_begin; (int) l <= y_end; ++l) {
-            factor += noise_factor_block(&offset_type, DK_GetBlockAt(k, l));
+            factor += getNoiseFromBlock(&offset_type, DK_GetBlockAt(k, l));
             if (offset_type == OFFSET_INCREASE) {
                 if (!DK_NEQ(k, x)) {
                     if (DK_NLT(k, x)) {
@@ -274,10 +270,10 @@ static float compute_offset(float* offset, float x, float y) {
     return factor / normalizer;
 }
 
-static void update_vertices(int x, int y) {
+static void updateVerticesAt(int x, int y) {
     unsigned int z;
     for (z = 0; z < 5; ++z) {
-        v3f* v = &vertices[fi(x, y, z)];
+        vec3* v = &vertices[fi(x, y, z)];
         const float vx = (x - DK_MAP_BORDER) / 2.0f * DK_BLOCK_SIZE;
         const float vy = (y - DK_MAP_BORDER) / 2.0f * DK_BLOCK_SIZE;
         const float vz = z_coords[z];
@@ -286,14 +282,14 @@ static void update_vertices(int x, int y) {
         float factor = 1.0f;
         float offset_factor;
 #if DK_D_USE_NOISE_OFFSET
-        factor = compute_offset(offset, (x - DK_MAP_BORDER) / 2.0f, (y - DK_MAP_BORDER) / 2.0f);
+        factor = computeOffset(offset, (x - DK_MAP_BORDER) / 2.0f, (y - DK_MAP_BORDER) / 2.0f);
         offset_factor = (0.25f - (fabs(fabs(z / 4.0f - 0.5f) - 0.25f) - 0.25f)) * z - 0.5f;
         offset[0] *= offset_factor;
         offset[1] *= offset_factor;
 #endif
-        v->x = vx + factor * snoise4(vx, vy, vz, 0) + offset[0];
-        v->y = vy + factor * snoise4(vx, vy, vz, 1) + offset[1];
-        v->z = vz + snoise4(vx, vy, vz, 2);
+        v->d.x = vx + factor * snoise4(vx, vy, vz, 0) + offset[0];
+        v->d.y = vy + factor * snoise4(vx, vy, vz, 1) + offset[1];
+        v->d.z = vz + snoise4(vx, vy, vz, 2);
 #else
         v->x = vx;
         v->y = vy;
@@ -306,135 +302,113 @@ static void update_vertices(int x, int y) {
 // Map model updating: normals
 ///////////////////////////////////////////////////////////////////////////////
 
-inline static void crossv3f(v3f* cross, const v3f* a, const v3f* b) {
-    cross->x = a->y * b->z - a->z * b->y;
-    cross->y = a->z * b->x - a->x * b->z;
-    cross->z = a->x * b->y - a->y * b->x;
+/**
+ * Compute the normal of a triangle described by the three specified vertices.
+ */
+static void computeNormal(vec3* normal, const vec3* v0, const vec3* v1, const vec3* v2) {
+    vec3 a, b;
+    v3sub(&a, v1, v0);
+    v3sub(&b, v2, v0);
+    v3cross(normal, &a, &b);
 }
 
-inline static void iaddv3f(v3f* a, const v3f* b) {
-    a->x += b->x;
-    a->y += b->y;
-    a->z += b->z;
-}
-
-inline static void subv3f(v3f* sub, const v3f* a, const v3f* b) {
-    sub->x = a->x - b->x;
-    sub->y = a->y - b->y;
-    sub->z = a->z - b->z;
-}
-
-inline static float lenv3f(const v3f* v) {
-    return sqrtf(v->x * v->x + v->y * v->y + v->z * v->z);
-}
-
-inline static void idivsv3f(v3f* v, float s) {
-    v->x /= s;
-    v->y /= s;
-    v->z /= s;
-}
-
-static void normalv3f(v3f* normal, const v3f* v0, const v3f* v1, const v3f* v2) {
-    v3f a, b;
-    subv3f(&a, v1, v0);
-    subv3f(&b, v2, v0);
-    crossv3f(normal, &a, &b);
-}
-
-static void interpolate_normal(v3f* n, const v3f* v0,
-        const v3f* v1, const v3f* v2, const v3f* v3, const v3f* v4,
-        const v3f* v5, const v3f* v6, const v3f* v7, const v3f* v8) {
+/**
+ * Get an interpolated (smoothed) normal at v0, with the specified neighbors.
+ */
+static void interpolateNormal(vec3* n, const vec3* v0,
+        const vec3* v1, const vec3* v2, const vec3* v3, const vec3* v4,
+        const vec3* v5, const vec3* v6, const vec3* v7, const vec3* v8) {
     // Compute normals based on neighbors and accumulate.
-    v3f tmp;
-    n->x = 0;
-    n->y = 0;
-    n->z = 0;
-    normalv3f(&tmp, v0, v1, v2);
-    iaddv3f(n, &tmp);
-    normalv3f(&tmp, v0, v2, v3);
-    iaddv3f(n, &tmp);
-    normalv3f(&tmp, v0, v3, v4);
-    iaddv3f(n, &tmp);
-    normalv3f(&tmp, v0, v4, v5);
-    iaddv3f(n, &tmp);
-    normalv3f(&tmp, v0, v5, v6);
-    iaddv3f(n, &tmp);
-    normalv3f(&tmp, v0, v6, v7);
-    iaddv3f(n, &tmp);
-    normalv3f(&tmp, v0, v7, v8);
-    iaddv3f(n, &tmp);
-    normalv3f(&tmp, v0, v8, v1);
-    iaddv3f(n, &tmp);
+    vec3 tmp;
+    n->d.x = 0;
+    n->d.y = 0;
+    n->d.z = 0;
+    computeNormal(&tmp, v0, v1, v2);
+    v3iadd(n, &tmp);
+    computeNormal(&tmp, v0, v2, v3);
+    v3iadd(n, &tmp);
+    computeNormal(&tmp, v0, v3, v4);
+    v3iadd(n, &tmp);
+    computeNormal(&tmp, v0, v4, v5);
+    v3iadd(n, &tmp);
+    computeNormal(&tmp, v0, v5, v6);
+    v3iadd(n, &tmp);
+    computeNormal(&tmp, v0, v6, v7);
+    v3iadd(n, &tmp);
+    computeNormal(&tmp, v0, v7, v8);
+    v3iadd(n, &tmp);
+    computeNormal(&tmp, v0, v8, v1);
+    v3iadd(n, &tmp);
 
     // Then normalize.
-    idivsv3f(n, lenv3f(n));
+    v3inormalize(n);
 }
 
-static void update_normals(int x, int y) {
+static void updateNormalsAt(int x, int y) {
     unsigned int z;
     for (z = 1; z < 4; ++z) {
         if ((x & 1) == 0) {
             // Compute x normals.
-            v3f* n = &normals_x[hi(x / 2, y, z)];
+            vec3* n = &normals_x[hi(x / 2, y, z)];
 
             // Vertex the normal sits on.
-            const v3f* v0 = &vertices[fi(x, y, z)];
+            const vec3* v0 = &vertices[fi(x, y, z)];
 
             // Neighboring vertices.
-            const v3f* v1 = &vertices[fi(x, y - 1, z + 1)];
-            const v3f* v2 = &vertices[fi(x, y - 1, z)];
-            const v3f* v3 = &vertices[fi(x, y - 1, z - 1)];
-            const v3f* v4 = &vertices[fi(x, y, z - 1)];
-            const v3f* v5 = &vertices[fi(x, y + 1, z - 1)];
-            const v3f* v6 = &vertices[fi(x, y + 1, z)];
-            const v3f* v7 = &vertices[fi(x, y + 1, z + 1)];
-            const v3f* v8 = &vertices[fi(x, y, z + 1)];
+            const vec3* v1 = &vertices[fi(x, y - 1, z + 1)];
+            const vec3* v2 = &vertices[fi(x, y - 1, z)];
+            const vec3* v3 = &vertices[fi(x, y - 1, z - 1)];
+            const vec3* v4 = &vertices[fi(x, y, z - 1)];
+            const vec3* v5 = &vertices[fi(x, y + 1, z - 1)];
+            const vec3* v6 = &vertices[fi(x, y + 1, z)];
+            const vec3* v7 = &vertices[fi(x, y + 1, z + 1)];
+            const vec3* v8 = &vertices[fi(x, y, z + 1)];
 
             // Compute normals based on neighbors and accumulate.
-            interpolate_normal(n, v0, v1, v2, v3, v4, v5, v6, v7, v8);
+            interpolateNormal(n, v0, v1, v2, v3, v4, v5, v6, v7, v8);
         }
 
         if ((y & 1) == 0) {
             // Compute y normals.
-            v3f* n = &normals_y[hi(x, y / 2, z)];
+            vec3* n = &normals_y[hi(x, y / 2, z)];
 
             // Vertex the normal sits on.
-            const v3f* v0 = &vertices[fi(x, y, z)];
+            const vec3* v0 = &vertices[fi(x, y, z)];
 
             // Neighboring vertices.
-            const v3f* v1 = &vertices[fi(x + 1, y, z + 1)];
-            const v3f* v2 = &vertices[fi(x + 1, y, z)];
-            const v3f* v3 = &vertices[fi(x + 1, y, z - 1)];
-            const v3f* v4 = &vertices[fi(x, y, z - 1)];
-            const v3f* v5 = &vertices[fi(x - 1, y, z - 1)];
-            const v3f* v6 = &vertices[fi(x - 1, y, z)];
-            const v3f* v7 = &vertices[fi(x - 1, y, z + 1)];
-            const v3f* v8 = &vertices[fi(x, y, z + 1)];
+            const vec3* v1 = &vertices[fi(x + 1, y, z + 1)];
+            const vec3* v2 = &vertices[fi(x + 1, y, z)];
+            const vec3* v3 = &vertices[fi(x + 1, y, z - 1)];
+            const vec3* v4 = &vertices[fi(x, y, z - 1)];
+            const vec3* v5 = &vertices[fi(x - 1, y, z - 1)];
+            const vec3* v6 = &vertices[fi(x - 1, y, z)];
+            const vec3* v7 = &vertices[fi(x - 1, y, z + 1)];
+            const vec3* v8 = &vertices[fi(x, y, z + 1)];
 
             // Compute normals based on neighbors and accumulate.
-            interpolate_normal(n, v0, v1, v2, v3, v4, v5, v6, v7, v8);
+            interpolateNormal(n, v0, v1, v2, v3, v4, v5, v6, v7, v8);
         }
     }
 
     for (z = 0; z < 5; z += 2) {
         // Compute z normals.
-        v3f* n = &normals_z[fi(x, y, z / 2)];
+        vec3* n = &normals_z[fi(x, y, z / 2)];
 
         // Vertex the normal sits on.
-        const v3f* v0 = &vertices[fi(x, y, z)];
+        const vec3* v0 = &vertices[fi(x, y, z)];
 
         // Neighboring vertices.
-        const v3f* v1 = &vertices[fi(x, y - 1, z)];
-        const v3f* v2 = &vertices[fi(x + 1, y - 1, z)];
-        const v3f* v3 = &vertices[fi(x + 1, y, z)];
-        const v3f* v4 = &vertices[fi(x + 1, y + 1, z)];
-        const v3f* v5 = &vertices[fi(x, y + 1, z)];
-        const v3f* v6 = &vertices[fi(x - 1, y + 1, z)];
-        const v3f* v7 = &vertices[fi(x - 1, y, z)];
-        const v3f* v8 = &vertices[fi(x - 1, y - 1, z)];
+        const vec3* v1 = &vertices[fi(x, y - 1, z)];
+        const vec3* v2 = &vertices[fi(x + 1, y - 1, z)];
+        const vec3* v3 = &vertices[fi(x + 1, y, z)];
+        const vec3* v4 = &vertices[fi(x + 1, y + 1, z)];
+        const vec3* v5 = &vertices[fi(x, y + 1, z)];
+        const vec3* v6 = &vertices[fi(x - 1, y + 1, z)];
+        const vec3* v7 = &vertices[fi(x - 1, y, z)];
+        const vec3* v8 = &vertices[fi(x - 1, y - 1, z)];
 
         // Compute normals based on neighbors and accumulate.
-        interpolate_normal(n, v0, v1, v2, v3, v4, v5, v6, v7, v8);
+        interpolateNormal(n, v0, v1, v2, v3, v4, v5, v6, v7, v8);
     }
 }
 
@@ -442,7 +416,7 @@ static void update_normals(int x, int y) {
 // Block updating
 ///////////////////////////////////////////////////////////////////////////////
 
-static void update_block(DK_Block* block) {
+static void updateBlock(DK_Block* block) {
     unsigned short x, y;
 
     // Ignore requests for invalid blocks.
@@ -482,13 +456,13 @@ static void update_block(DK_Block* block) {
         int lx, ly;
         for (lx = start_x; lx < end_x; ++lx) {
             for (ly = start_y; ly < end_y; ++ly) {
-                update_vertices(lx, ly);
+                updateVerticesAt(lx, ly);
             }
         }
 
         for (lx = start_x; lx < end_x; ++lx) {
             for (ly = start_y; ly < end_y; ++ly) {
-                update_normals(lx, ly);
+                updateNormalsAt(lx, ly);
             }
         }
     }
@@ -520,7 +494,7 @@ static void setDiffuseColor(float r, float g, float b, float a) {
     DK_SetMaterial(&gMaterial);
 }
 
-static void draw_top(int x, int y, unsigned int z) {
+static void drawTop(int x, int y, unsigned int z) {
     unsigned int idx;
 
     x += DK_MAP_BORDER / 2;
@@ -530,39 +504,39 @@ static void draw_top(int x, int y, unsigned int z) {
     {
         glTexCoord2d(0, 0);
         idx = fi(x * 2, y * 2 + 2, z / 2);
-        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        glNormal3f(normals_z[idx].d.x, normals_z[idx].d.y, normals_z[idx].d.z);
         idx = fi(x * 2, y * 2 + 2, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0, 0.5);
         idx = fi(x * 2, y * 2 + 1, z / 2);
-        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        glNormal3f(normals_z[idx].d.x, normals_z[idx].d.y, normals_z[idx].d.z);
         idx = fi(x * 2, y * 2 + 1, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 0);
         idx = fi(x * 2 + 1, y * 2 + 2, z / 2);
-        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        glNormal3f(normals_z[idx].d.x, normals_z[idx].d.y, normals_z[idx].d.z);
         idx = fi(x * 2 + 1, y * 2 + 2, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 0.5);
         idx = fi(x * 2 + 1, y * 2 + 1, z / 2);
-        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        glNormal3f(normals_z[idx].d.x, normals_z[idx].d.y, normals_z[idx].d.z);
         idx = fi(x * 2 + 1, y * 2 + 1, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 0);
         idx = fi(x * 2 + 2, y * 2 + 2, z / 2);
-        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        glNormal3f(normals_z[idx].d.x, normals_z[idx].d.y, normals_z[idx].d.z);
         idx = fi(x * 2 + 2, y * 2 + 2, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 0.5);
         idx = fi(x * 2 + 2, y * 2 + 1, z / 2);
-        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        glNormal3f(normals_z[idx].d.x, normals_z[idx].d.y, normals_z[idx].d.z);
         idx = fi(x * 2 + 2, y * 2 + 1, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
     }
     glEnd();
 
@@ -570,44 +544,44 @@ static void draw_top(int x, int y, unsigned int z) {
     {
         glTexCoord2d(0, 0.5);
         idx = fi(x * 2, y * 2 + 1, z / 2);
-        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        glNormal3f(normals_z[idx].d.x, normals_z[idx].d.y, normals_z[idx].d.z);
         idx = fi(x * 2, y * 2 + 1, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0, 1);
         idx = fi(x * 2, y * 2, z / 2);
-        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        glNormal3f(normals_z[idx].d.x, normals_z[idx].d.y, normals_z[idx].d.z);
         idx = fi(x * 2, y * 2, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 0.5);
         idx = fi(x * 2 + 1, y * 2 + 1, z / 2);
-        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        glNormal3f(normals_z[idx].d.x, normals_z[idx].d.y, normals_z[idx].d.z);
         idx = fi(x * 2 + 1, y * 2 + 1, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 1);
         idx = fi(x * 2 + 1, y * 2, z / 2);
-        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        glNormal3f(normals_z[idx].d.x, normals_z[idx].d.y, normals_z[idx].d.z);
         idx = fi(x * 2 + 1, y * 2, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 0.5);
         idx = fi(x * 2 + 2, y * 2 + 1, z / 2);
-        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        glNormal3f(normals_z[idx].d.x, normals_z[idx].d.y, normals_z[idx].d.z);
         idx = fi(x * 2 + 2, y * 2 + 1, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 1);
         idx = fi(x * 2 + 2, y * 2, z / 2);
-        glNormal3f(normals_z[idx].x, normals_z[idx].y, normals_z[idx].z);
+        glNormal3f(normals_z[idx].d.x, normals_z[idx].d.y, normals_z[idx].d.z);
         idx = fi(x * 2 + 2, y * 2, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
     }
     glEnd();
 }
 
-static void draw_east(int x, int y, unsigned int z) {
+static void drawEast(int x, int y, unsigned int z) {
     unsigned int idx;
 
     x += DK_MAP_BORDER / 2;
@@ -617,39 +591,39 @@ static void draw_east(int x, int y, unsigned int z) {
     {
         glTexCoord2d(0, 0);
         idx = hi(x, y * 2, z + 2);
-        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        glNormal3f(normals_x[idx].d.x, normals_x[idx].d.y, normals_x[idx].d.z);
         idx = fi(x * 2, y * 2, z + 2);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0, 0.5);
         idx = hi(x, y * 2, z + 1);
-        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        glNormal3f(normals_x[idx].d.x, normals_x[idx].d.y, normals_x[idx].d.z);
         idx = fi(x * 2, y * 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 0);
         idx = hi(x, y * 2 + 1, z + 2);
-        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        glNormal3f(normals_x[idx].d.x, normals_x[idx].d.y, normals_x[idx].d.z);
         idx = fi(x * 2, y * 2 + 1, z + 2);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 0.5);
         idx = hi(x, y * 2 + 1, z + 1);
-        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        glNormal3f(normals_x[idx].d.x, normals_x[idx].d.y, normals_x[idx].d.z);
         idx = fi(x * 2, y * 2 + 1, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 0);
         idx = hi(x, y * 2 + 2, z + 2);
-        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        glNormal3f(normals_x[idx].d.x, normals_x[idx].d.y, normals_x[idx].d.z);
         idx = fi(x * 2, y * 2 + 2, z + 2);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 0.5);
         idx = hi(x, y * 2 + 2, z + 1);
-        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        glNormal3f(normals_x[idx].d.x, normals_x[idx].d.y, normals_x[idx].d.z);
         idx = fi(x * 2, y * 2 + 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
     }
     glEnd();
 
@@ -657,44 +631,44 @@ static void draw_east(int x, int y, unsigned int z) {
     {
         glTexCoord2d(0, 0.5);
         idx = hi(x, y * 2, z + 1);
-        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        glNormal3f(normals_x[idx].d.x, normals_x[idx].d.y, normals_x[idx].d.z);
         idx = fi(x * 2, y * 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0, 1);
         idx = hi(x, y * 2, z);
-        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        glNormal3f(normals_x[idx].d.x, normals_x[idx].d.y, normals_x[idx].d.z);
         idx = fi(x * 2, y * 2, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 0.5);
         idx = hi(x, y * 2 + 1, z + 1);
-        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        glNormal3f(normals_x[idx].d.x, normals_x[idx].d.y, normals_x[idx].d.z);
         idx = fi(x * 2, y * 2 + 1, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 1);
         idx = hi(x, y * 2 + 1, z);
-        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        glNormal3f(normals_x[idx].d.x, normals_x[idx].d.y, normals_x[idx].d.z);
         idx = fi(x * 2, y * 2 + 1, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 0.5);
         idx = hi(x, y * 2 + 2, z + 1);
-        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        glNormal3f(normals_x[idx].d.x, normals_x[idx].d.y, normals_x[idx].d.z);
         idx = fi(x * 2, y * 2 + 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 1);
         idx = hi(x, y * 2 + 2, z);
-        glNormal3f(normals_x[idx].x, normals_x[idx].y, normals_x[idx].z);
+        glNormal3f(normals_x[idx].d.x, normals_x[idx].d.y, normals_x[idx].d.z);
         idx = fi(x * 2, y * 2 + 2, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
     }
     glEnd();
 }
 
-static void draw_west(int x, int y, unsigned int z) {
+static void drawWest(int x, int y, unsigned int z) {
     unsigned int idx;
 
     x += DK_MAP_BORDER / 2;
@@ -704,39 +678,39 @@ static void draw_west(int x, int y, unsigned int z) {
     {
         glTexCoord2d(0, 0);
         idx = hi(x, y * 2, z + 2);
-        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        glNormal3f(-1 * normals_x[idx].d.x, -1 * normals_x[idx].d.y, -1 * normals_x[idx].d.z);
         idx = fi(x * 2, y * 2 + 2, z + 2);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0, 0.5);
         idx = hi(x, y * 2, z + 1);
-        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        glNormal3f(-1 * normals_x[idx].d.x, -1 * normals_x[idx].d.y, -1 * normals_x[idx].d.z);
         idx = fi(x * 2, y * 2 + 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 0);
         idx = hi(x, y * 2 + 1, z + 2);
-        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        glNormal3f(-1 * normals_x[idx].d.x, -1 * normals_x[idx].d.y, -1 * normals_x[idx].d.z);
         idx = fi(x * 2, y * 2 + 1, z + 2);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 0.5);
         idx = hi(x, y * 2 + 1, z + 1);
-        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        glNormal3f(-1 * normals_x[idx].d.x, -1 * normals_x[idx].d.y, -1 * normals_x[idx].d.z);
         idx = fi(x * 2, y * 2 + 1, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 0);
         idx = hi(x, y * 2 + 2, z + 2);
-        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        glNormal3f(-1 * normals_x[idx].d.x, -1 * normals_x[idx].d.y, -1 * normals_x[idx].d.z);
         idx = fi(x * 2, y * 2, z + 2);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 0.5);
         idx = hi(x, y * 2 + 2, z + 1);
-        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        glNormal3f(-1 * normals_x[idx].d.x, -1 * normals_x[idx].d.y, -1 * normals_x[idx].d.z);
         idx = fi(x * 2, y * 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
     }
     glEnd();
 
@@ -744,44 +718,44 @@ static void draw_west(int x, int y, unsigned int z) {
     {
         glTexCoord2d(0, 0.5);
         idx = hi(x, y * 2, z + 1);
-        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        glNormal3f(-1 * normals_x[idx].d.x, -1 * normals_x[idx].d.y, -1 * normals_x[idx].d.z);
         idx = fi(x * 2, y * 2 + 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0, 1);
         idx = hi(x, y * 2, z);
-        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        glNormal3f(-1 * normals_x[idx].d.x, -1 * normals_x[idx].d.y, -1 * normals_x[idx].d.z);
         idx = fi(x * 2, y * 2 + 2, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 0.5);
         idx = hi(x, y * 2 + 1, z + 1);
-        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        glNormal3f(-1 * normals_x[idx].d.x, -1 * normals_x[idx].d.y, -1 * normals_x[idx].d.z);
         idx = fi(x * 2, y * 2 + 1, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 1);
         idx = hi(x, y * 2 + 1, z);
-        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        glNormal3f(-1 * normals_x[idx].d.x, -1 * normals_x[idx].d.y, -1 * normals_x[idx].d.z);
         idx = fi(x * 2, y * 2 + 1, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 0.5);
         idx = hi(x, y * 2 + 2, z + 1);
-        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        glNormal3f(-1 * normals_x[idx].d.x, -1 * normals_x[idx].d.y, -1 * normals_x[idx].d.z);
         idx = fi(x * 2, y * 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 1);
         idx = hi(x, y * 2 + 2, z);
-        glNormal3f(-1 * normals_x[idx].x, -1 * normals_x[idx].y, -1 * normals_x[idx].z);
+        glNormal3f(-1 * normals_x[idx].d.x, -1 * normals_x[idx].d.y, -1 * normals_x[idx].d.z);
         idx = fi(x * 2, y * 2, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
     }
     glEnd();
 }
 
-static void draw_north(int x, int y, unsigned int z) {
+static void drawNorth(int x, int y, unsigned int z) {
     unsigned int idx;
 
     x += DK_MAP_BORDER / 2;
@@ -791,39 +765,39 @@ static void draw_north(int x, int y, unsigned int z) {
     {
         glTexCoord2d(0, 0);
         idx = hi(x * 2, y, z + 2);
-        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        glNormal3f(normals_y[idx].d.x, normals_y[idx].d.y, normals_y[idx].d.z);
         idx = fi(x * 2 + 2, y * 2, z + 2);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0, 0.5);
         idx = hi(x * 2, y, z + 1);
-        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        glNormal3f(normals_y[idx].d.x, normals_y[idx].d.y, normals_y[idx].d.z);
         idx = fi(x * 2 + 2, y * 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 0);
         idx = hi(x * 2 + 1, y, z + 2);
-        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        glNormal3f(normals_y[idx].d.x, normals_y[idx].d.y, normals_y[idx].d.z);
         idx = fi(x * 2 + 1, y * 2, z + 2);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 0.5);
         idx = hi(x * 2 + 1, y, z + 1);
-        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        glNormal3f(normals_y[idx].d.x, normals_y[idx].d.y, normals_y[idx].d.z);
         idx = fi(x * 2 + 1, y * 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 0);
         idx = hi(y * 2 + 2, y, z + 2);
-        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        glNormal3f(normals_y[idx].d.x, normals_y[idx].d.y, normals_y[idx].d.z);
         idx = fi(x * 2, y * 2, z + 2);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 0.5);
         idx = hi(x * 2 + 2, y, z + 1);
-        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        glNormal3f(normals_y[idx].d.x, normals_y[idx].d.y, normals_y[idx].d.z);
         idx = fi(x * 2, y * 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
     }
     glEnd();
 
@@ -831,44 +805,44 @@ static void draw_north(int x, int y, unsigned int z) {
     {
         glTexCoord2d(0, 0.5);
         idx = hi(x * 2, y, z + 1);
-        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        glNormal3f(normals_y[idx].d.x, normals_y[idx].d.y, normals_y[idx].d.z);
         idx = fi(x * 2 + 2, y * 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0, 1);
         idx = hi(x * 2, y, z);
-        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        glNormal3f(normals_y[idx].d.x, normals_y[idx].d.y, normals_y[idx].d.z);
         idx = fi(x * 2 + 2, y * 2, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 0.5);
         idx = hi(x * 2 + 1, y, z + 1);
-        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        glNormal3f(normals_y[idx].d.x, normals_y[idx].d.y, normals_y[idx].d.z);
         idx = fi(x * 2 + 1, y * 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 1);
         idx = hi(x * 2 + 1, y, z);
-        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        glNormal3f(normals_y[idx].d.x, normals_y[idx].d.y, normals_y[idx].d.z);
         idx = fi(x * 2 + 1, y * 2, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 0.5);
         idx = hi(x * 2 + 2, y, z + 1);
-        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        glNormal3f(normals_y[idx].d.x, normals_y[idx].d.y, normals_y[idx].d.z);
         idx = fi(x * 2, y * 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 1);
         idx = hi(x * 2 + 2, y, z);
-        glNormal3f(normals_y[idx].x, normals_y[idx].y, normals_y[idx].z);
+        glNormal3f(normals_y[idx].d.x, normals_y[idx].d.y, normals_y[idx].d.z);
         idx = fi(x * 2, y * 2, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
     }
     glEnd();
 }
 
-static void draw_south(int x, int y, unsigned int z) {
+static void drawSouth(int x, int y, unsigned int z) {
     unsigned int idx;
 
     x += DK_MAP_BORDER / 2;
@@ -878,39 +852,39 @@ static void draw_south(int x, int y, unsigned int z) {
     {
         glTexCoord2d(0, 0);
         idx = hi(x * 2, y, z + 2);
-        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        glNormal3f(-1 * normals_y[idx].d.x, -1 * normals_y[idx].d.y, -1 * normals_y[idx].d.z);
         idx = fi(x * 2, y * 2, z + 2);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0, 0.5);
         idx = hi(x * 2, y, z + 1);
-        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        glNormal3f(-1 * normals_y[idx].d.x, -1 * normals_y[idx].d.y, -1 * normals_y[idx].d.z);
         idx = fi(x * 2, y * 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 0);
         idx = hi(x * 2 + 1, y, z + 2);
-        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        glNormal3f(-1 * normals_y[idx].d.x, -1 * normals_y[idx].d.y, -1 * normals_y[idx].d.z);
         idx = fi(x * 2 + 1, y * 2, z + 2);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 0.5);
         idx = hi(x * 2 + 1, y, z + 1);
-        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        glNormal3f(-1 * normals_y[idx].d.x, -1 * normals_y[idx].d.y, -1 * normals_y[idx].d.z);
         idx = fi(x * 2 + 1, y * 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 0);
         idx = hi(y * 2 + 2, y, z + 2);
-        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        glNormal3f(-1 * normals_y[idx].d.x, -1 * normals_y[idx].d.y, -1 * normals_y[idx].d.z);
         idx = fi(x * 2 + 2, y * 2, z + 2);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 0.5);
         idx = hi(x * 2 + 2, y, z + 1);
-        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        glNormal3f(-1 * normals_y[idx].d.x, -1 * normals_y[idx].d.y, -1 * normals_y[idx].d.z);
         idx = fi(x * 2 + 2, y * 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
     }
     glEnd();
 
@@ -918,39 +892,39 @@ static void draw_south(int x, int y, unsigned int z) {
     {
         glTexCoord2d(0, 0.5);
         idx = hi(x * 2, y, z + 1);
-        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        glNormal3f(-1 * normals_y[idx].d.x, -1 * normals_y[idx].d.y, -1 * normals_y[idx].d.z);
         idx = fi(x * 2, y * 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0, 1);
         idx = hi(x * 2, y, z);
-        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        glNormal3f(-1 * normals_y[idx].d.x, -1 * normals_y[idx].d.y, -1 * normals_y[idx].d.z);
         idx = fi(x * 2, y * 2, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 0.5);
         idx = hi(x * 2 + 1, y, z + 1);
-        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        glNormal3f(-1 * normals_y[idx].d.x, -1 * normals_y[idx].d.y, -1 * normals_y[idx].d.z);
         idx = fi(x * 2 + 1, y * 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(0.5, 1);
         idx = hi(x * 2 + 1, y, z);
-        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        glNormal3f(-1 * normals_y[idx].d.x, -1 * normals_y[idx].d.y, -1 * normals_y[idx].d.z);
         idx = fi(x * 2 + 1, y * 2, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 0.5);
         idx = hi(x * 2 + 2, y, z + 1);
-        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        glNormal3f(-1 * normals_y[idx].d.x, -1 * normals_y[idx].d.y, -1 * normals_y[idx].d.z);
         idx = fi(x * 2 + 2, y * 2, z + 1);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
 
         glTexCoord2d(1, 1);
         idx = hi(x * 2 + 2, y, z);
-        glNormal3f(-1 * normals_y[idx].x, -1 * normals_y[idx].y, -1 * normals_y[idx].z);
+        glNormal3f(-1 * normals_y[idx].d.x, -1 * normals_y[idx].d.y, -1 * normals_y[idx].d.z);
         idx = fi(x * 2 + 2, y * 2, z);
-        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
     }
     glEnd();
 }
@@ -995,13 +969,13 @@ static void renderSelectionOutline(void) {
                 glBegin(GL_LINES);
                 {
                     idx = fi(x * 2, y * 2 + 2, 4);
-                    glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                    glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     idx = fi(x * 2 + 1, y * 2 + 2, 4);
-                    glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                    glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     idx = fi(x * 2 + 1, y * 2 + 2, 4);
-                    glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                    glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     idx = fi(x * 2 + 2, y * 2 + 2, 4);
-                    glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                    glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                 }
                 glEnd();
 
@@ -1009,13 +983,13 @@ static void renderSelectionOutline(void) {
                     glBegin(GL_LINES);
                     {
                         idx = fi(x * 2, y * 2 + 2, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2 + 1, y * 2 + 2, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2 + 1, y * 2 + 2, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2 + 2, y * 2 + 2, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     }
                     glEnd();
                 }
@@ -1032,13 +1006,13 @@ static void renderSelectionOutline(void) {
                     glBegin(GL_LINES);
                     {
                         idx = fi(x * 2, y * 2 + 2, 4);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2, y * 2 + 2, 3);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2, y * 2 + 2, 3);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2, y * 2 + 2, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     }
                     glEnd();
                     DK_TranslateModelMatrix(DK_MAP_SELECTION_OFFSET, 0, 0);
@@ -1055,13 +1029,13 @@ static void renderSelectionOutline(void) {
                     glBegin(GL_LINES);
                     {
                         idx = fi(x * 2 + 2, y * 2 + 2, 4);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2 + 2, y * 2 + 2, 3);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2 + 2, y * 2 + 2, 3);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2 + 2, y * 2 + 2, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     }
                     glEnd();
                     DK_TranslateModelMatrix(-DK_MAP_SELECTION_OFFSET, 0, 0);
@@ -1079,13 +1053,13 @@ static void renderSelectionOutline(void) {
                 glBegin(GL_LINES);
                 {
                     idx = fi(x * 2, y * 2, 4);
-                    glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                    glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     idx = fi(x * 2 + 1, y * 2, 4);
-                    glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                    glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     idx = fi(x * 2 + 1, y * 2, 4);
-                    glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                    glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     idx = fi(x * 2 + 2, y * 2, 4);
-                    glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                    glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                 }
                 glEnd();
 
@@ -1093,13 +1067,13 @@ static void renderSelectionOutline(void) {
                     glBegin(GL_LINES);
                     {
                         idx = fi(x * 2, y * 2, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2 + 1, y * 2, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2 + 1, y * 2, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2 + 2, y * 2, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     }
                     glEnd();
                 }
@@ -1116,13 +1090,13 @@ static void renderSelectionOutline(void) {
                     glBegin(GL_LINES);
                     {
                         idx = fi(x * 2, y * 2, 4);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2, y * 2, 3);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2, y * 2, 3);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2, y * 2, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     }
                     glEnd();
                     DK_TranslateModelMatrix(DK_MAP_SELECTION_OFFSET, 0, 0);
@@ -1139,13 +1113,13 @@ static void renderSelectionOutline(void) {
                     glBegin(GL_LINES);
                     {
                         idx = fi(x * 2 + 2, y * 2, 4);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2 + 2, y * 2, 3);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2 + 2, y * 2, 3);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2 + 2, y * 2, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     }
                     glEnd();
                     DK_TranslateModelMatrix(-DK_MAP_SELECTION_OFFSET, 0, 0);
@@ -1163,13 +1137,13 @@ static void renderSelectionOutline(void) {
                 glBegin(GL_LINES);
                 {
                     idx = fi(x * 2, y * 2, 4);
-                    glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                    glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     idx = fi(x * 2, y * 2 + 1, 4);
-                    glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                    glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     idx = fi(x * 2, y * 2 + 1, 4);
-                    glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                    glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     idx = fi(x * 2, y * 2 + 2, 4);
-                    glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                    glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                 }
                 glEnd();
 
@@ -1177,13 +1151,13 @@ static void renderSelectionOutline(void) {
                     glBegin(GL_LINES);
                     {
                         idx = fi(x * 2, y * 2, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2, y * 2 + 1, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2, y * 2 + 1, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2, y * 2 + 2, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     }
                     glEnd();
                 }
@@ -1200,13 +1174,13 @@ static void renderSelectionOutline(void) {
                 glBegin(GL_LINES);
                 {
                     idx = fi(x * 2 + 2, y * 2, 4);
-                    glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                    glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     idx = fi(x * 2 + 2, y * 2 + 1, 4);
-                    glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                    glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     idx = fi(x * 2 + 2, y * 2 + 1, 4);
-                    glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                    glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     idx = fi(x * 2 + 2, y * 2 + 2, 4);
-                    glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                    glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                 }
                 glEnd();
 
@@ -1214,13 +1188,13 @@ static void renderSelectionOutline(void) {
                     glBegin(GL_LINES);
                     {
                         idx = fi(x * 2 + 2, y * 2, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2 + 2, y * 2 + 1, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2 + 2, y * 2 + 1, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                         idx = fi(x * 2 + 2, y * 2 + 2, 2);
-                        glVertex3f(vertices[idx].x, vertices[idx].y, vertices[idx].z);
+                        glVertex3f(vertices[idx].d.x, vertices[idx].d.y, vertices[idx].d.z);
                     }
                     glEnd();
                 }
@@ -1264,13 +1238,13 @@ static void renderSelectionOverlay(void) {
                 DK_TranslateModelMatrix(0, 0, DK_MAP_SELECTION_OFFSET);
 
                 // Draw top.
-                draw_top(x, y, 4);
+                drawTop(x, y, 4);
 
                 // North wall.
                 if (y + 1 < gMapSize && DK_IsBlockOpen(DK_GetBlockAt(x, y + 1))) {
                     DK_PushModelMatrix();
                     DK_TranslateModelMatrix(0, DK_MAP_SELECTION_OFFSET, 0);
-                    draw_north(x, y + 1, 2);
+                    drawNorth(x, y + 1, 2);
                     DK_PopModelMatrix();
                 }
 
@@ -1278,7 +1252,7 @@ static void renderSelectionOverlay(void) {
                 if (y > 0 && DK_IsBlockOpen(DK_GetBlockAt(x, y - 1))) {
                     DK_PushModelMatrix();
                     DK_TranslateModelMatrix(0, -DK_MAP_SELECTION_OFFSET, 0);
-                    draw_south(x, y, 2);
+                    drawSouth(x, y, 2);
                     DK_PopModelMatrix();
                 }
 
@@ -1286,7 +1260,7 @@ static void renderSelectionOverlay(void) {
                 if (x > 0 && DK_IsBlockOpen(DK_GetBlockAt(x - 1, y))) {
                     DK_PushModelMatrix();
                     DK_TranslateModelMatrix(-DK_MAP_SELECTION_OFFSET, 0, 0);
-                    draw_west(x, y, 2);
+                    drawWest(x, y, 2);
                     DK_PopModelMatrix();
                 }
 
@@ -1294,7 +1268,7 @@ static void renderSelectionOverlay(void) {
                 if (x + 1 < gMapSize && DK_IsBlockOpen(DK_GetBlockAt(x + 1, y))) {
                     DK_PushModelMatrix();
                     DK_TranslateModelMatrix(DK_MAP_SELECTION_OFFSET, 0, 0);
-                    draw_east(x + 1, y, 2);
+                    drawEast(x + 1, y, 2);
                     DK_PopModelMatrix();
                 }
                 DK_PopModelMatrix();
@@ -1393,7 +1367,7 @@ static void onRender(void) {
             }
 
             // Render.
-            draw_top(x, y, z);
+            drawTop(x, y, z);
 
             // Check if we need to render walls.
             if (z == 4) {
@@ -1404,7 +1378,7 @@ static void onRender(void) {
                     pushTexture(x, y + 1, 2, texture_side);
 
                     // Render.
-                    draw_north(x, y + 1, 2);
+                    drawNorth(x, y + 1, 2);
                 }
 
                 // South wall.
@@ -1414,7 +1388,7 @@ static void onRender(void) {
                     pushTexture(x, y - 1, 2, texture_side);
 
                     // Render.
-                    draw_south(x, y, 2);
+                    drawSouth(x, y, 2);
                 }
 
                 // West wall.
@@ -1424,7 +1398,7 @@ static void onRender(void) {
                     pushTexture(x - 1, y, 2, texture_side);
 
                     // Render.
-                    draw_west(x, y, 2);
+                    drawWest(x, y, 2);
                 }
 
                 // East wall.
@@ -1434,7 +1408,7 @@ static void onRender(void) {
                     pushTexture(x + 1, y, 2, texture_side);
 
                     // Render.
-                    draw_east(x + 1, y, 2);
+                    drawEast(x + 1, y, 2);
                 }
             }
 
@@ -1447,7 +1421,7 @@ static void onRender(void) {
                     pushTexture(x, y + 1, 0, DK_TEX_FLUID_SIDE);
 
                     // Render.
-                    draw_south(x, y + 1, 0);
+                    drawSouth(x, y + 1, 0);
                 }
 
                 // South wall.
@@ -1457,7 +1431,7 @@ static void onRender(void) {
                     pushTexture(x, y - 1, 0, DK_TEX_FLUID_SIDE);
 
                     // Render.
-                    draw_north(x, y, 0);
+                    drawNorth(x, y, 0);
                 }
 
                 // West wall.
@@ -1467,7 +1441,7 @@ static void onRender(void) {
                     pushTexture(x - 1, y, 0, DK_TEX_FLUID_SIDE);
 
                     // Render.
-                    draw_east(x, y, 0);
+                    drawEast(x, y, 0);
                 }
 
                 // East wall.
@@ -1477,7 +1451,7 @@ static void onRender(void) {
                     pushTexture(x + 1, y, 0, DK_TEX_FLUID_SIDE);
 
                     // Render.
-                    draw_west(x + 1, y, 0);
+                    drawWest(x + 1, y, 0);
                 }
             }
         }
@@ -1533,10 +1507,10 @@ static void resize(unsigned short size) {
         // Allocate new map model data.
         vertices_count_full = (size + DK_MAP_BORDER) * 2 + 1;
         vertices_count_semi = (size + DK_MAP_BORDER) + 1;
-        vertices = calloc(vertices_count_full * vertices_count_full * 5, sizeof (v3f));
-        normals_x = calloc(vertices_count_semi * vertices_count_full * 5, sizeof (v3f));
-        normals_y = calloc(vertices_count_semi * vertices_count_full * 5, sizeof (v3f));
-        normals_z = calloc(vertices_count_full * vertices_count_full * 3, sizeof (v3f));
+        vertices = calloc(vertices_count_full * vertices_count_full * 5, sizeof (vec3));
+        normals_x = calloc(vertices_count_semi * vertices_count_full * 5, sizeof (vec3));
+        normals_y = calloc(vertices_count_semi * vertices_count_full * 5, sizeof (vec3));
+        normals_z = calloc(vertices_count_full * vertices_count_full * 3, sizeof (vec3));
 
         if (!vertices || !normals_x || !normals_y || !normals_z) {
             fprintf(stderr, "Out of memory while allocating map model data.\n");
@@ -1563,7 +1537,7 @@ static void resize(unsigned short size) {
     // Pass 1: set vertex positions.
     for (x = 0; x < vertices_count_full; ++x) {
         for (y = 0; y < vertices_count_full; ++y) {
-            update_vertices(x, y);
+            updateVerticesAt(x, y);
 
             // Initialize normals to defaults (especially the border cases, i.e.
             // at 0 and max, because those aren't computed dynamically to avoid
@@ -1571,23 +1545,23 @@ static void resize(unsigned short size) {
             for (z = 0; z < 5; ++z) {
                 if ((x & 1) == 0) {
                     // Compute x normals.
-                    v3f* n = &normals_x[hi(x / 2, y, z)];
-                    n->x = 1;
-                    n->y = 0;
-                    n->z = 0;
+                    vec3* n = &normals_x[hi(x / 2, y, z)];
+                    n->d.x = 1;
+                    n->d.y = 0;
+                    n->d.z = 0;
                 }
                 if ((y & 1) == 0) {
                     // Compute y normals.
-                    v3f* n = &normals_y[hi(x, y / 2, z)];
-                    n->x = 0;
-                    n->y = 1;
-                    n->z = 0;
+                    vec3* n = &normals_y[hi(x, y / 2, z)];
+                    n->d.x = 0;
+                    n->d.y = 1;
+                    n->d.z = 0;
                 }
                 if ((z & 1) == 0) {
-                    v3f* n = &normals_z[fi(x, y, z / 2)];
-                    n->x = 0;
-                    n->y = 0;
-                    n->z = 1;
+                    vec3* n = &normals_z[fi(x, y, z / 2)];
+                    n->d.x = 0;
+                    n->d.y = 0;
+                    n->d.z = 1;
                 }
             }
         }
@@ -1596,7 +1570,7 @@ static void resize(unsigned short size) {
     // Pass 2: compute normals.
     for (x = 1; x < vertices_count_full - 1; ++x) {
         for (y = 1; y < vertices_count_full - 1; ++y) {
-            update_normals(x, y);
+            updateNormalsAt(x, y);
         }
     }
 }
@@ -1763,7 +1737,7 @@ int DK_DamageBlock(DK_Block* block, unsigned int damage) {
     block->strength = DK_BLOCK_NONE_STRENGTH;
 
     // Update visual representation of the surroundings.
-    update_block(block);
+    updateBlock(block);
 
     return 1;
 }
@@ -1900,12 +1874,12 @@ int DK_ConvertBlock(DK_Block* block, unsigned int strength, DK_Player player) {
 
 void DK_SetBlockType(DK_Block* block, DK_BlockType type) {
     block->type = type;
-    update_block(block);
+    updateBlock(block);
 }
 
 void DK_SetBlockOwner(DK_Block* block, DK_Player player) {
     block->owner = player;
-    update_block(block);
+    updateBlock(block);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
