@@ -16,16 +16,31 @@ extern "C" {
     // Types
     ///////////////////////////////////////////////////////////////////////////////
 
-    typedef struct vec2 {
+    typedef union vec2 {
         float v[2];
+        struct {
+            float x, y;
+        } d;
     } vec2;
 
-    typedef struct vec3 {
+    typedef union vec3 {
         float v[3];
+        struct {
+            float x, y, z;
+        } d;
+        struct {
+            float r, g, b;
+        } c;
     } vec3;
 
-    typedef struct vec4 {
+    typedef union vec4 {
         float v[4];
+        struct {
+            float x, y, z, w;
+        } d;
+        struct {
+            float r, g, b, a;
+        } c;
     } vec4;
 
     typedef struct mat3 {

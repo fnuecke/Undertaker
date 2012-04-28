@@ -13,17 +13,13 @@
 #version 330
 ///////////////////////////////////////////////////////////////////////////////
 
+#define HALF_LAMBERT 0
+
 ///////////////////////////////////////////////////////////////////////////////
-// Diffuse albedo material color.
-uniform sampler2D DiffuseAlbedo;
-// Specular albedo material color.
-uniform sampler2D SpecularAlbedo;
-// Emissive albedo material color.
-uniform sampler2D EmissiveAlbedo;
-// Pixel position in world space.
-uniform sampler2D VertexPosition;
-// Surface normal and specular exponent.
-uniform sampler2D SurfaceNormalAndSpecularExponent;
+uniform sampler2D GBuffer0;
+uniform sampler2D GBuffer1;
+uniform sampler2D GBuffer2;
+///////////////////////////////////////////////////////////////////////////////
 // The position of the camera.
 uniform vec3 CameraPosition;
 // The position of the light, in world space.
@@ -36,6 +32,8 @@ uniform float DiffuseLightPower;
 uniform vec3 SpecularLightColor;
 // Power of the specular light.
 uniform float SpecularLightPower;
+// Power of ambient light (which is presumed to be white).
+uniform float AmbientLightPower;
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -51,31 +49,42 @@ out vec3 Color;
 ///////////////////////////////////////////////////////////////////////////////
 // Main routing, does what a main does. Freakin' EVERYTHING!
 void main(void) {
+	vec4 tmp;
 	// Get local values.
-	vec3 diffuseAlbedo = texture2D(DiffuseAlbedo, fs_TextureCoordinate).rgb;
-	vec3 specularAlbedo = texture2D(SpecularAlbedo, fs_TextureCoordinate).rgb;
-	vec3 emissiveAlbedo = texture2D(EmissiveAlbedo, fs_TextureCoordinate).rgb;
-	vec3 position = texture2D(VertexPosition, fs_TextureCoordinate).xyz;
-	vec4 tmp = texture2D(SurfaceNormalAndSpecularExponent, fs_TextureCoordinate);
+	tmp = texture2D(GBuffer0, fs_TextureCoordinate);
+	vec3 diffuseAlbedo = tmp.rgb;
+	tmp = texture2D(GBuffer1, fs_TextureCoordinate);
+	vec3 position = tmp.xyz;
+	float specularIntensity = tmp.w;
+	tmp = texture2D(GBuffer2, fs_TextureCoordinate);
 	vec3 normal = tmp.xyz;
 	float specularExponent = tmp.w;
-
-	// Apply lighting. Punch in emissive / ambient light as base.
-	Color = emissiveAlbedo;
 
 	// Do Blinn-Phong.
 	vec3 toLight = LightPosition - position;
 	float distance = dot(toLight, toLight);
-	vec3 toCamera = CameraPosition - position;
+	if (distance < max(DiffuseLightPower * DiffuseLightPower, SpecularLightPower * SpecularLightPower)) {
+		vec3 toCamera = CameraPosition - position;
 
-	// Diffuse lighting.
-	float lambertTerm = max(0, dot(normalize(toLight), normal));
-	Color += diffuseAlbedo * DiffuseLightColor * lambertTerm * DiffuseLightPower / distance;
+		// Diffuse lighting.
+		#if HALF_LAMBERT
+		float lambertTerm = (dot(normalize(toLight), normal) * 0.5 + 0.5);
+		lambertTerm = lambertTerm * lambertTerm;
+		#else
+		float lambertTerm = dot(normalize(toLight), normal);
+		if (lambertTerm <= 0) {
+			discard;
+		}
+		#endif
+		Color = diffuseAlbedo * DiffuseLightColor * lambertTerm * DiffuseLightPower / distance;
 
-	// Specular lighting.
-	vec3 h = normalize(toLight + toCamera);
-	float hdotn = max(0, dot(h, normal));
-	float specularTerm = pow(hdotn, specularExponent);
-	Color += specularAlbedo * SpecularLightColor * specularTerm * SpecularLightPower / distance;
+		// Specular lighting.
+		vec3 h = normalize(toLight + toCamera);
+		float hdotn = max(0, dot(h, normal));
+		float specularTerm = pow(hdotn, specularExponent);
+		Color += specularIntensity * diffuseAlbedo * SpecularLightColor * specularTerm * SpecularLightPower / distance;
+	} else {
+		discard;
+	}
 }
 ///////////////////////////////////////////////////////////////////////////////

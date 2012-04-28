@@ -226,8 +226,8 @@ static void update(DK_Unit* unit) {
 
                     // Test direct distance; if that's longer than our best we
                     // can safely skip this one.
-                    const float dx = unit->position.v[0] - job->position.v[0];
-                    const float dy = unit->position.v[1] - job->position.v[1];
+                    const float dx = unit->position.d.x - job->position.d.x;
+                    const float dy = unit->position.d.y - job->position.d.y;
                     float distance = sqrt(dx * dx + dy * dy);
                     if (distance >= best_distance + best_penalty) {
                         continue;
@@ -259,8 +259,8 @@ static void update(DK_Unit* unit) {
                             // only take it if our path is better than the
                             // direct distance to the occupant.
                             if (job->worker) {
-                                const float cdx = job->worker->position.v[0] - job->position.v[0];
-                                const float cdy = job->worker->position.v[1] - job->position.v[1];
+                                const float cdx = job->worker->position.d.x - job->position.d.x;
+                                const float cdy = job->worker->position.d.y - job->position.d.y;
                                 const float current_distance = sqrt(cdx * cdx + cdy * cdy);
                                 if (current_distance <= distance + DK_AI_ALREADY_WORKING_BONUS) {
                                     // The one that's on it is closer, ignore.
@@ -330,8 +330,8 @@ static void update(DK_Unit* unit) {
                         // Just walk around dumbly.
                         int i;
                         for (i = 0; i < DK_AI_WANDER_TRIES; ++i) {
-                            float wx = unit->position.v[0] + (rand() / (float) RAND_MAX - 0.5f);
-                            float wy = unit->position.v[1] + (rand() / (float) RAND_MAX - 0.5f);
+                            float wx = unit->position.d.x + (rand() / (float) RAND_MAX - 0.5f);
+                            float wy = unit->position.d.y + (rand() / (float) RAND_MAX - 0.5f);
                             // Make sure the coordinates are in bounds. This is
                             // expecially important for the interval of [-1, 0],
                             // because those get rounded to 0 when casting to int,
@@ -352,14 +352,14 @@ static void update(DK_Unit* unit) {
                                 // OK, move.
                                 moveNode = &unit->ai[unit->ai_count++];
                                 moveNode->state = DK_AI_MOVE;
-                                moveNode->path[0].x = 2 * unit->position.v[0] - wx;
-                                moveNode->path[0].y = 2 * unit->position.v[1] - wy;
-                                moveNode->path[1].x = unit->position.v[0];
-                                moveNode->path[1].y = unit->position.v[1];
+                                moveNode->path[0].x = 2 * unit->position.d.x - wx;
+                                moveNode->path[0].y = 2 * unit->position.d.y - wy;
+                                moveNode->path[1].x = unit->position.d.x;
+                                moveNode->path[1].y = unit->position.d.y;
                                 moveNode->path[2].x = wx;
                                 moveNode->path[2].y = wy;
-                                moveNode->path[3].x = 2 * wx - unit->position.v[0];
-                                moveNode->path[3].y = 2 * wy - unit->position.v[1];
+                                moveNode->path[3].x = 2 * wx - unit->position.d.x;
+                                moveNode->path[3].y = 2 * wy - unit->position.d.y;
                                 moveNode->path_depth = 2;
                                 moveNode->path_index = 1;
                                 moveNode->path_distance = 0;
@@ -390,8 +390,8 @@ static void update(DK_Unit* unit) {
                 ++ai->path_index;
                 if (ai->path_index > ai->path_depth) {
                     // Reached final node, we're done.
-                    unit->position.v[0] = ai->path[ai->path_index - 1].x;
-                    unit->position.v[1] = ai->path[ai->path_index - 1].y;
+                    unit->position.d.x = ai->path[ai->path_index - 1].x;
+                    unit->position.d.y = ai->path[ai->path_index - 1].y;
                     --unit->ai_count;
                     break;
                 } else {
@@ -425,8 +425,8 @@ static void update(DK_Unit* unit) {
             // Compute actual position of the unit.
             {
                 const float t = ai->path_traveled / ai->path_distance;
-                unit->position.v[0] = catmull_rom(ai->path[ai->path_index - 2].x, ai->path[ai->path_index - 1].x, ai->path[ai->path_index].x, ai->path[ai->path_index + 1].x, t);
-                unit->position.v[1] = catmull_rom(ai->path[ai->path_index - 2].y, ai->path[ai->path_index - 1].y, ai->path[ai->path_index].y, ai->path[ai->path_index + 1].y, t);
+                unit->position.d.x = catmull_rom(ai->path[ai->path_index - 2].x, ai->path[ai->path_index - 1].x, ai->path[ai->path_index].x, ai->path[ai->path_index + 1].x, t);
+                unit->position.d.y = catmull_rom(ai->path[ai->path_index - 2].y, ai->path[ai->path_index - 1].y, ai->path[ai->path_index].y, ai->path[ai->path_index + 1].y, t);
             }
             break;
         }
@@ -513,9 +513,7 @@ static void onRender(void) {
         const DK_Unit* unit = &units[i];
         const AI_Node* ai = &unit->ai[unit->ai_count - 1];
         DK_InitMaterial(&material);
-        material.specularColor.v[0] = 0.9f;
-        material.specularColor.v[1] = 0.9f;
-        material.specularColor.v[2] = 0.9f;
+        material.specularIntensity = 0.9f;
         material.specularExponent = 25.0f;
         switch (unit->type) {
             default:
@@ -524,29 +522,29 @@ static void onRender(void) {
                 glLoadName(i);
                 switch (ai->state) {
                     case DK_AI_MOVE:
-                        material.diffuseColor.v[0] = 0.9f;
-                        material.diffuseColor.v[1] = 0.9f;
-                        material.diffuseColor.v[2] = 0.9f;
+                        material.diffuseColor.c.r = 0.9f;
+                        material.diffuseColor.c.g = 0.9f;
+                        material.diffuseColor.c.b = 0.9f;
                         break;
                     case DK_AI_IMP_DIG:
-                        material.diffuseColor.v[0] = 0.6f;
-                        material.diffuseColor.v[1] = 0.9f;
-                        material.diffuseColor.v[2] = 0.6f;
+                        material.diffuseColor.c.r = 0.6f;
+                        material.diffuseColor.c.g = 0.9f;
+                        material.diffuseColor.c.b = 0.6f;
                         break;
                     case DK_AI_IMP_CONVERT:
-                        material.diffuseColor.v[0] = 0.6f;
-                        material.diffuseColor.v[1] = 0.6f;
-                        material.diffuseColor.v[2] = 0.9f;
+                        material.diffuseColor.c.r = 0.6f;
+                        material.diffuseColor.c.g = 0.6f;
+                        material.diffuseColor.c.b = 0.9f;
                         break;
                     default:
-                        material.diffuseColor.v[0] = 0.6f;
-                        material.diffuseColor.v[1] = 0.6f;
-                        material.diffuseColor.v[2] = 0.6f;
+                        material.diffuseColor.c.r = 0.6f;
+                        material.diffuseColor.c.g = 0.6f;
+                        material.diffuseColor.c.b = 0.6f;
                         break;
                 }
                 DK_SetMaterial(&material);
                 DK_PushModelMatrix();
-                DK_TranslateModelMatrix(unit->position.v[0] * DK_BLOCK_SIZE, unit->position.v[1] * DK_BLOCK_SIZE, 4);
+                DK_TranslateModelMatrix(unit->position.d.x * DK_BLOCK_SIZE, unit->position.d.y * DK_BLOCK_SIZE, 4);
                 gluSphere(quadratic, DK_BLOCK_SIZE / 6.0f, 16, 16);
                 DK_PopModelMatrix();
                 break;
@@ -555,9 +553,10 @@ static void onRender(void) {
 
         if (DK_d_draw_paths && ai->state == DK_AI_MOVE) {
             DK_InitMaterial(&material);
-            material.emissiveColor.v[0] = 0.8f;
-            material.emissiveColor.v[1] = 0.8f;
-            material.emissiveColor.v[2] = 0.9f;
+            material.emissivity = 1.0f;
+            material.diffuseColor.c.r = 0.8f;
+            material.diffuseColor.c.g = 0.8f;
+            material.diffuseColor.c.b = 0.9f;
             DK_SetMaterial(&material);
             glLineWidth(1.75f);
             glBegin(GL_LINES);
@@ -578,9 +577,9 @@ static void onRender(void) {
             }
             glEnd();
 
-            material.emissiveColor.v[0] = 0.8f;
-            material.emissiveColor.v[1] = 0.4f;
-            material.emissiveColor.v[2] = 0.4f;
+            material.diffuseColor.c.r = 0.8f;
+            material.diffuseColor.c.g = 0.4f;
+            material.diffuseColor.c.b = 0.4f;
             DK_SetMaterial(&material);
             for (unsigned int j = 1; j <= ai->path_depth; ++j) {
                 DK_PushModelMatrix();
@@ -622,8 +621,8 @@ int DK_AddUnit(DK_Player player, DK_UnitType type, unsigned short x, unsigned sh
         DK_Unit* unit = &units[total_unit_count];
         unit->type = type;
         unit->owner = player;
-        unit->position.v[0] = (x + 0.5f);
-        unit->position.v[1] = (y + 0.5f);
+        unit->position.d.x = (x + 0.5f);
+        unit->position.d.y = (y + 0.5f);
 
         ++total_unit_count;
         ++unit_count[player];

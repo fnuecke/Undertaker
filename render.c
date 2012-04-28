@@ -30,29 +30,9 @@ static struct {
     /** ID of the frame buffer we use for offscreen rendering */
     GLuint frameBuffer;
 
-    /** ID of the diffuse color render buffer */
-    GLuint diffuseAlbedoBuffer;
-    /** ID of the specular color render buffer */
-    GLuint specularAlbedoBuffer;
-    /** ID of the emissive color render buffer */
-    GLuint emissiveAlbedoBuffer;
-    /** ID of the vertex position render buffer */
-    GLuint vertexPositionBuffer;
-    /** ID of the surface normal + specular exponent render buffer */
-    GLuint surfaceNormalAndSpecularExponentBuffer;
-    /** ID of the depth buffer */
+    GLuint renderBuffer[3];
     GLuint depthBuffer;
-
-    /** ID of the diffuse color render buffer */
-    GLuint diffuseAlbedoTexture;
-    /** ID of the specular color render buffer */
-    GLuint specularAlbedoTexture;
-    /** ID of the emissive color render buffer */
-    GLuint emissiveAlbedoTexture;
-    /** ID of the vertex position render buffer */
-    GLuint vertexPositionTexture;
-    /** ID of the surface normal + specular exponent render buffer */
-    GLuint surfaceNormalAndSpecularExponentTexture;
+    GLuint texture[3];
 } gBuffer;
 
 /** Holds information on our geometry shader */
@@ -86,23 +66,23 @@ static struct {
 
     /** Uniforms for the fragment shader */
     struct {
-        /** Textures to use for rendering */
+        /** The textures to use */
         GLint Textures;
 
-        /** Number of textures to use */
+        /** The number of textures to use */
         GLint TextureCount;
 
-        /** The diffuse color multiplier */
+        /** The diffuse base color of the material */
         GLint ColorDiffuse;
 
-        /** The specular color multiplier */
-        GLint ColorSpecular;
+        /** The specular intensity of the material */
+        GLint SpecularIntensity;
 
-        /** The specular exponent */
+        /** The specular exponent of the material */
         GLint SpecularExponent;
 
-        /** The emissive color */
-        GLint ColorEmissive;
+        /** The unattenuated color amount to use */
+        GLint Emissivity;
     } fs_uniforms;
 } gGeometryShader;
 
@@ -127,39 +107,61 @@ static struct {
 
     /** Uniforms for the fragment shader */
     struct {
-        /** The diffuse color */
-        GLint DiffuseAlbedo;
+        /** First GBuffer (diffuse albedo and emissivity) */
+        GLint GBuffer0;
 
-        /** The specular color */
-        GLint SpecularAlbedo;
+        /** Power of ambient light (which is presumed to be white) */
+        GLint AmbientLightPower;
+    } fs_uniforms;
+} gAmbientShader;
 
-        /** The emissive color */
-        GLint EmissiveAlbedo;
+static struct {
+    /** ID of the shader program */
+    GLint program;
 
-        /** The vertex position */
-        GLint VertexPosition;
+    /** Uniforms for the vertex shader */
+    struct {
+        /** The current model-view-projection matrix */
+        GLint ModelViewProjectionMatrix;
+    } vs_uniforms;
 
-        /** The surface normal + specular exponent */
-        GLint SurfaceNormalAndSpecularExponent;
+    /** Attributes for the vertex shader */
+    struct {
+        /** The vertex position model space */
+        GLint ModelVertex;
 
-        /** The current position of the camera in the world */
+        /** The texture coordinate at the vertex */
+        GLint TextureCoordinate;
+    } vs_attributes;
+
+    /** Uniforms for the fragment shader */
+    struct {
+        /** First GBuffer */
+        GLint GBuffer0;
+
+        /** Second GBuffer */
+        GLint GBuffer1;
+
+        /** Third GBuffer */
+        GLint GBuffer2;
+
+        /** The position of the camera */
         GLint CameraPosition;
 
-        /** The position of the current light to shade for */
+        /** The position of the light, in world space */
         GLint LightPosition;
 
-        /** The diffuse color of the current light to shade for */
+        /** The diffuse color of the light */
         GLint DiffuseLightColor;
 
-        /** The power of the diffuse color of the current light to shade for */
+        /** Power of the diffuse light */
         GLint DiffuseLightPower;
 
-        /** The specular color of the current light to shade for */
+        /** The specular color of the light */
         GLint SpecularLightColor;
 
-        /** The power of the specular color of the current light to shade for */
+        /** Power of the specular light */
         GLint SpecularLightPower;
-
     } fs_uniforms;
 } gLightShader;
 
@@ -181,60 +183,111 @@ static int gIsGeometryPass = 0;
 ///////////////////////////////////////////////////////////////////////////////
 
 static void initShaders(void) {
-    // Load shader for deferred shading.
-    GLuint vs = DK_shader_load("data/shaders/geom.vert", GL_VERTEX_SHADER);
-    GLuint fs = DK_shader_load("data/shaders/geom.frag", GL_FRAGMENT_SHADER);
+    // Load shader programs for deferred shading.
+    GLuint vs = DK_shader_load("data/shaders/deferredGeometryPass.vert", GL_VERTEX_SHADER);
+    GLuint fs = DK_shader_load("data/shaders/deferredGeometryPass.frag", GL_FRAGMENT_SHADER);
     if (vs && fs) {
-        const char* out_names[] = {"DiffuseAlbedo", "SpecularAlbedo", "EmissiveAlbedo", "VertexPosition", "SurfaceNormalAndSpecularExponent"};
-        gGeometryShader.program = DK_shader_program(vs, fs, out_names, 5);
+        const char* out_names[] = {"GBuffer0", "GBuffer1", "GBuffer2"};
+        gGeometryShader.program = DK_shader_program(vs, fs, out_names, 3);
 
         if (gGeometryShader.program) {
             // Get the uniform/attribute locations from the shader.
-            gGeometryShader.vs_uniforms.ModelMatrix = glGetUniformLocation(gGeometryShader.program, "ModelMatrix");
-            gGeometryShader.vs_uniforms.ModelViewProjectionMatrix = glGetUniformLocation(gGeometryShader.program, "ModelViewProjectionMatrix");
-            gGeometryShader.vs_uniforms.NormalMatrix = glGetUniformLocation(gGeometryShader.program, "NormalMatrix");
+            gGeometryShader.vs_uniforms.ModelMatrix =
+                    glGetUniformLocation(gGeometryShader.program, "ModelMatrix");
+            gGeometryShader.vs_uniforms.ModelViewProjectionMatrix =
+                    glGetUniformLocation(gGeometryShader.program, "ModelViewProjectionMatrix");
+            gGeometryShader.vs_uniforms.NormalMatrix =
+                    glGetUniformLocation(gGeometryShader.program, "NormalMatrix");
 
-            gGeometryShader.vs_attributes.ModelVertex = glGetAttribLocation(gGeometryShader.program, "ModelVertex");
-            gGeometryShader.vs_attributes.ModelNormal = glGetAttribLocation(gGeometryShader.program, "ModelNormal");
-            gGeometryShader.vs_attributes.TextureCoordinate = glGetAttribLocation(gGeometryShader.program, "TextureCoordinate");
+            gGeometryShader.vs_attributes.ModelVertex =
+                    glGetAttribLocation(gGeometryShader.program, "ModelVertex");
+            gGeometryShader.vs_attributes.ModelNormal =
+                    glGetAttribLocation(gGeometryShader.program, "ModelNormal");
+            gGeometryShader.vs_attributes.TextureCoordinate =
+                    glGetAttribLocation(gGeometryShader.program, "TextureCoordinate");
 
-            gGeometryShader.fs_uniforms.Textures = glGetUniformLocation(gGeometryShader.program, "Textures");
-            gGeometryShader.fs_uniforms.TextureCount = glGetUniformLocation(gGeometryShader.program, "TextureCount");
-            gGeometryShader.fs_uniforms.ColorDiffuse = glGetUniformLocation(gGeometryShader.program, "ColorDiffuse");
-            gGeometryShader.fs_uniforms.ColorSpecular = glGetUniformLocation(gGeometryShader.program, "ColorSpecular");
-            gGeometryShader.fs_uniforms.SpecularExponent = glGetUniformLocation(gGeometryShader.program, "SpecularExponent");
-            gGeometryShader.fs_uniforms.ColorEmissive = glGetUniformLocation(gGeometryShader.program, "ColorEmissive");
+            gGeometryShader.fs_uniforms.Textures =
+                    glGetUniformLocation(gGeometryShader.program, "Textures");
+            gGeometryShader.fs_uniforms.TextureCount =
+                    glGetUniformLocation(gGeometryShader.program, "TextureCount");
+            gGeometryShader.fs_uniforms.ColorDiffuse =
+                    glGetUniformLocation(gGeometryShader.program, "ColorDiffuse");
+            gGeometryShader.fs_uniforms.SpecularIntensity =
+                    glGetUniformLocation(gGeometryShader.program, "SpecularIntensity");
+            gGeometryShader.fs_uniforms.SpecularExponent =
+                    glGetUniformLocation(gGeometryShader.program, "SpecularExponent");
+            gGeometryShader.fs_uniforms.Emissivity =
+                    glGetUniformLocation(gGeometryShader.program, "Emissivity");
             EXIT_ON_OPENGL_ERROR();
         }
     } else {
         gGeometryShader.program = 0;
         return;
     }
-    vs = DK_shader_load("data/shaders/light.vert", GL_VERTEX_SHADER);
-    fs = DK_shader_load("data/shaders/light.frag", GL_FRAGMENT_SHADER);
+
+    vs = DK_shader_load("data/shaders/deferredAmbientPass.vert", GL_VERTEX_SHADER);
+    fs = DK_shader_load("data/shaders/deferredAmbientPass.frag", GL_FRAGMENT_SHADER);
+    if (vs && fs) {
+        const char* out_names[1] = {"Color"};
+        gAmbientShader.program = DK_shader_program(vs, fs, out_names, 1);
+
+        if (gAmbientShader.program) {
+            // Get the uniform/attribute locations from the shader.
+            gAmbientShader.vs_uniforms.ModelViewProjectionMatrix =
+                    glGetUniformLocation(gAmbientShader.program, "ModelViewProjectionMatrix");
+
+            gAmbientShader.vs_attributes.ModelVertex =
+                    glGetAttribLocation(gAmbientShader.program, "ModelVertex");
+            gAmbientShader.vs_attributes.TextureCoordinate =
+                    glGetAttribLocation(gAmbientShader.program, "TextureCoordinate");
+
+            gAmbientShader.fs_uniforms.GBuffer0 =
+                    glGetUniformLocation(gAmbientShader.program, "GBuffer0");
+
+            gAmbientShader.fs_uniforms.AmbientLightPower =
+                    glGetUniformLocation(gAmbientShader.program, "AmbientLightPower");
+            EXIT_ON_OPENGL_ERROR();
+        }
+    } else {
+        gAmbientShader.program = 0;
+        return;
+    }
+
+    vs = DK_shader_load("data/shaders/deferredLightPass.vert", GL_VERTEX_SHADER);
+    fs = DK_shader_load("data/shaders/deferredLightPass.frag", GL_FRAGMENT_SHADER);
     if (vs && fs) {
         const char* out_names[1] = {"Color"};
         gLightShader.program = DK_shader_program(vs, fs, out_names, 1);
 
         if (gLightShader.program) {
             // Get the uniform/attribute locations from the shader.
-            gLightShader.vs_uniforms.ModelViewProjectionMatrix = glGetUniformLocation(gLightShader.program, "ModelViewProjectionMatrix");
+            gLightShader.vs_uniforms.ModelViewProjectionMatrix =
+                    glGetUniformLocation(gLightShader.program, "ModelViewProjectionMatrix");
 
-            gLightShader.vs_attributes.ModelVertex = glGetAttribLocation(gLightShader.program, "ModelVertex");
-            gLightShader.vs_attributes.TextureCoordinate = glGetAttribLocation(gLightShader.program, "TextureCoordinate");
+            gLightShader.vs_attributes.ModelVertex =
+                    glGetAttribLocation(gLightShader.program, "ModelVertex");
+            gLightShader.vs_attributes.TextureCoordinate =
+                    glGetAttribLocation(gLightShader.program, "TextureCoordinate");
 
-            gLightShader.fs_uniforms.DiffuseAlbedo = glGetUniformLocation(gLightShader.program, "DiffuseAlbedo");
-            gLightShader.fs_uniforms.SpecularAlbedo = glGetUniformLocation(gLightShader.program, "SpecularAlbedo");
-            gLightShader.fs_uniforms.EmissiveAlbedo = glGetUniformLocation(gLightShader.program, "EmissiveAlbedo");
-            gLightShader.fs_uniforms.VertexPosition = glGetUniformLocation(gLightShader.program, "VertexPosition");
-            gLightShader.fs_uniforms.SurfaceNormalAndSpecularExponent = glGetUniformLocation(gLightShader.program, "SurfaceNormalAndSpecularExponent");
+            gLightShader.fs_uniforms.GBuffer0 =
+                    glGetUniformLocation(gLightShader.program, "GBuffer0");
+            gLightShader.fs_uniforms.GBuffer1 =
+                    glGetUniformLocation(gLightShader.program, "GBuffer1");
+            gLightShader.fs_uniforms.GBuffer2 =
+                    glGetUniformLocation(gLightShader.program, "GBuffer2");
 
-            gLightShader.fs_uniforms.CameraPosition = glGetUniformLocation(gLightShader.program, "CameraPosition");
-            gLightShader.fs_uniforms.LightPosition = glGetUniformLocation(gLightShader.program, "LightPosition");
-            gLightShader.fs_uniforms.DiffuseLightColor = glGetUniformLocation(gLightShader.program, "DiffuseLightColor");
-            gLightShader.fs_uniforms.DiffuseLightPower = glGetUniformLocation(gLightShader.program, "DiffuseLightPower");
-            gLightShader.fs_uniforms.SpecularLightColor = glGetUniformLocation(gLightShader.program, "SpecularLightColor");
-            gLightShader.fs_uniforms.SpecularLightPower = glGetUniformLocation(gLightShader.program, "SpecularLightPower");
+            gLightShader.fs_uniforms.CameraPosition =
+                    glGetUniformLocation(gLightShader.program, "CameraPosition");
+            gLightShader.fs_uniforms.LightPosition =
+                    glGetUniformLocation(gLightShader.program, "LightPosition");
+            gLightShader.fs_uniforms.DiffuseLightColor =
+                    glGetUniformLocation(gLightShader.program, "DiffuseLightColor");
+            gLightShader.fs_uniforms.DiffuseLightPower =
+                    glGetUniformLocation(gLightShader.program, "DiffuseLightPower");
+            gLightShader.fs_uniforms.SpecularLightColor =
+                    glGetUniformLocation(gLightShader.program, "SpecularLightColor");
+            gLightShader.fs_uniforms.SpecularLightPower =
+                    glGetUniformLocation(gLightShader.program, "SpecularLightPower");
             EXIT_ON_OPENGL_ERROR();
         }
     } else {
@@ -301,19 +354,15 @@ static void initGBuffer(void) {
     EXIT_ON_OPENGL_ERROR();
 
     // Create our render buffers.
-    gBuffer.diffuseAlbedoBuffer = createRenderBuffer(GL_RGB, GL_COLOR_ATTACHMENT0);
-    gBuffer.specularAlbedoBuffer = createRenderBuffer(GL_RGB, GL_COLOR_ATTACHMENT1);
-    gBuffer.emissiveAlbedoBuffer = createRenderBuffer(GL_RGB, GL_COLOR_ATTACHMENT2);
-    gBuffer.vertexPositionBuffer = createRenderBuffer(GL_RGB32F, GL_COLOR_ATTACHMENT3);
-    gBuffer.surfaceNormalAndSpecularExponentBuffer = createRenderBuffer(GL_RGBA16F, GL_COLOR_ATTACHMENT4);
+    gBuffer.renderBuffer[0] = createRenderBuffer(GL_RGBA16F, GL_COLOR_ATTACHMENT0);
+    gBuffer.renderBuffer[1] = createRenderBuffer(GL_RGBA16F, GL_COLOR_ATTACHMENT1);
+    gBuffer.renderBuffer[2] = createRenderBuffer(GL_RGBA16F, GL_COLOR_ATTACHMENT2);
     gBuffer.depthBuffer = createRenderBuffer(GL_DEPTH_COMPONENT24, GL_DEPTH_ATTACHMENT);
 
     // Create our textures.
-    gBuffer.diffuseAlbedoTexture = createTexture(GL_RGB, GL_UNSIGNED_BYTE, GL_COLOR_ATTACHMENT0);
-    gBuffer.specularAlbedoTexture = createTexture(GL_RGB, GL_UNSIGNED_BYTE, GL_COLOR_ATTACHMENT1);
-    gBuffer.emissiveAlbedoTexture = createTexture(GL_RGB, GL_UNSIGNED_BYTE, GL_COLOR_ATTACHMENT2);
-    gBuffer.vertexPositionTexture = createTexture(GL_RGB32F, GL_FLOAT, GL_COLOR_ATTACHMENT3);
-    gBuffer.surfaceNormalAndSpecularExponentTexture = createTexture(GL_RGBA16F, GL_FLOAT, GL_COLOR_ATTACHMENT4);
+    gBuffer.texture[0] = createTexture(GL_RGBA16F, GL_FLOAT, GL_COLOR_ATTACHMENT0);
+    gBuffer.texture[1] = createTexture(GL_RGBA16F, GL_FLOAT, GL_COLOR_ATTACHMENT1);
+    gBuffer.texture[2] = createTexture(GL_RGBA16F, GL_FLOAT, GL_COLOR_ATTACHMENT2);
 
     // Check if all worked fine and unbind the FBO
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -376,9 +425,7 @@ static void geometryPass(void) {
     static const GLenum buffers[] = {
         GL_COLOR_ATTACHMENT0,
         GL_COLOR_ATTACHMENT1,
-        GL_COLOR_ATTACHMENT2,
-        GL_COLOR_ATTACHMENT3,
-        GL_COLOR_ATTACHMENT4
+        GL_COLOR_ATTACHMENT2
     };
 
     // Bind our frame buffer.
@@ -419,7 +466,38 @@ static void lightPass(void) {
         // Get camera position.
         const vec4 camera = getCameraPosition();
 
-        // We use our shader to do the actual shading computations.
+        // Do ambient lighting pass.
+        glUseProgram(gAmbientShader.program);
+
+        // The the global transformation matrix.
+        glUniformMatrix4fv(gAmbientShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
+
+        // Set our three g-buffer textures.
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.texture[0]);
+        glUniform1i(gAmbientShader.fs_uniforms.GBuffer0, 0);
+
+        glUniform1f(gAmbientShader.fs_uniforms.AmbientLightPower, 0.1f);
+
+        // Render the quad.
+        glBegin(GL_QUADS);
+        {
+            glTexCoord2f(0.0f, 0.0f);
+            glVertex3f(0.0f, 0.0f, 0.0f);
+            glTexCoord2f(1.0f, 0.0f);
+            glVertex3f(0.0f, (float) DK_resolution_x, 0.0f);
+            glTexCoord2f(1.0f, 1.0f);
+            glVertex3f(0.0f, (float) DK_resolution_x, (float) DK_resolution_y);
+            glTexCoord2f(0.0f, 1.0f);
+            glVertex3f(0.0f, 0.0f, (float) DK_resolution_y);
+        }
+        glEnd();
+
+        glUseProgram(0);
+
+        EXIT_ON_OPENGL_ERROR();
+
+        // Do proper lighting pass.
         glUseProgram(gLightShader.program);
 
         // The the global transformation matrix.
@@ -430,39 +508,29 @@ static void lightPass(void) {
 
         // Set our three g-buffer textures.
         glActiveTexture(GL_TEXTURE0);
-        glDisable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, gBuffer.diffuseAlbedoTexture);
-        glUniform1i(gLightShader.fs_uniforms.DiffuseAlbedo, 0);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.texture[0]);
+        glUniform1i(gLightShader.fs_uniforms.GBuffer0, 0);
 
         glActiveTexture(GL_TEXTURE1);
-        glDisable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, gBuffer.specularAlbedoTexture);
-        glUniform1i(gLightShader.fs_uniforms.SpecularAlbedo, 1);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.texture[1]);
+        glUniform1i(gLightShader.fs_uniforms.GBuffer1, 1);
 
         glActiveTexture(GL_TEXTURE2);
-        glDisable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, gBuffer.emissiveAlbedoTexture);
-        glUniform1i(gLightShader.fs_uniforms.EmissiveAlbedo, 2);
-
-        glActiveTexture(GL_TEXTURE3);
-        glDisable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, gBuffer.vertexPositionTexture);
-        glUniform1i(gLightShader.fs_uniforms.VertexPosition, 3);
-
-        glActiveTexture(GL_TEXTURE4);
-        glDisable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, gBuffer.surfaceNormalAndSpecularExponentTexture);
-        glUniform1i(gLightShader.fs_uniforms.SurfaceNormalAndSpecularExponent, 4);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.texture[2]);
+        glUniform1i(gLightShader.fs_uniforms.GBuffer2, 2);
 
         EXIT_ON_OPENGL_ERROR();
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE);
 
         // Draw lights.
         for (unsigned int i = 0; i < gLightCount; ++i) {
             const DK_Light* light = gLights[i];
             glUniform3fv(gLightShader.fs_uniforms.DiffuseLightColor, 1, light->diffuseColor.v);
-            glUniform1f(gLightShader.fs_uniforms.DiffuseLightPower, light->diffusePower / gLightCount);
+            glUniform1f(gLightShader.fs_uniforms.DiffuseLightPower, light->diffusePower);
             glUniform3fv(gLightShader.fs_uniforms.SpecularLightColor, 1, light->specularColor.v);
-            glUniform1f(gLightShader.fs_uniforms.SpecularLightPower, light->specularPower / gLightCount);
+            glUniform1f(gLightShader.fs_uniforms.SpecularLightPower, light->specularPower);
             glUniform3fv(gLightShader.fs_uniforms.LightPosition, 1, light->position.v);
 
             // Render the quad.
@@ -481,6 +549,8 @@ static void lightPass(void) {
 
             EXIT_ON_OPENGL_ERROR();
         }
+
+        glDisable(GL_BLEND);
 
         // Unbind the textures we used.
         glActiveTexture(GL_TEXTURE0);
@@ -504,18 +574,26 @@ static void lightPass(void) {
         glUseProgram(0);
 
         EXIT_ON_OPENGL_ERROR();
+    } else if (DK_d_draw_deferred == DK_D_DEPTH_BUFFER) {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer.frameBuffer);
+        glBlitFramebuffer(0, 0, DK_resolution_x, DK_resolution_y,
+                0, 0, DK_resolution_x, DK_resolution_y,
+                GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
+        EXIT_ON_OPENGL_ERROR();
     } else {
         glActiveTexture(GL_TEXTURE0);
         glEnable(GL_TEXTURE_2D);
         switch (DK_d_draw_deferred) {
             case DK_D_DEFERRED_DIFFUSE:
-                glBindTexture(GL_TEXTURE_2D, gBuffer.diffuseAlbedoTexture);
+                glBindTexture(GL_TEXTURE_2D, gBuffer.texture[0]);
                 break;
             case DK_D_DEFERRED_POSITION:
-                glBindTexture(GL_TEXTURE_2D, gBuffer.vertexPositionTexture);
+                glBindTexture(GL_TEXTURE_2D, gBuffer.texture[1]);
                 break;
             case DK_D_DEFERRED_NORMALS:
-                glBindTexture(GL_TEXTURE_2D, gBuffer.surfaceNormalAndSpecularExponentTexture);
+                glBindTexture(GL_TEXTURE_2D, gBuffer.texture[2]);
                 break;
             default:
                 break;
@@ -571,8 +649,8 @@ void DK_Render(void) {
     // Set camera position.
     const vec4 cameraPosition = getCameraPosition();
     const vec4 cameraTarget = getCameraTarget();
-    DK_BeginLookAt(cameraPosition.v[0], cameraPosition.v[1], cameraPosition.v[2],
-            cameraTarget.v[0], cameraTarget.v[1], cameraTarget.v[2]);
+    DK_BeginLookAt(cameraPosition.d.x, cameraPosition.d.y, cameraPosition.d.z,
+            cameraTarget.d.x, cameraTarget.d.y, cameraTarget.d.z);
 
     // Set projection matrix.
     if (DK_d_draw_picking_mode) {
@@ -660,7 +738,7 @@ void DK_InitRender(void) {
 // Material
 ///////////////////////////////////////////////////////////////////////////////
 
-//static const GLint textureUnits[4] = {0, 1, 2, 3};
+static const GLint textureUnits[4] = {0, 1, 2, 3};
 
 void DK_SetMaterial(const DK_Material* material) {
     for (unsigned int i = 0; i < DK_MAX_MATERIAL_TEXTURES; ++i) {
@@ -682,16 +760,16 @@ void DK_SetMaterial(const DK_Material* material) {
         glUniform1i(gGeometryShader.fs_uniforms.TextureCount, material->textureCount);
 
         glUniform3fv(gGeometryShader.fs_uniforms.ColorDiffuse, 1, material->diffuseColor.v);
-        glUniform3fv(gGeometryShader.fs_uniforms.ColorSpecular, 1, material->specularColor.v);
-        glUniform3fv(gGeometryShader.fs_uniforms.ColorEmissive, 1, material->emissiveColor.v);
-
+        glUniform1f(gGeometryShader.fs_uniforms.SpecularIntensity, material->specularIntensity);
         glUniform1f(gGeometryShader.fs_uniforms.SpecularExponent, material->specularExponent);
+        glUniform1f(gGeometryShader.fs_uniforms.Emissivity, material->emissivity);
+
         EXIT_ON_OPENGL_ERROR();
     } else {
-        glColor4f(material->diffuseColor.v[0] + material->emissiveColor.v[0],
-                material->diffuseColor.v[1] + material->emissiveColor.v[1],
-                material->diffuseColor.v[2] + material->emissiveColor.v[2],
-                material->diffuseColor.v[3]);
+        glColor4f(material->diffuseColor.c.r,
+                material->diffuseColor.c.g,
+                material->diffuseColor.c.b,
+                material->diffuseColor.c.a);
 
         if (material->textureCount > 0) {
             glActiveTexture(GL_TEXTURE0);
@@ -706,17 +784,13 @@ void DK_InitMaterial(DK_Material* material) {
         material->textures[i] = 0;
     }
     material->textureCount = 0;
-    material->diffuseColor.v[0] = 0.0f;
-    material->diffuseColor.v[1] = 0.0f;
-    material->diffuseColor.v[2] = 0.0f;
-    material->diffuseColor.v[3] = 0.0f;
-    material->specularColor.v[0] = 0.0f;
-    material->specularColor.v[1] = 0.0f;
-    material->specularColor.v[2] = 0.0f;
+    material->diffuseColor.c.r = 0.0f;
+    material->diffuseColor.c.g = 0.0f;
+    material->diffuseColor.c.b = 0.0f;
+    material->diffuseColor.c.a = 1.0f;
+    material->specularIntensity = 0.0f;
     material->specularExponent = 1.0f;
-    material->emissiveColor.v[0] = 0.0f;
-    material->emissiveColor.v[1] = 0.0f;
-    material->emissiveColor.v[2] = 0.0f;
+    material->emissivity = 0.0f;
     material->bumpMap = 0;
     material->normalMap = 0;
 }

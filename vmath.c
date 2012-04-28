@@ -33,95 +33,95 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 void vcopy(vec4* into, const vec4* v) {
-    into->v[0] = v->v[0];
-    into->v[1] = v->v[1];
-    into->v[2] = v->v[2];
+    into->d.x = v->d.x;
+    into->d.y = v->d.y;
+    into->d.z = v->d.z;
 }
 
 void vadd(vec4* sum, const vec4* va, const vec4* vb) {
-    sum->v[0] = va->v[0] + vb->v[0];
-    sum->v[1] = va->v[1] + vb->v[1];
-    sum->v[2] = va->v[2] + vb->v[2];
+    sum->d.x = va->d.x + vb->d.x;
+    sum->d.y = va->d.y + vb->d.y;
+    sum->d.z = va->d.z + vb->d.z;
 }
 
 void viadd(vec4* va, const vec4* vb) {
-    va->v[0] += vb->v[0];
-    va->v[1] += vb->v[1];
-    va->v[2] += vb->v[2];
+    va->d.x += vb->d.x;
+    va->d.y += vb->d.y;
+    va->d.z += vb->d.z;
 }
 
 void vsub(vec4* difference, const vec4* va, const vec4* vb) {
-    difference->v[0] = va->v[0] - vb->v[0];
-    difference->v[1] = va->v[1] - vb->v[1];
-    difference->v[2] = va->v[2] - vb->v[2];
+    difference->d.x = va->d.x - vb->d.x;
+    difference->d.y = va->d.y - vb->d.y;
+    difference->d.z = va->d.z - vb->d.z;
 }
 
 void visub(vec4* va, const vec4* vb) {
-    va->v[0] -= vb->v[0];
-    va->v[1] -= vb->v[1];
-    va->v[2] -= vb->v[2];
+    va->d.x -= vb->d.x;
+    va->d.y -= vb->d.y;
+    va->d.z -= vb->d.z;
 }
 
 void vmul(vec4* product, const vec4* va, const vec4* vb) {
-    product->v[0] = va->v[0] * vb->v[0];
-    product->v[1] = va->v[1] * vb->v[1];
-    product->v[2] = va->v[2] * vb->v[2];
+    product->d.x = va->d.x * vb->d.x;
+    product->d.y = va->d.y * vb->d.y;
+    product->d.z = va->d.z * vb->d.z;
 }
 
 void vimul(vec4* va, const vec4* vb) {
-    va->v[0] *= vb->v[0];
-    va->v[1] *= vb->v[1];
-    va->v[2] *= vb->v[2];
+    va->d.x *= vb->d.x;
+    va->d.y *= vb->d.y;
+    va->d.z *= vb->d.z;
 }
 
 void vmuls(vec4* product, const vec4* v, float s) {
-    product->v[0] = v->v[0] * s;
-    product->v[1] = v->v[1] * s;
-    product->v[2] = v->v[2] * s;
+    product->d.x = v->d.x * s;
+    product->d.y = v->d.y * s;
+    product->d.z = v->d.z * s;
 }
 
 void vimuls(vec4* v, float s) {
-    v->v[0] *= s;
-    v->v[1] *= s;
-    v->v[2] *= s;
+    v->d.x *= s;
+    v->d.y *= s;
+    v->d.z *= s;
 }
 
 void vdiv(vec4* quotient, const vec4* va, const vec4* vb) {
-    quotient->v[0] = va->v[0] / vb->v[0];
-    quotient->v[1] = va->v[1] / vb->v[1];
-    quotient->v[2] = va->v[2] / vb->v[2];
+    quotient->d.x = va->d.x / vb->d.x;
+    quotient->d.y = va->d.y / vb->d.y;
+    quotient->d.z = va->d.z / vb->d.z;
 }
 
 void vidiv(vec4* va, const vec4* vb) {
-    va->v[0] /= vb->v[0];
-    va->v[1] /= vb->v[1];
-    va->v[2] /= vb->v[2];
+    va->d.x /= vb->d.x;
+    va->d.y /= vb->d.y;
+    va->d.z /= vb->d.z;
 }
 
 void vdivs(vec4* quotient, const vec4* v, float s) {
-    quotient->v[0] = v->v[0] / s;
-    quotient->v[1] = v->v[1] / s;
-    quotient->v[2] = v->v[2] / s;
+    quotient->d.x = v->d.x / s;
+    quotient->d.y = v->d.y / s;
+    quotient->d.z = v->d.z / s;
 }
 
 void vidivs(vec4* v, float s) {
-    v->v[0] /= s;
-    v->v[1] /= s;
-    v->v[2] /= s;
+    v->d.x /= s;
+    v->d.y /= s;
+    v->d.z /= s;
 }
 
 float vdot(const vec4* va, const vec4* vb) {
-    return va->v[0] * vb->v[0] + va->v[1] * vb->v[1] + va->v[2] * vb->v[2];
+    return va->d.x * vb->d.x + va->d.y * vb->d.y + va->d.z * vb->d.z;
 }
 
 void vcross(vec4* cross, const vec4* va, const vec4* vb) {
-    cross->v[0] = va->v[1] * vb->v[2] - va->v[2] * vb->v[1];
-    cross->v[1] = va->v[2] * vb->v[0] - va->v[0] * vb->v[2];
-    cross->v[2] = va->v[0] * vb->v[1] - va->v[1] * vb->v[0];
+    cross->d.x = va->d.y * vb->d.z - va->d.z * vb->d.y;
+    cross->d.y = va->d.z * vb->d.x - va->d.x * vb->d.z;
+    cross->d.z = va->d.x * vb->d.y - va->d.y * vb->d.x;
 }
 
 float vnorm(const vec4* v) {
-    return v->v[0] * v->v[0] + v->v[1] * v->v[1] + v->v[2] * v->v[2];
+    return v->d.x * v->d.x + v->d.y * v->d.y + v->d.z * v->d.z;
 }
 
 float vlen(const vec4* v) {
@@ -130,16 +130,16 @@ float vlen(const vec4* v) {
 
 void vnormalize(vec4* normalized, const vec4* v) {
     const float len = vlen(v);
-    normalized->v[0] = v->v[0] / len;
-    normalized->v[1] = v->v[1] / len;
-    normalized->v[2] = v->v[2] / len;
+    normalized->d.x = v->d.x / len;
+    normalized->d.y = v->d.y / len;
+    normalized->d.z = v->d.z / len;
 }
 
 void vinormalize(vec4* v) {
     const float len = vlen(v);
-    v->v[0] /= len;
-    v->v[1] /= len;
-    v->v[2] /= len;
+    v->d.x /= len;
+    v->d.y /= len;
+    v->d.z /= len;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

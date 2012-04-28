@@ -60,13 +60,13 @@ extern "C" {
         vec4 diffuseColor;
 
         /** Specular multiplier for texture */
-        vec3 specularColor;
-
-        /** Emissivity of the color, i.e. how much light it provides to itself */
-        vec3 emissiveColor;
+        float specularIntensity;
 
         /** Specular exponent for the material */
         float specularExponent;
+
+        /** Emissivity of the color, i.e. how much light it provides to itself */
+        float emissivity;
     } DK_Material;
 
     ///////////////////////////////////////////////////////////////////////////

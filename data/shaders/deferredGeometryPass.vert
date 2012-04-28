@@ -36,9 +36,6 @@ layout(location=8) in vec2 TextureCoordinate;
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
-// We pass some information on to our fragment shader, so that it can write it
-// to the g-buffer.
-//
 // Position of the vertex in world space.
 out vec4 fs_WorldVertex;
 // Normal of the vertex in world space.

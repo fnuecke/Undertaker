@@ -277,9 +277,9 @@ int DK_BeginLookAt(float eyex, float eyey, float eyez, float lookatx, float look
     m = &matrix.view[stack.view];
 
     // Compute direction vectors and set up base matrix.
-    direction.v[0] = (lookatx - eyex);
-    direction.v[1] = (lookaty - eyey);
-    direction.v[2] = (lookatz - eyez);
+    direction.d.x = (lookatx - eyex);
+    direction.d.y = (lookaty - eyey);
+    direction.d.z = (lookatz - eyez);
     vinormalize(&direction);
 
     vcross(&right, &direction, &up);
@@ -289,21 +289,21 @@ int DK_BeginLookAt(float eyex, float eyey, float eyez, float lookatx, float look
     vinormalize(&up);
 
     // First row.
-    m->m[0] = right.v[0];
-    m->m[4] = right.v[1];
-    m->m[8] = right.v[2];
+    m->m[0] = right.d.x;
+    m->m[4] = right.d.y;
+    m->m[8] = right.d.z;
     m->m[12] = 0.0f;
 
     // Second row.
-    m->m[1] = up.v[0];
-    m->m[5] = up.v[1];
-    m->m[9] = up.v[2];
+    m->m[1] = up.d.x;
+    m->m[5] = up.d.y;
+    m->m[9] = up.d.z;
     m->m[13] = 0.0f;
 
     // Third row.
-    m->m[2] = -direction.v[0];
-    m->m[6] = -direction.v[1];
-    m->m[10] = -direction.v[2];
+    m->m[2] = -direction.d.x;
+    m->m[6] = -direction.d.y;
+    m->m[10] = -direction.d.z;
     m->m[14] = 0.0f;
 
     // Fourth row.
@@ -333,36 +333,36 @@ int DK_Project(float objx, float objy, float objz,
     vec4 in;
     vec4 out;
 
-    in.v[0] = objx;
-    in.v[1] = objy;
-    in.v[2] = objz;
-    in.v[3] = 1.0f;
+    in.d.x = objx;
+    in.d.y = objy;
+    in.d.z = objz;
+    in.d.w = 1.0f;
 
     //__gluMultMatrixVecd(modelMatrix, in, out);
     mmulv(&out, &in, &matrix.mv);
     //__gluMultMatrixVecd(projMatrix, out, in);
     mmulv(&in, &out, DK_GetProjectionMatrix());
 
-    if (in.v[3] * in.v[3] < 1e-25) {
+    if (in.d.w * in.d.w < 1e-25) {
         return 0;
     }
 
-    in.v[0] /= in.v[3];
-    in.v[1] /= in.v[3];
-    in.v[2] /= in.v[3];
+    in.d.x /= in.d.w;
+    in.d.y /= in.d.w;
+    in.d.z /= in.d.w;
 
     /* Map x, y and z to range 0-1 */
-    in.v[0] = in.v[0] * 0.5f + 0.5f;
-    in.v[1] = in.v[1] * 0.5f + 0.5f;
-    in.v[2] = in.v[2] * 0.5f + 0.5f;
+    in.d.x = in.d.x * 0.5f + 0.5f;
+    in.d.y = in.d.y * 0.5f + 0.5f;
+    in.d.z = in.d.z * 0.5f + 0.5f;
 
     /* Map x,y to viewport */
-    in.v[0] = in.v[0] * DK_resolution_x;
-    in.v[1] = in.v[1] * DK_resolution_y;
+    in.d.x = in.d.x * DK_resolution_x;
+    in.d.y = in.d.y * DK_resolution_y;
 
-    *winx = in.v[0];
-    *winy = in.v[1];
-    *winz = in.v[2];
+    *winx = in.d.x;
+    *winy = in.d.y;
+    *winz = in.d.z;
 
     return 1;
 }
@@ -377,29 +377,29 @@ int DK_UnProject(float winx, float winy, float winz,
         return 0;
     }
 
-    in.v[0] = winx;
-    in.v[1] = winy;
-    in.v[2] = winz;
-    in.v[3] = 1.0f;
+    in.d.x = winx;
+    in.d.y = winy;
+    in.d.z = winz;
+    in.d.w = 1.0f;
 
     // Map x and y from window coordinates
-    in.v[0] = in.v[0] / DK_resolution_x;
-    in.v[1] = in.v[1] / DK_resolution_y;
+    in.d.x = in.d.x / DK_resolution_x;
+    in.d.y = in.d.y / DK_resolution_y;
 
     // Map to range -1 to 1
-    in.v[0] = in.v[0] * 2.0f - 1.0f;
-    in.v[1] = in.v[1] * 2.0f - 1.0f;
-    in.v[2] = in.v[2] * 2.0f - 1.0f;
+    in.d.x = in.d.x * 2.0f - 1.0f;
+    in.d.y = in.d.y * 2.0f - 1.0f;
+    in.d.z = in.d.z * 2.0f - 1.0f;
 
     //__gluMultMatrixVecd(finalMatrix, in, out);
     mmulv(&out, &in, &mvp);
-    if (out.v[3] * out.v[3] < 1e-25) {
+    if (out.d.w * out.d.w < 1e-25) {
         return 0;
     }
 
-    *objx = out.v[0] / out.v[3];
-    *objy = out.v[1] / out.v[3];
-    *objz = out.v[2] / out.v[3];
+    *objx = out.d.x / out.d.w;
+    *objy = out.d.y / out.d.w;
+    *objz = out.d.z / out.d.w;
 
     return 1;
 }

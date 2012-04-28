@@ -273,11 +273,12 @@ typedef enum {
     DK_D_DEFERRED_DIFFUSE,
     DK_D_DEFERRED_POSITION,
     DK_D_DEFERRED_NORMALS,
-    DK_D_DEFERRED_COUNT /* Number of possibilities, for bounding */
-} DK_DeferredDisplay;
+    DK_D_DEPTH_BUFFER,
+    DK_D_DISPLAY_MODE_COUNT /* Number of possibilities, for bounding */
+} DK_DisplayMode;
 
 /** What part of the deferred rendering process to output */
-DK_DeferredDisplay DK_d_draw_deferred;
+DK_DisplayMode DK_d_draw_deferred;
 
 /** Show what the picking matrix sees */
 int DK_d_draw_picking_mode;

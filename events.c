@@ -2,7 +2,9 @@
 
 #include "camera.h"
 #include "config.h"
+#include "cursor.h"
 #include "events.h"
+#include "render.h"
 #include "selection.h"
 #include "units.h"
 
@@ -56,7 +58,7 @@ static void key_up(const SDL_Event* e) {
             DK_AddUnit(DK_PLAYER_ONE, DK_UNIT_IMP, 5, 10);
             break;
         case SDLK_F5:
-            DK_d_draw_deferred = (DK_d_draw_deferred + 1) % DK_D_DEFERRED_COUNT;
+            DK_d_draw_deferred = (DK_d_draw_deferred + 1) % DK_D_DISPLAY_MODE_COUNT;
             break;
         case SDLK_F6:
             DK_d_draw_picking_mode = 1 - DK_d_draw_picking_mode;
@@ -67,6 +69,23 @@ static void key_up(const SDL_Event* e) {
         case SDLK_F8:
             DK_d_ai_enabled = 1 - DK_d_ai_enabled;
             break;
+        case SDLK_F9:
+        {
+            DK_Light* light = calloc(1, sizeof (DK_Light));
+            light->diffuseColor.c.r = 1;
+            light->diffuseColor.c.g = 1;
+            light->diffuseColor.c.b = 1;
+            light->diffusePower = 80;
+            light->specularColor.c.r = 1;
+            light->specularColor.c.g = 1;
+            light->specularColor.c.b = 1;
+            light->specularPower = 80;
+            light->position.d.x = DK_GetCursor(DK_CURSOR_LEVEL_FLOOR)->v[0];
+            light->position.d.y = DK_GetCursor(DK_CURSOR_LEVEL_FLOOR)->v[1];
+            light->position.d.z = DK_BLOCK_HEIGHT / 2;
+            DK_AddLight(light);
+            break;
+        }
         default:
             break;
     }

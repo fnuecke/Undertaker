@@ -9,44 +9,69 @@
 #include "update.h"
 #include "render.h"
 
+///////////////////////////////////////////////////////////////////////////////
+// Globals
+///////////////////////////////////////////////////////////////////////////////
+
 /**
  * The current cursor position.
  */
-static vec2 gCursorPosition;
+static vec2 gCursorPosition[DK_CURSOR_LEVEL_COUNT];
 
+///////////////////////////////////////////////////////////////////////////////
+// Utility methods
+///////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Updates cursor position at a specified height.
+ * @param level the entry in the array.
+ * @param z the actual z level.
+ * @param mouseX mouse x position in window.
+ * @param mouseY mouse y position in window.
+ */
+static void updateLevel(DK_CursorLevel level, float z, int mouseX, int mouseY) {
+    float nearX, nearY, nearZ, tX, tY, tZ;
+
+    // Get near and far plane.
+    if (!DK_UnProject(mouseX, mouseY, 0, &nearX, &nearY, &nearZ)) {
+        return;
+    }
+    if (!DK_UnProject(mouseX, mouseY, 1, &tX, &tY, &tZ)) {
+        return;
+    }
+
+    // Build direction vector.
+    tX -= nearX;
+    tY -= nearY;
+    tZ -= nearZ;
+
+    // Intersection with xy plane -- at given height.
+    tZ = (z - nearZ) / tZ;
+    gCursorPosition[level].v[0] = nearX + tX * tZ;
+    gCursorPosition[level].v[1] = nearY + tY * tZ;
+}
+
+/**
+ * Updates cursor positions; muse be called after camera was set up.
+ */
 static void update(void) {
     // Get environment info.
     int mouseX, mouseY;
-    float objXn, objYn, objZn;
-    float objXf, objYf, objZf;
 
     // Get window mouse coordinates.
     SDL_GetMouseState(&mouseX, &mouseY);
     mouseY = DK_resolution_y - mouseY;
 
-    // Get near plane.
-    //gluUnProject(mouseX, mouseY, 0, model.m, proj.m, view, &objXn, &objYn, &objZn);
-    DK_UnProject(mouseX, mouseY, 0, &objXn, &objYn, &objZn);
-
-    // Get far plane.
-    //gluUnProject(mouseX, mouseY, 1, model.m, proj.m, view, &objXf, &objYf, &objZf);
-    DK_UnProject(mouseX, mouseY, 1, &objXf, &objYf, &objZf);
-
-    // Build vector.
-    {
-        const GLdouble vx = objXf - objXn;
-        const GLdouble vy = objYf - objYn;
-        const GLdouble vz = objZf - objZn;
-
-        // Intersection with xy plane -- at block height.
-        const GLdouble m = (DK_BLOCK_HEIGHT - objZn) / vz;
-        gCursorPosition.v[0] = objXn + vx * m;
-        gCursorPosition.v[1] = objYn + vy * m;
-    }
+    updateLevel(DK_CURSOR_LEVEL_FLOOR, 0, mouseX, mouseY);
+    updateLevel(DK_CURSOR_LEVEL_TOP, DK_BLOCK_HEIGHT, mouseX, mouseY);
 }
 
-const vec2* DK_GetCursor(void) {
-    return &gCursorPosition;
+///////////////////////////////////////////////////////////////////////////////
+// Header implementation
+///////////////////////////////////////////////////////////////////////////////
+
+const vec2* DK_GetCursor(DK_CursorLevel level) {
+    return &gCursorPosition[level];
 }
 
 void DK_InitCursor(void) {

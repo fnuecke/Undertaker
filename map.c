@@ -55,6 +55,11 @@ static char gIsPicking = 0;
  */
 static Callbacks* gMapChangeCallbacks = 0;
 
+/**
+ * The material used for shading stuff we draw.
+ */
+static DK_Material gMaterial;
+
 ///////////////////////////////////////////////////////////////////////////////
 // Map model data
 ///////////////////////////////////////////////////////////////////////////////
@@ -500,13 +505,19 @@ static void update_block(DK_Block* block) {
 // Map model rendering
 ///////////////////////////////////////////////////////////////////////////////
 
-static void set_texture(int x, int y, unsigned int z, DK_Texture texture) {
+static void pushTexture(int x, int y, unsigned int z, DK_Texture texture) {
     const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
-    DK_Material material;
-    DK_InitMaterial(&material);
-    material.textures[0] = DK_opengl_texture(texture, variation);
-    material.textureCount = 1;
-    DK_SetMaterial(&material);
+    gMaterial.textures[gMaterial.textureCount] = DK_opengl_texture(texture, variation);
+    ++gMaterial.textureCount;
+    DK_SetMaterial(&gMaterial);
+}
+
+static void setDiffuseColor(float r, float g, float b, float a) {
+    gMaterial.diffuseColor.c.r = r;
+    gMaterial.diffuseColor.c.g = g;
+    gMaterial.diffuseColor.c.b = b;
+    gMaterial.diffuseColor.c.a = a;
+    DK_SetMaterial(&gMaterial);
 }
 
 static void draw_top(int x, int y, unsigned int z) {
@@ -947,7 +958,6 @@ static void draw_south(int x, int y, unsigned int z) {
 static void renderSelectionOutline(void) {
     unsigned int idx;
     DK_Selection selection = DK_GetSelection();
-    DK_Material material;
 
     selection.startX += DK_MAP_BORDER / 2;
     selection.startY += DK_MAP_BORDER / 2;
@@ -956,12 +966,11 @@ static void renderSelectionOutline(void) {
 
     // Set up for line drawing.
     glLineWidth(3.0f + DK_GetCameraZoom() * 3.0f);
-    DK_InitMaterial(&material);
-    material.diffuseColor.v[0] = DK_MAP_OUTLINE_COLOR_R;
-    material.diffuseColor.v[1] = DK_MAP_OUTLINE_COLOR_G;
-    material.diffuseColor.v[2] = DK_MAP_OUTLINE_COLOR_B;
-    material.diffuseColor.v[3] = DK_MAP_OUTLINE_COLOR_A;
-    DK_SetMaterial(&material);
+    DK_InitMaterial(&gMaterial);
+    setDiffuseColor(DK_MAP_OUTLINE_COLOR_R,
+            DK_MAP_OUTLINE_COLOR_G,
+            DK_MAP_OUTLINE_COLOR_B,
+            DK_MAP_OUTLINE_COLOR_A);
 
     DK_PushModelMatrix();
 
@@ -1234,16 +1243,13 @@ static void renderSelectionOverlay(void) {
     const int y_begin = (int) (camera->v[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA_Y_OFFSET;
     const int x_end = x_begin + DK_RENDER_AREA_X;
     const int y_end = y_begin + DK_RENDER_AREA_Y;
-    DK_Material material;
 
     // Set up coloring.
-    DK_InitMaterial(&material);
-
-    material.diffuseColor.v[0] = DK_MAP_SELECTED_COLOR_R;
-    material.diffuseColor.v[1] = DK_MAP_SELECTED_COLOR_G;
-    material.diffuseColor.v[2] = DK_MAP_SELECTED_COLOR_B;
-    material.diffuseColor.v[3] = DK_MAP_SELECTED_COLOR_A;
-    DK_SetMaterial(&material);
+    DK_InitMaterial(&gMaterial);
+    setDiffuseColor(DK_MAP_SELECTED_COLOR_R,
+            DK_MAP_SELECTED_COLOR_G,
+            DK_MAP_SELECTED_COLOR_B,
+            DK_MAP_SELECTED_COLOR_A);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
@@ -1376,48 +1382,58 @@ static void onRender(void) {
                 }
             }
 
-            set_texture(x, y, z, texture_top);
-            draw_top(x, y, z);
-
-            if (!gIsPicking && (texture_top_wall || texture_top_owner)) {
-                /*
-                                glEnable(GL_BLEND);
-                                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-                                if (texture_top_wall) {
-                                    draw_top(x, y, z, texture_top_wall);
-                                }
-                                if (texture_top_owner) {
-                                    draw_top(x, y, z, texture_top_owner);
-                                }
-
-                                glDisable(GL_BLEND);
-                 */
+            // Set up material.
+            DK_InitMaterial(&gMaterial);
+            pushTexture(x, y, z, texture_top);
+            if (texture_top_wall) {
+                pushTexture(x, y, z, texture_top_wall);
             }
+            if (texture_top_owner) {
+                pushTexture(x, y, z, texture_top_owner);
+            }
+
+            // Render.
+            draw_top(x, y, z);
 
             // Check if we need to render walls.
             if (z == 4) {
                 // North wall.
                 if (y + 1 < gMapSize && DK_IsBlockOpen(DK_GetBlockAt(x, y + 1))) {
-                    set_texture(x, y + 1, 2, texture_side);
+                    // Set up material.
+                    DK_InitMaterial(&gMaterial);
+                    pushTexture(x, y + 1, 2, texture_side);
+
+                    // Render.
                     draw_north(x, y + 1, 2);
                 }
 
                 // South wall.
                 if (y > 0 && DK_IsBlockOpen(DK_GetBlockAt(x, y - 1))) {
-                    set_texture(x, y - 1, 2, texture_side);
+                    // Set up material.
+                    DK_InitMaterial(&gMaterial);
+                    pushTexture(x, y - 1, 2, texture_side);
+
+                    // Render.
                     draw_south(x, y, 2);
                 }
 
                 // West wall.
                 if (x > 0 && DK_IsBlockOpen(DK_GetBlockAt(x - 1, y))) {
-                    set_texture(x - 1, y, 2, texture_side);
+                    // Set up material.
+                    DK_InitMaterial(&gMaterial);
+                    pushTexture(x - 1, y, 2, texture_side);
+
+                    // Render.
                     draw_west(x, y, 2);
                 }
 
                 // East wall.
                 if (x + 1 < gMapSize && DK_IsBlockOpen(DK_GetBlockAt(x + 1, y))) {
-                    set_texture(x + 1, y, 2, texture_side);
+                    // Set up material.
+                    DK_InitMaterial(&gMaterial);
+                    pushTexture(x + 1, y, 2, texture_side);
+
+                    // Render.
                     draw_east(x + 1, y, 2);
                 }
             }
@@ -1426,25 +1442,41 @@ static void onRender(void) {
             if (z == 0) {
                 // North wall.
                 if (y + 1 < gMapSize && !DK_IsBlockFluid(DK_GetBlockAt(x, y + 1))) {
-                    set_texture(x, y + 1, 0, DK_TEX_FLUID_SIDE);
+                    // Set up material.
+                    DK_InitMaterial(&gMaterial);
+                    pushTexture(x, y + 1, 0, DK_TEX_FLUID_SIDE);
+
+                    // Render.
                     draw_south(x, y + 1, 0);
                 }
 
                 // South wall.
                 if (y > 0 && !DK_IsBlockFluid(DK_GetBlockAt(x, y - 1))) {
-                    set_texture(x, y - 1, 0, DK_TEX_FLUID_SIDE);
+                    // Set up material.
+                    DK_InitMaterial(&gMaterial);
+                    pushTexture(x, y - 1, 0, DK_TEX_FLUID_SIDE);
+
+                    // Render.
                     draw_north(x, y, 0);
                 }
 
                 // West wall.
                 if (x > 0 && !DK_IsBlockFluid(DK_GetBlockAt(x - 1, y))) {
-                    set_texture(x - 1, y, 0, DK_TEX_FLUID_SIDE);
+                    // Set up material.
+                    DK_InitMaterial(&gMaterial);
+                    pushTexture(x - 1, y, 0, DK_TEX_FLUID_SIDE);
+
+                    // Render.
                     draw_east(x, y, 0);
                 }
 
                 // East wall.
                 if (x + 1 < gMapSize && !DK_IsBlockFluid(DK_GetBlockAt(x + 1, y))) {
-                    set_texture(x + 1, y, 0, DK_TEX_FLUID_SIDE);
+                    // Set up material.
+                    DK_InitMaterial(&gMaterial);
+                    pushTexture(x + 1, y, 0, DK_TEX_FLUID_SIDE);
+
+                    // Render.
                     draw_west(x + 1, y, 0);
                 }
             }
@@ -1469,9 +1501,9 @@ static void onPreRender(void) {
     gCursorX = (short) (selected_name & 0xFFFF);
     gCursorY = (short) (selected_name >> 16);
 
-    gHandLight.position.v[0] = DK_GetCursor()->v[0];
-    gHandLight.position.v[1] = DK_GetCursor()->v[1];
-    gHandLight.position.v[2] = 80.0f;
+    gHandLight.position.d.x = DK_GetCursor(DK_CURSOR_LEVEL_TOP)->v[0];
+    gHandLight.position.d.y = DK_GetCursor(DK_CURSOR_LEVEL_TOP)->v[1];
+    gHandLight.position.d.z = 80.0f;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1578,13 +1610,13 @@ unsigned short DK_GetMapSize(void) {
 }
 
 void DK_InitMap(void) {
-    gHandLight.diffuseColor.v[0] = DK_HAND_LIGHT_COLOR_R;
-    gHandLight.diffuseColor.v[1] = DK_HAND_LIGHT_COLOR_G;
-    gHandLight.diffuseColor.v[2] = DK_HAND_LIGHT_COLOR_B;
+    gHandLight.diffuseColor.c.r = DK_HAND_LIGHT_COLOR_R;
+    gHandLight.diffuseColor.c.g = DK_HAND_LIGHT_COLOR_G;
+    gHandLight.diffuseColor.c.b = DK_HAND_LIGHT_COLOR_B;
     gHandLight.diffusePower = DK_HAND_LIGHT_POWER;
-    gHandLight.specularColor.v[0] = DK_HAND_LIGHT_COLOR_R;
-    gHandLight.specularColor.v[1] = DK_HAND_LIGHT_COLOR_G;
-    gHandLight.specularColor.v[2] = DK_HAND_LIGHT_COLOR_B;
+    gHandLight.specularColor.c.r = DK_HAND_LIGHT_COLOR_R;
+    gHandLight.specularColor.c.g = DK_HAND_LIGHT_COLOR_G;
+    gHandLight.specularColor.c.b = DK_HAND_LIGHT_COLOR_B;
     gHandLight.specularPower = DK_HAND_LIGHT_POWER;
     DK_AddLight(&gHandLight);
 
@@ -1628,6 +1660,25 @@ void DK_LoadMap(const char* filename) {
         DK_AddUnit(DK_PLAYER_ONE, DK_UNIT_IMP, 5, 10);
     }
 
+    /*
+        for (unsigned int i = 4; i < 8; ++i) {
+            for (unsigned int j = 4; j < 8; ++j) {
+                DK_Light* light = calloc(1, sizeof (DK_Light));
+                light->diffuseColor.v[0] = 1;
+                light->diffuseColor.v[1] = 1;
+                light->diffuseColor.v[2] = 1;
+                light->diffusePower = 50;
+                light->specularColor.v[0] = 1;
+                light->specularColor.v[1] = 1;
+                light->specularColor.v[2] = 1;
+                light->specularPower = 50;
+                light->position.v[0] = i * DK_BLOCK_SIZE * 4;
+                light->position.v[1] = j * DK_BLOCK_SIZE * 4;
+                light->position.v[2] = DK_BLOCK_HEIGHT * 2 / 3;
+                DK_AddLight(light);
+            }
+        }
+     */
 }
 
 void DK_SaveMap(const char* filename) {
