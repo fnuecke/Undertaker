@@ -21,6 +21,9 @@ extern "C" {
         struct {
             float x, y;
         } d;
+        struct {
+            float u, v;
+        } t;
     } vec2;
 
     typedef union vec3 {

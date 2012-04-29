@@ -16,15 +16,6 @@
 #include "units.h"
 #include "vmath.h"
 
-#define EXIT_ON_OPENGL_ERROR()\
-    { \
-        GLenum error = glGetError(); \
-        if (error != GL_FALSE) { \
-            fprintf(DK_log_target, "ERROR: OpenGL broke (%d) here: %s:%d\n", error, __FILE__, __LINE__); \
-            exit(EXIT_FAILURE); \
-        } \
-    }
-
 /** Holds information on our GBuffer */
 static struct {
     /** ID of the frame buffer we use for offscreen rendering */
@@ -439,7 +430,7 @@ static void geometryPass(void) {
     glUseProgram(gGeometryShader.program);
 
     // Use our three buffers.
-    glDrawBuffers(5, buffers);
+    glDrawBuffers(3, buffers);
 
     EXIT_ON_OPENGL_ERROR();
 }

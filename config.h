@@ -12,6 +12,10 @@
 
 #include <GL/glew.h>
 
+#ifdef	__cplusplus
+extern "C" {
+#endif
+
 ///////////////////////////////////////////////////////////////////////////////
 // Display
 ///////////////////////////////////////////////////////////////////////////////
@@ -35,13 +39,13 @@ int DK_field_of_view;
 #define DK_CLIP_FAR 500.0f
 
 /** Whether to use anti aliasing or not */
-int DK_use_antialiasing;
+char DK_use_antialiasing;
 
 /** Target framerate */
 #define DK_FRAMERATE 60
 
 /** Use fog in the distance, to fade out to black */
-int DK_use_fog;
+char DK_use_fog;
 
 /** The stream to write log messages to */
 FILE* DK_log_target;
@@ -253,19 +257,19 @@ FILE* DK_log_target;
 #define DK_D_USE_NOISE_OFFSET 1
 
 /** Whether the AI is enabled (units are being updated) */
-int DK_d_ai_enabled;
+char DK_d_ai_enabled;
 
 /** Use test texture instead of actual textures */
-int DK_d_draw_test_texture;
+char DK_d_draw_test_texture;
 
 /** Render unit paths */
-int DK_d_draw_paths;
+char DK_d_draw_paths;
 
 /** Height at which to render paths */
 #define DK_D_DRAW_PATH_HEIGHT 1.1f
 
 /** Render job slots for player red */
-int DK_d_draw_jobs;
+char DK_d_draw_jobs;
 
 /** Possible steps of the deferred rendering that can be rendered */
 typedef enum {
@@ -281,18 +285,27 @@ typedef enum {
 DK_DisplayMode DK_d_draw_deferred;
 
 /** Show what the picking matrix sees */
-int DK_d_draw_picking_mode;
+char DK_d_draw_picking_mode;
 
 /** Render using the deferred shading pipeline (shaders)? */
-int DK_d_draw_deferred_shader;
+char DK_d_draw_deferred_shader;
 
 ///////////////////////////////////////////////////////////////////////////////
-// Debugging
+// Macros
 ///////////////////////////////////////////////////////////////////////////////
 
-#ifdef	__cplusplus
-extern "C" {
-#endif
+#define EXIT_ON_OPENGL_ERROR()\
+    { \
+        GLenum error = glGetError(); \
+        if (error != GL_NO_ERROR) { \
+            fprintf(DK_log_target, "ERROR: OpenGL broke at %s:%d:\n%s\n", __FILE__, __LINE__, gluErrorString(error)); \
+            exit(EXIT_FAILURE); \
+        } \
+    }
+
+///////////////////////////////////////////////////////////////////////////////
+// Saving / loading
+///////////////////////////////////////////////////////////////////////////////
 
 /** Load configuration from disk */
 void DK_load_config(void);

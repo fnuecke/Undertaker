@@ -283,15 +283,23 @@ static void update(DK_Unit* unit) {
                                 const float dlx = moveNode->path[1].x - moveNode->path[2].x;
                                 const float dly = moveNode->path[1].y - moveNode->path[2].y;
                                 const float l = sqrtf(dlx * dlx + dly * dly);
-                                moveNode->path[0].x = moveNode->path[1].x + dlx / l;
-                                moveNode->path[0].y = moveNode->path[1].y + dly / l;
+                                moveNode->path[0].x = moveNode->path[1].x;
+                                moveNode->path[0].y = moveNode->path[1].y;
+                                if (l > 0) {
+                                    moveNode->path[0].x += dlx / l;
+                                    moveNode->path[0].y += dly / l;
+                                }
                             }
                             {
                                 const float dlx = moveNode->path[depth].x - moveNode->path[depth - 1].x;
                                 const float dly = moveNode->path[depth].y - moveNode->path[depth - 1].y;
                                 const float l = sqrtf(dlx * dlx + dly * dly);
-                                moveNode->path[depth + 1].x = moveNode->path[depth].x + dlx / l;
-                                moveNode->path[depth + 1].y = moveNode->path[depth].y + dly / l;
+                                moveNode->path[depth + 1].x = moveNode->path[depth].x;
+                                moveNode->path[depth + 1].y = moveNode->path[depth].y;
+                                if (l > 0) {
+                                    moveNode->path[depth + 1].x += dlx / l;
+                                    moveNode->path[depth + 1].y += dly / l;
+                                }
                             }
 
                             // Save the job type.
@@ -398,8 +406,15 @@ static void update(DK_Unit* unit) {
                     // Subtract length of previous to carry surplus movement.
                     ai->path_traveled -= ai->path_distance;
 
-                    // Update to new distance.
-                    if (DK_AI_PATH_INTERPOLATE) {
+                    // Do a direct check for distance, to allow skipping equal
+                    // nodes.
+                    {
+                        const float dx = ai->path[ai->path_index].x - ai->path[ai->path_index - 1].x;
+                        const float dy = ai->path[ai->path_index].y - ai->path[ai->path_index - 1].y;
+                        ai->path_distance = sqrtf(dx * dx + dy * dy);
+                    }
+                    // If there is a distance, estimate the actual path length.
+                    if (ai->path_distance > 0 && DK_AI_PATH_INTERPOLATE) {
                         int e;
                         float x, y, dx, dy;
                         float lx = ai->path[ai->path_index - 1].x;
@@ -415,15 +430,12 @@ static void update(DK_Unit* unit) {
                             ly = y;
                             ai->path_distance += sqrtf(dx * dx + dy * dy);
                         }
-                    } else {
-                        const float dx = ai->path[ai->path_index].x - ai->path[ai->path_index - 1].x;
-                        const float dy = ai->path[ai->path_index].y - ai->path[ai->path_index - 1].y;
-                        ai->path_distance = sqrtf(dx * dx + dy * dy);
                     }
                 }
             }
+
             // Compute actual position of the unit.
-            {
+            if (ai->path_distance > 0) {
                 const float t = ai->path_traveled / ai->path_distance;
                 unit->position.d.x = catmull_rom(ai->path[ai->path_index - 2].x, ai->path[ai->path_index - 1].x, ai->path[ai->path_index].x, ai->path[ai->path_index + 1].x, t);
                 unit->position.d.y = catmull_rom(ai->path[ai->path_index - 2].y, ai->path[ai->path_index - 1].y, ai->path[ai->path_index].y, ai->path[ai->path_index + 1].y, t);
@@ -479,6 +491,7 @@ static void update(DK_Unit* unit) {
         default:
             // Unknown / invalid state, just pop it.
             --unit->ai_count;
+
             break;
     }
 }
@@ -486,6 +499,7 @@ static void update(DK_Unit* unit) {
 static void onUpdate(void) {
     if (DK_d_ai_enabled) {
         for (unsigned int i = 0; i < total_unit_count; ++i) {
+
             update(&units[i]);
         }
     }
@@ -493,6 +507,7 @@ static void onUpdate(void) {
 
 static void onMapChange(void) {
     for (unsigned int i = 0; i < DK_PLAYER_COUNT; ++i) {
+
         unit_count[i] = 0;
     }
     total_unit_count = 0;
@@ -582,6 +597,7 @@ static void onRender(void) {
             material.diffuseColor.c.b = 0.4f;
             DK_SetMaterial(&material);
             for (unsigned int j = 1; j <= ai->path_depth; ++j) {
+
                 DK_PushModelMatrix();
                 DK_TranslateModelMatrix(ai->path[j].x * DK_BLOCK_SIZE, ai->path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
                 gluSphere(quadratic, 0.5f, 8, 8);
@@ -597,16 +613,19 @@ static void onRender(void) {
 
 const vec2* DK_GetUnitPosition(const DK_Unit* unit) {
     if (unit) {
+
         return &unit->position;
     }
     return NULL;
 }
 
 int DK_IsUnitImmuneToLava(const DK_Unit* unit) {
+
     return unit && unit->immune_to_lava;
 }
 
 DK_Player DK_GetUnitOwner(const DK_Unit* unit) {
+
     return unit ? unit->owner : DK_PLAYER_NONE;
 }
 
@@ -618,6 +637,7 @@ int DK_AddUnit(DK_Player player, DK_UnitType type, unsigned short x, unsigned sh
         // TODO
         return 0;
     } else {
+
         DK_Unit* unit = &units[total_unit_count];
         unit->type = type;
         unit->owner = player;
@@ -644,6 +664,7 @@ void DK_CancelJob(DK_Unit* unit) {
             }
             // Remember how much we had to pop.
             unit->ai_count -= backtrack - 1;
+
             return;
         }
         ++backtrack;
