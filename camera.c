@@ -11,13 +11,18 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // Current camera position.
-static vec2 gCameraPosition = {
-    {0, 0}
+static vec3 gCameraPosition = {
+    {0, 0, 0}
 };
 
 // Speed with which the camera moves.
 static vec2 gCameraVelocity = {
     {0, 0}
+};
+
+// Current camera target.
+static vec3 gCameraTarget = {
+    {0, 0, 0}
 };
 
 // Current scroll direction.
@@ -75,14 +80,23 @@ static void update(void) {
     }
 
     gCameraZoom += (gCameraZoomTarget - gCameraZoom) / 2.0f;
+
+    gCameraPosition.v[2] = DK_CAMERA_HEIGHT - gCameraZoom * DK_CAMERA_MAX_ZOOM;
+
+    gCameraTarget.v[0] = gCameraPosition.v[0];
+    gCameraTarget.v[1] = gCameraPosition.v[1] + DK_CAMERA_TARGET_DISTANCE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-const vec2* DK_GetCameraPosition(void) {
+const vec3* DK_GetCameraPosition(void) {
     return &gCameraPosition;
+}
+
+const vec3* DK_GetCameraTarget(void) {
+    return &gCameraTarget;
 }
 
 float DK_GetCameraZoom(void) {

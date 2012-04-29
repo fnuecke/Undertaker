@@ -119,7 +119,7 @@ static int popView(void) {
 static int pushModel(void) {
     if (stack.model > 0) {
         --stack.model;
-        matrix.model[stack.model] = IDENTITY_MATRIX4;
+        matrix.model[stack.model] = matrix.model[stack.model + 1];
         updateMatrices(1);
         return 1;
     }

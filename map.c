@@ -78,12 +78,12 @@ static DK_Material gMaterial;
 // Map model data
 ///////////////////////////////////////////////////////////////////////////////
 
-static enum {
-    TOP,
-    NORTH,
-    SOUTH,
-    EAST,
-    WEST
+enum {
+    SIDE_TOP,
+    SIDE_NORTH,
+    SIDE_SOUTH,
+    SIDE_EAST,
+    SIDE_WEST
 };
 
 static struct Vertex {
@@ -106,13 +106,9 @@ static struct Vertex {
 /** Array and buffer IDs */
 static GLuint gVertexArrayID = 0;
 static GLuint gVertexBufferID = 0;
-static GLuint gIndexBufferID = 0;
 
 /** Are our buffers initialized, i.e. should we push changes to the GPU? */
 static char gIsVertexBufferInitialized = 0;
-
-/** Indices of vertices to draw */
-static GLuint gVertexIndices[6] = {0};
 
 /** Number of vertices in x and y direction */
 static unsigned int gVerticesPerDimension = 0;
@@ -361,14 +357,13 @@ static void interpolateNormal(vec3* n, const vec3* v0,
 
 static void updateNormalsAt(int x, int y) {
 #define P(x, y, z) (&gVertices[fi(x, y, z)].position)
-#define NORMAL_OFFSET(i, side) (idx * sizeof(struct Vertex) + sizeof(vec3) * (1 + side))
     for (unsigned int z = 0; z < 5; ++z) {
         const unsigned int idx = fi(x, y, z);
         struct Vertex* vert = &gVertices[idx];
         const vec3* v0 = &vert->position;
 
         // Compute z normals.
-        vec3* n = &vert->normal[TOP];
+        vec3* n = &vert->normal[SIDE_TOP];
 
         // Compute normals based on neighbors and accumulate.
         interpolateNormal(n, v0,
@@ -381,18 +376,10 @@ static void updateNormalsAt(int x, int y) {
                 P(x - 1, y, z),
                 P(x - 1, y - 1, z));
 
-        // Update data on GPU?
-        if (gIsVertexBufferInitialized) {
-            glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferID);
-            glBufferSubData(GL_ARRAY_BUFFER, NORMAL_OFFSET(idx, TOP), sizeof (vec3), n);
-
-            EXIT_ON_OPENGL_ERROR();
-        }
-
         // If we don't get out of bounds issues, compute x and y, too.
         if (z > 1 && z < 4) {
             // Compute y normals.
-            n = &vert->normal[NORTH];
+            n = &vert->normal[SIDE_NORTH];
 
             // Compute normals based on neighbors and accumulate.
             interpolateNormal(n, v0,
@@ -406,19 +393,11 @@ static void updateNormalsAt(int x, int y) {
                     P(x, y, z + 1));
 
             // Other side is just the same, but with inverted direction.
-            vert->normal[SOUTH] = *n;
-            v3imuls(&vert->normal[SOUTH], -1);
-
-            // Update data on GPU?
-            if (gIsVertexBufferInitialized) {
-                glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferID);
-                glBufferSubData(GL_ARRAY_BUFFER, NORMAL_OFFSET(idx, NORTH), sizeof (vec3) * 2, n);
-
-                EXIT_ON_OPENGL_ERROR();
-            }
+            vert->normal[SIDE_SOUTH] = *n;
+            v3imuls(&vert->normal[SIDE_SOUTH], -1);
 
             // Compute x normals.
-            n = &vert->normal[EAST];
+            n = &vert->normal[SIDE_EAST];
 
             // Compute normals based on neighbors and accumulate.
             interpolateNormal(n, v0,
@@ -432,19 +411,19 @@ static void updateNormalsAt(int x, int y) {
                     P(x, y, z + 1));
 
             // Other side is just the same, but with inverted direction.
-            vert->normal[WEST] = *n;
-            v3imuls(&vert->normal[WEST], -1);
+            vert->normal[SIDE_WEST] = *n;
+            v3imuls(&vert->normal[SIDE_WEST], -1);
+        }
 
-            // Update data on GPU?
-            if (gIsVertexBufferInitialized) {
-                glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferID);
-                glBufferSubData(GL_ARRAY_BUFFER, NORMAL_OFFSET(idx, EAST), sizeof (vec3) * 2, n);
+        // Update data on GPU?
+        if (gIsVertexBufferInitialized) {
+            glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferID);
+            glBufferSubData(GL_ARRAY_BUFFER, idx * sizeof (struct Vertex) + sizeof (vec3), sizeof (vec3) * 5, vert->normal);
 
-                EXIT_ON_OPENGL_ERROR();
-            }
+            EXIT_ON_OPENGL_ERROR();
         }
     }
-#undef NORMAL_OFFSET
+#undef P
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -534,25 +513,25 @@ static void setDiffuseColor(float r, float g, float b, float a) {
 
 static void beginDraw(void) {
     // Bind our vertex buffer as the array we use for attribute lookups.
-
     glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferID);
 
     // Use it for the attributes we need.
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(2);
-    glEnableVertexAttribArray(8);
+    glEnableVertexAttribArray(DK_GetPositionAttributeLocation());
+    glEnableVertexAttribArray(DK_GetNormalAttributeLocation());
+    glEnableVertexAttribArray(DK_GetTextureCoordinateAttributeLocation());
 
     // Set the pointers that don't change.
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), 0);
+    glVertexAttribPointer(DK_GetPositionAttributeLocation(),
+            3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), 0);
 
     EXIT_ON_OPENGL_ERROR();
 }
 
 static void endDraw(void) {
     // Stop using vertex buffer for attributes..
-    glDisableVertexAttribArray(0);
-    glDisableVertexAttribArray(2);
-    glDisableVertexAttribArray(8);
+    glDisableVertexAttribArray(DK_GetPositionAttributeLocation());
+    glDisableVertexAttribArray(DK_GetNormalAttributeLocation());
+    glDisableVertexAttribArray(DK_GetTextureCoordinateAttributeLocation());
 
     // Unbind vertex buffer.
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -560,150 +539,169 @@ static void endDraw(void) {
     EXIT_ON_OPENGL_ERROR();
 }
 
-#define NORMAL(side) (sizeof(vec3) * (1 + side))
-#define TEXTURE(side) (sizeof(vec3) * 6 + sizeof(vec2) * side)
+#define BUFFER_OFFSET(i) ((char *)NULL + (i))
+#define NORMAL(side) BUFFER_OFFSET(sizeof(vec3) * (1 + side))
+#define TEXTURE(side) BUFFER_OFFSET(sizeof(vec3) * 6 + sizeof(vec2) * side)
 
 static void drawTop(int x, int y, unsigned int z) {
+    GLuint indices[6];
     x = x * 2 + DK_MAP_BORDER;
     y = y * 2 + DK_MAP_BORDER;
 
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), NORMAL(TOP));
-    glVertexAttribPointer(8, 2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), TEXTURE(TOP));
+    glVertexAttribPointer(DK_GetNormalAttributeLocation(),
+            3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), NORMAL(SIDE_TOP));
+    glVertexAttribPointer(DK_GetTextureCoordinateAttributeLocation(),
+            2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), TEXTURE(SIDE_TOP));
 
-    gVertexIndices[0] = fi(x, y + 2, z);
-    gVertexIndices[1] = fi(x, y + 1, z);
-    gVertexIndices[2] = fi(x + 1, y + 2, z);
-    gVertexIndices[3] = fi(x + 1, y + 1, z);
-    gVertexIndices[4] = fi(x + 2, y + 2, z);
-    gVertexIndices[5] = fi(x + 2, y + 1, z);
-    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &gVertexIndices);
+    indices[0] = fi(x, y + 2, z);
+    indices[1] = fi(x, y + 1, z);
+    indices[2] = fi(x + 1, y + 2, z);
+    indices[3] = fi(x + 1, y + 1, z);
+    indices[4] = fi(x + 2, y + 2, z);
+    indices[5] = fi(x + 2, y + 1, z);
+    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &indices);
 
-    gVertexIndices[0] = fi(x, y + 1, z);
-    gVertexIndices[1] = fi(x, y, z);
-    gVertexIndices[2] = fi(x + 1, y + 1, z);
-    gVertexIndices[3] = fi(x + 1, y, z);
-    gVertexIndices[4] = fi(x + 2, y + 1, z);
-    gVertexIndices[5] = fi(x + 2, y, z);
-    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &gVertexIndices);
+    indices[0] = fi(x, y + 1, z);
+    indices[1] = fi(x, y, z);
+    indices[2] = fi(x + 1, y + 1, z);
+    indices[3] = fi(x + 1, y, z);
+    indices[4] = fi(x + 2, y + 1, z);
+    indices[5] = fi(x + 2, y, z);
+    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &indices);
 
     EXIT_ON_OPENGL_ERROR();
 }
 
 static void drawNorth(int x, int y, unsigned int z) {
+    GLuint indices[6];
     x = x * 2 + DK_MAP_BORDER;
     y = y * 2 + DK_MAP_BORDER;
 
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), NORMAL(NORTH));
-    glVertexAttribPointer(8, 2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), TEXTURE(NORTH));
+    glVertexAttribPointer(DK_GetNormalAttributeLocation(),
+            3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), NORMAL(SIDE_NORTH));
+    glVertexAttribPointer(DK_GetTextureCoordinateAttributeLocation(),
+            2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), TEXTURE(SIDE_NORTH));
 
-    gVertexIndices[0] = fi(x + 2, y, z + 2);
-    gVertexIndices[1] = fi(x + 2, y, z + 1);
-    gVertexIndices[2] = fi(x + 1, y, z + 2);
-    gVertexIndices[3] = fi(x + 1, y, z + 1);
-    gVertexIndices[4] = fi(x, y, z + 2);
-    gVertexIndices[5] = fi(x, y, z + 1);
-    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &gVertexIndices);
+    indices[0] = fi(x + 2, y, z + 2);
+    indices[1] = fi(x + 2, y, z + 1);
+    indices[2] = fi(x + 1, y, z + 2);
+    indices[3] = fi(x + 1, y, z + 1);
+    indices[4] = fi(x, y, z + 2);
+    indices[5] = fi(x, y, z + 1);
+    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &indices);
 
-    gVertexIndices[0] = fi(x + 2, y, z + 1);
-    gVertexIndices[1] = fi(x + 2, y, z);
-    gVertexIndices[2] = fi(x + 1, y, z + 1);
-    gVertexIndices[3] = fi(x + 1, y, z);
-    gVertexIndices[4] = fi(x, y, z + 1);
-    gVertexIndices[5] = fi(x, y, z);
-    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &gVertexIndices);
+    indices[0] = fi(x + 2, y, z + 1);
+    indices[1] = fi(x + 2, y, z);
+    indices[2] = fi(x + 1, y, z + 1);
+    indices[3] = fi(x + 1, y, z);
+    indices[4] = fi(x, y, z + 1);
+    indices[5] = fi(x, y, z);
+    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &indices);
 
     EXIT_ON_OPENGL_ERROR();
 }
 
 static void drawSouth(int x, int y, unsigned int z) {
+    GLuint indices[6];
     x = x * 2 + DK_MAP_BORDER;
     y = y * 2 + DK_MAP_BORDER;
 
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), NORMAL(SOUTH));
-    glVertexAttribPointer(8, 2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), TEXTURE(SOUTH));
+    glVertexAttribPointer(DK_GetNormalAttributeLocation(),
+            3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), NORMAL(SIDE_SOUTH));
+    glVertexAttribPointer(DK_GetTextureCoordinateAttributeLocation(),
+            2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), TEXTURE(SIDE_SOUTH));
 
-    gVertexIndices[0] = fi(x, y, z + 2);
-    gVertexIndices[1] = fi(x, y, z + 1);
-    gVertexIndices[2] = fi(x + 1, y, z + 2);
-    gVertexIndices[3] = fi(x + 1, y, z + 1);
-    gVertexIndices[4] = fi(x + 2, y, z + 2);
-    gVertexIndices[5] = fi(x + 2, y, z + 1);
-    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &gVertexIndices);
+    indices[0] = fi(x, y, z + 2);
+    indices[1] = fi(x, y, z + 1);
+    indices[2] = fi(x + 1, y, z + 2);
+    indices[3] = fi(x + 1, y, z + 1);
+    indices[4] = fi(x + 2, y, z + 2);
+    indices[5] = fi(x + 2, y, z + 1);
+    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &indices);
 
-    gVertexIndices[0] = fi(x, y, z + 1);
-    gVertexIndices[1] = fi(x, y, z);
-    gVertexIndices[2] = fi(x + 1, y, z + 1);
-    gVertexIndices[3] = fi(x + 1, y, z);
-    gVertexIndices[4] = fi(x + 2, y, z + 1);
-    gVertexIndices[5] = fi(x + 2, y, z);
-    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &gVertexIndices);
+    indices[0] = fi(x, y, z + 1);
+    indices[1] = fi(x, y, z);
+    indices[2] = fi(x + 1, y, z + 1);
+    indices[3] = fi(x + 1, y, z);
+    indices[4] = fi(x + 2, y, z + 1);
+    indices[5] = fi(x + 2, y, z);
+    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &indices);
 
     EXIT_ON_OPENGL_ERROR();
 }
 
 static void drawEast(int x, int y, unsigned int z) {
+    GLuint indices[6];
     x = x * 2 + DK_MAP_BORDER;
     y = y * 2 + DK_MAP_BORDER;
 
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), NORMAL(EAST));
-    glVertexAttribPointer(8, 2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), TEXTURE(EAST));
+    glVertexAttribPointer(DK_GetNormalAttributeLocation(),
+            3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), NORMAL(SIDE_EAST));
+    glVertexAttribPointer(DK_GetTextureCoordinateAttributeLocation(),
+            2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), TEXTURE(SIDE_EAST));
 
-    gVertexIndices[0] = fi(x, y, z + 2);
-    gVertexIndices[1] = fi(x, y, z + 1);
-    gVertexIndices[2] = fi(x, y + 1, z + 2);
-    gVertexIndices[3] = fi(x, y + 1, z + 1);
-    gVertexIndices[4] = fi(x, y + 2, z + 2);
-    gVertexIndices[5] = fi(x, y + 2, z + 1);
-    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &gVertexIndices);
+    indices[0] = fi(x, y, z + 2);
+    indices[1] = fi(x, y, z + 1);
+    indices[2] = fi(x, y + 1, z + 2);
+    indices[3] = fi(x, y + 1, z + 1);
+    indices[4] = fi(x, y + 2, z + 2);
+    indices[5] = fi(x, y + 2, z + 1);
+    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &indices);
 
-    gVertexIndices[0] = fi(x, y, z + 1);
-    gVertexIndices[1] = fi(x, y, z);
-    gVertexIndices[2] = fi(x, y + 1, z + 1);
-    gVertexIndices[3] = fi(x, y + 1, z);
-    gVertexIndices[4] = fi(x, y + 2, z + 1);
-    gVertexIndices[5] = fi(x, y + 2, z);
-    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &gVertexIndices);
+    indices[0] = fi(x, y, z + 1);
+    indices[1] = fi(x, y, z);
+    indices[2] = fi(x, y + 1, z + 1);
+    indices[3] = fi(x, y + 1, z);
+    indices[4] = fi(x, y + 2, z + 1);
+    indices[5] = fi(x, y + 2, z);
+    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &indices);
 
     EXIT_ON_OPENGL_ERROR();
 }
 
 static void drawWest(int x, int y, unsigned int z) {
+    GLuint indices[6];
     x = x * 2 + DK_MAP_BORDER;
     y = y * 2 + DK_MAP_BORDER;
 
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), NORMAL(WEST));
-    glVertexAttribPointer(8, 2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), TEXTURE(WEST));
+    glVertexAttribPointer(DK_GetNormalAttributeLocation(),
+            3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), NORMAL(SIDE_WEST));
+    glVertexAttribPointer(DK_GetTextureCoordinateAttributeLocation(),
+            2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), TEXTURE(SIDE_WEST));
 
-    gVertexIndices[0] = fi(x, y + 2, z + 2);
-    gVertexIndices[1] = fi(x, y + 2, z + 1);
-    gVertexIndices[2] = fi(x, y + 1, z + 2);
-    gVertexIndices[3] = fi(x, y + 1, z + 1);
-    gVertexIndices[4] = fi(x, y, z + 2);
-    gVertexIndices[5] = fi(x, y, z + 1);
-    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &gVertexIndices);
+    indices[0] = fi(x, y + 2, z + 2);
+    indices[1] = fi(x, y + 2, z + 1);
+    indices[2] = fi(x, y + 1, z + 2);
+    indices[3] = fi(x, y + 1, z + 1);
+    indices[4] = fi(x, y, z + 2);
+    indices[5] = fi(x, y, z + 1);
+    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &indices);
 
-    gVertexIndices[0] = fi(x, y + 2, z + 1);
-    gVertexIndices[1] = fi(x, y + 2, z);
-    gVertexIndices[2] = fi(x, y + 1, z + 1);
-    gVertexIndices[3] = fi(x, y + 1, z);
-    gVertexIndices[4] = fi(x, y, z + 1);
-    gVertexIndices[5] = fi(x, y, z);
-    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &gVertexIndices);
+    indices[0] = fi(x, y + 2, z + 1);
+    indices[1] = fi(x, y + 2, z);
+    indices[2] = fi(x, y + 1, z + 1);
+    indices[3] = fi(x, y + 1, z);
+    indices[4] = fi(x, y, z + 1);
+    indices[5] = fi(x, y, z);
+    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &indices);
 
     EXIT_ON_OPENGL_ERROR();
 }
 
 #undef NORMAL
 #undef TEXTURE
+#undef BUFFER_OFFSET
 
 static void renderSelectionOutline(void) {
-    unsigned int idx;
+    GLuint indices[4];
     DK_Selection selection = DK_GetSelection();
 
     selection.startX += DK_MAP_BORDER / 2;
     selection.startY += DK_MAP_BORDER / 2;
     selection.endX += DK_MAP_BORDER / 2;
     selection.endY += DK_MAP_BORDER / 2;
+
+    beginDraw();
 
     // Set up for line drawing.
     glLineWidth(3.0f + DK_GetCameraZoom() * 3.0f);
@@ -713,10 +711,11 @@ static void renderSelectionOutline(void) {
             DK_MAP_OUTLINE_COLOR_B,
             DK_MAP_OUTLINE_COLOR_A);
 
-    DK_PushModelMatrix();
-
+    // Paint on top of previous image data.
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // Don't change the depth buffer.
     glDepthMask(GL_FALSE);
 
     for (int x = selection.startX; x <= selection.endX; ++x) {
@@ -730,257 +729,113 @@ static void renderSelectionOutline(void) {
             // Draw north outline.
             if (y == selection.endY ||
                     DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1))) {
-                DK_PushModelMatrix();
-                DK_TranslateModelMatrix(0, DK_MAP_SELECTION_OFFSET, DK_MAP_SELECTION_OFFSET);
+                indices[0] = fi(x * 2, y * 2 + 2, 4);
+                indices[1] = fi(x * 2 + 1, y * 2 + 2, 4);
+                indices[2] = fi(x * 2 + 2, y * 2 + 2, 4);
+                glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
 
-                glBegin(GL_LINES);
-                {
-                    idx = fi(x * 2, y * 2 + 2, 4);
-                    glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    idx = fi(x * 2 + 1, y * 2 + 2, 4);
-                    glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    idx = fi(x * 2 + 1, y * 2 + 2, 4);
-                    glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    idx = fi(x * 2 + 2, y * 2 + 2, 4);
-                    glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                }
-                glEnd();
+                indices[0] = fi(x * 2, y * 2 + 2, 2);
+                indices[1] = fi(x * 2 + 1, y * 2 + 2, 2);
+                indices[2] = fi(x * 2 + 2, y * 2 + 2, 2);
+                glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
 
-                if (DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1))) {
-                    glBegin(GL_LINES);
-                    {
-                        idx = fi(x * 2, y * 2 + 2, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2 + 1, y * 2 + 2, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2 + 1, y * 2 + 2, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2 + 2, y * 2 + 2, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    }
-                    glEnd();
-                }
-
-                if (x == selection.startX ?
-                        (DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1)) ||
-                        DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y)))
-                        :
+                if (x == selection.startX ||
                         ((DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1)) ^
                         DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y + 1))) ||
                         DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y)))) {
                     // Draw north west top-to-bottom line.
-                    DK_TranslateModelMatrix(-DK_MAP_SELECTION_OFFSET, 0, 0);
-                    glBegin(GL_LINES);
-                    {
-                        idx = fi(x * 2, y * 2 + 2, 4);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2, y * 2 + 2, 3);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2, y * 2 + 2, 3);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2, y * 2 + 2, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    }
-                    glEnd();
-                    DK_TranslateModelMatrix(DK_MAP_SELECTION_OFFSET, 0, 0);
+                    indices[0] = fi(x * 2, y * 2 + 2, 4);
+                    indices[1] = fi(x * 2, y * 2 + 2, 3);
+                    indices[2] = fi(x * 2, y * 2 + 2, 2);
+                    glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
                 }
-                if (x == selection.endX ?
-                        (DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1)) ||
-                        DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y)))
-                        :
+                if (x == selection.endX ||
                         ((DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1)) ^
                         DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y + 1))) ||
                         DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y)))) {
                     // Draw north east top-to-bottom line.
-                    DK_TranslateModelMatrix(DK_MAP_SELECTION_OFFSET, 0, 0);
-                    glBegin(GL_LINES);
-                    {
-                        idx = fi(x * 2 + 2, y * 2 + 2, 4);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2 + 2, y * 2 + 2, 3);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2 + 2, y * 2 + 2, 3);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2 + 2, y * 2 + 2, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    }
-                    glEnd();
-                    DK_TranslateModelMatrix(-DK_MAP_SELECTION_OFFSET, 0, 0);
+                    indices[0] = fi(x * 2 + 2, y * 2 + 2, 4);
+                    indices[1] = fi(x * 2 + 2, y * 2 + 2, 3);
+                    indices[2] = fi(x * 2 + 2, y * 2 + 2, 2);
+                    glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
                 }
-
-                DK_PopModelMatrix();
             }
 
             // Draw south outline.
             if (y == selection.startY ||
                     DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1))) {
-                DK_PushModelMatrix();
-                DK_TranslateModelMatrix(0, -DK_MAP_SELECTION_OFFSET, DK_MAP_SELECTION_OFFSET);
+                //DK_PushModelMatrix();
+                indices[0] = fi(x * 2, y * 2, 4);
+                indices[1] = fi(x * 2 + 1, y * 2, 4);
+                indices[2] = fi(x * 2 + 2, y * 2, 4);
+                glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
 
-                glBegin(GL_LINES);
-                {
-                    idx = fi(x * 2, y * 2, 4);
-                    glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    idx = fi(x * 2 + 1, y * 2, 4);
-                    glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    idx = fi(x * 2 + 1, y * 2, 4);
-                    glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    idx = fi(x * 2 + 2, y * 2, 4);
-                    glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                }
-                glEnd();
+                indices[0] = fi(x * 2, y * 2, 2);
+                indices[1] = fi(x * 2 + 1, y * 2, 2);
+                indices[2] = fi(x * 2 + 2, y * 2, 2);
+                glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
 
-                if (DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1))) {
-                    glBegin(GL_LINES);
-                    {
-                        idx = fi(x * 2, y * 2, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2 + 1, y * 2, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2 + 1, y * 2, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2 + 2, y * 2, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    }
-                    glEnd();
-                }
-
-                if (x == selection.startX ?
-                        (DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1)) ||
-                        DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y)))
-                        :
+                if (x == selection.startX ||
                         ((DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1)) ^
                         DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y - 1))) ||
                         DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y)))) {
                     // Draw south west top-to-bottom line.
-                    DK_TranslateModelMatrix(-DK_MAP_SELECTION_OFFSET, 0, 0);
-                    glBegin(GL_LINES);
-                    {
-                        idx = fi(x * 2, y * 2, 4);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2, y * 2, 3);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2, y * 2, 3);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2, y * 2, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    }
-                    glEnd();
-                    DK_TranslateModelMatrix(DK_MAP_SELECTION_OFFSET, 0, 0);
+                    indices[0] = fi(x * 2, y * 2, 4);
+                    indices[1] = fi(x * 2, y * 2, 3);
+                    indices[2] = fi(x * 2, y * 2, 2);
+                    glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
                 }
-                if (x == selection.endX ?
-                        (DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1)) ||
-                        DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y)))
-                        :
+                if (x == selection.endX ||
                         ((DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1)) ^
                         DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y - 1))) ||
                         DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y)))) {
                     // Draw south east top-to-bottom line.
-                    DK_TranslateModelMatrix(DK_MAP_SELECTION_OFFSET, 0, 0);
-                    glBegin(GL_LINES);
-                    {
-                        idx = fi(x * 2 + 2, y * 2, 4);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2 + 2, y * 2, 3);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2 + 2, y * 2, 3);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2 + 2, y * 2, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    }
-                    glEnd();
-                    DK_TranslateModelMatrix(-DK_MAP_SELECTION_OFFSET, 0, 0);
+                    indices[0] = fi(x * 2 + 2, y * 2, 4);
+                    indices[1] = fi(x * 2 + 2, y * 2, 3);
+                    indices[2] = fi(x * 2 + 2, y * 2, 2);
+                    glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
                 }
-
-                DK_PopModelMatrix();
-            }
-
-            // Draw west outline.
-            if (x == selection.startX ||
-                    DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y))) {
-                DK_PushModelMatrix();
-                DK_TranslateModelMatrix(-DK_MAP_SELECTION_OFFSET, 0, DK_MAP_SELECTION_OFFSET);
-
-                glBegin(GL_LINES);
-                {
-                    idx = fi(x * 2, y * 2, 4);
-                    glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    idx = fi(x * 2, y * 2 + 1, 4);
-                    glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    idx = fi(x * 2, y * 2 + 1, 4);
-                    glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    idx = fi(x * 2, y * 2 + 2, 4);
-                    glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                }
-                glEnd();
-
-                if (DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y))) {
-                    glBegin(GL_LINES);
-                    {
-                        idx = fi(x * 2, y * 2, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2, y * 2 + 1, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2, y * 2 + 1, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2, y * 2 + 2, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    }
-                    glEnd();
-                }
-
-                DK_PopModelMatrix();
             }
 
             // Draw east outline.
             if (x == selection.endX ||
                     DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y))) {
-                DK_PushModelMatrix();
-                DK_TranslateModelMatrix(DK_MAP_SELECTION_OFFSET, 0, DK_MAP_SELECTION_OFFSET);
+                indices[0] = fi(x * 2 + 2, y * 2, 4);
+                indices[1] = fi(x * 2 + 2, y * 2 + 1, 4);
+                indices[2] = fi(x * 2 + 2, y * 2 + 2, 4);
+                glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
 
-                glBegin(GL_LINES);
-                {
-                    idx = fi(x * 2 + 2, y * 2, 4);
-                    glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    idx = fi(x * 2 + 2, y * 2 + 1, 4);
-                    glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    idx = fi(x * 2 + 2, y * 2 + 1, 4);
-                    glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    idx = fi(x * 2 + 2, y * 2 + 2, 4);
-                    glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                }
-                glEnd();
-
-                if (DK_IsBlockOpen(DK_GetBlockAt(map_x + 1, map_y))) {
-                    glBegin(GL_LINES);
-                    {
-
-                        idx = fi(x * 2 + 2, y * 2, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2 + 2, y * 2 + 1, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2 + 2, y * 2 + 1, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                        idx = fi(x * 2 + 2, y * 2 + 2, 2);
-                        glVertex3f(gVertices[idx].position.d.x, gVertices[idx].position.d.y, gVertices[idx].position.d.z);
-                    }
-                    glEnd();
-                }
-
-                DK_PopModelMatrix();
+                indices[0] = fi(x * 2 + 2, y * 2, 2);
+                indices[1] = fi(x * 2 + 2, y * 2 + 1, 2);
+                indices[2] = fi(x * 2 + 2, y * 2 + 2, 2);
+                glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
             }
 
+            // Draw west outline.
+            if (x == selection.startX ||
+                    DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y))) {
+                indices[0] = fi(x * 2, y * 2, 4);
+                indices[1] = fi(x * 2, y * 2 + 1, 4);
+                indices[2] = fi(x * 2, y * 2 + 2, 4);
+                glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
+
+                indices[0] = fi(x * 2, y * 2, 2);
+                indices[1] = fi(x * 2, y * 2 + 1, 2);
+                indices[2] = fi(x * 2, y * 2 + 2, 2);
+                glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
+            }
         }
     }
 
     // Reset stuff.
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
-    DK_PopModelMatrix();
+
+    endDraw();
 }
 
 static void renderSelectionOverlay(void) {
-    const vec2* camera = DK_GetCameraPosition();
+    const vec3* camera = DK_GetCameraPosition();
     const int x_begin = (int) (camera->v[0] / DK_BLOCK_SIZE) - DK_RENDER_AREA_X / 2;
     const int y_begin = (int) (camera->v[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA_Y_OFFSET;
     const int x_end = x_begin + DK_RENDER_AREA_X;
@@ -1054,7 +909,7 @@ static void renderSelectionOverlay(void) {
 }
 
 static void onRender(void) {
-    const vec2* camera = DK_GetCameraPosition();
+    const vec3* camera = DK_GetCameraPosition();
     const int x_begin = (int) (camera->v[0] / DK_BLOCK_SIZE) - DK_RENDER_AREA_X / 2;
     const int y_begin = (int) (camera->v[1] / DK_BLOCK_SIZE) - DK_RENDER_AREA_Y_OFFSET;
     const int x_end = x_begin + DK_RENDER_AREA_X;
@@ -1329,33 +1184,33 @@ static void resize(unsigned short size) {
                 // Initialize normals to defaults (especially the border cases, i.e.
                 // at 0 and max, because those aren't computed dynamically to avoid
                 // having to check the border cases).
-                v->normal[TOP].d.x = 0;
-                v->normal[TOP].d.y = 0;
-                v->normal[TOP].d.z = 1;
-                v->normal[NORTH].d.x = 0;
-                v->normal[NORTH].d.y = 1;
-                v->normal[NORTH].d.z = 0;
-                v->normal[SOUTH].d.x = 0;
-                v->normal[SOUTH].d.y = -1;
-                v->normal[SOUTH].d.z = 0;
-                v->normal[EAST].d.x = 1;
-                v->normal[EAST].d.y = 0;
-                v->normal[EAST].d.z = 0;
-                v->normal[WEST].d.x = -1;
-                v->normal[WEST].d.y = 0;
-                v->normal[WEST].d.z = 0;
+                v->normal[SIDE_TOP].d.x = 0;
+                v->normal[SIDE_TOP].d.y = 0;
+                v->normal[SIDE_TOP].d.z = 1;
+                v->normal[SIDE_NORTH].d.x = 0;
+                v->normal[SIDE_NORTH].d.y = 1;
+                v->normal[SIDE_NORTH].d.z = 0;
+                v->normal[SIDE_SOUTH].d.x = 0;
+                v->normal[SIDE_SOUTH].d.y = -1;
+                v->normal[SIDE_SOUTH].d.z = 0;
+                v->normal[SIDE_EAST].d.x = 1;
+                v->normal[SIDE_EAST].d.y = 0;
+                v->normal[SIDE_EAST].d.z = 0;
+                v->normal[SIDE_WEST].d.x = -1;
+                v->normal[SIDE_WEST].d.y = 0;
+                v->normal[SIDE_WEST].d.z = 0;
 
                 // Set texture coordinate.
-                v->texCoord[TOP].t.u = x / 2.0f;
-                v->texCoord[TOP].t.v = (gVerticesPerDimension - 1 - y) / 2.0f;
-                v->texCoord[NORTH].t.u = (gVerticesPerDimension - 1 - x) / 2.0f;
-                v->texCoord[NORTH].t.v = (4 - z) / 2.0f;
-                v->texCoord[SOUTH].t.u = x / 2.0f;
-                v->texCoord[SOUTH].t.v = (4 - z) / 2.0f;
-                v->texCoord[EAST].t.u = y / 2.0f;
-                v->texCoord[EAST].t.v = (4 - z) / 2.0f;
-                v->texCoord[WEST].t.u = (gVerticesPerDimension - 1 - y) / 2.0f;
-                v->texCoord[WEST].t.v = (4 - z) / 2.0f;
+                v->texCoord[SIDE_TOP].t.u = x / 2.0f;
+                v->texCoord[SIDE_TOP].t.v = (gVerticesPerDimension - 1 - y) / 2.0f;
+                v->texCoord[SIDE_NORTH].t.u = (gVerticesPerDimension - 1 - x) / 2.0f;
+                v->texCoord[SIDE_NORTH].t.v = (4 - z) / 2.0f;
+                v->texCoord[SIDE_SOUTH].t.u = x / 2.0f;
+                v->texCoord[SIDE_SOUTH].t.v = (4 - z) / 2.0f;
+                v->texCoord[SIDE_EAST].t.u = y / 2.0f;
+                v->texCoord[SIDE_EAST].t.v = (4 - z) / 2.0f;
+                v->texCoord[SIDE_WEST].t.u = (gVerticesPerDimension - 1 - y) / 2.0f;
+                v->texCoord[SIDE_WEST].t.v = (4 - z) / 2.0f;
             }
         }
     }
@@ -1400,11 +1255,6 @@ void DK_InitMap(void) {
     DK_OnRender(onRender);
     DK_OnPostRender(renderSelectionOverlay);
     DK_OnPostRender(renderSelectionOutline);
-
-    // Generate and set up index array for vertices.
-    glGenBuffers(1, &gIndexBufferID);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBufferID);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof (gVertexIndices), gVertexIndices, GL_STREAM_DRAW);
 
     EXIT_ON_OPENGL_ERROR();
 }

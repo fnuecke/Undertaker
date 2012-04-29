@@ -53,10 +53,16 @@ extern "C" {
     ///////////////////////////////////////////////////////////////////////////////
 
     /**
-     * Get the current camera position as in world space on the x-y plane.
+     * Get the current camera position as in world space.
      * @return the current camera position in world space.
      */
-    const vec2* DK_GetCameraPosition(void);
+    const vec3* DK_GetCameraPosition(void);
+
+    /**
+     * Get the current camera target in world space.
+     * @return the current camera target in world space.
+     */
+    const vec3* DK_GetCameraTarget(void);
 
     /**
      * Get the current camera zoom.

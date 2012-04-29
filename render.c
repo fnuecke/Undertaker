@@ -370,32 +370,6 @@ static void initGBuffer(void) {
 // Helper methods
 ///////////////////////////////////////////////////////////////////////////////
 
-static vec4 getCameraPosition(void) {
-    const vec2* camera = DK_GetCameraPosition();
-    vec4 position = {
-        {
-            camera->v[0],
-            camera->v[1],
-            DK_CAMERA_HEIGHT - DK_GetCameraZoom() * DK_CAMERA_MAX_ZOOM,
-            1.0f
-        }
-    };
-    return position;
-}
-
-static vec4 getCameraTarget(void) {
-    const vec2* camera = DK_GetCameraPosition();
-    vec4 target = {
-        {
-            camera->v[0],
-            camera->v[1] + DK_CAMERA_TARGET_DISTANCE,
-            0.0f,
-            1.0f
-        }
-    };
-    return target;
-}
-
 static void onModelMatrixChanged(void) {
     if (gIsGeometryPass) {
         // Set uniforms for geometry shader.
@@ -451,12 +425,10 @@ static void lightPass(void) {
 
     // No model transform for us.
     DK_PushModelMatrix();
+    DK_SetModelMatrix(&IDENTITY_MATRIX4);
 
     // Figure out what to draw.
     if (DK_d_draw_deferred == DK_D_DEFERRED_FINAL) {
-        // Get camera position.
-        const vec4 camera = getCameraPosition();
-
         // Do ambient lighting pass.
         glUseProgram(gAmbientShader.program);
 
@@ -495,7 +467,7 @@ static void lightPass(void) {
         glUniformMatrix4fv(gLightShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
 
         // Set camera position.
-        glUniform3fv(gLightShader.fs_uniforms.CameraPosition, 1, camera.v);
+        glUniform3fv(gLightShader.fs_uniforms.CameraPosition, 1, DK_GetCameraPosition()->v);
 
         // Set our three g-buffer textures.
         glActiveTexture(GL_TEXTURE0);
@@ -638,10 +610,10 @@ static void lightPass(void) {
 
 void DK_Render(void) {
     // Set camera position.
-    const vec4 cameraPosition = getCameraPosition();
-    const vec4 cameraTarget = getCameraTarget();
-    DK_BeginLookAt(cameraPosition.d.x, cameraPosition.d.y, cameraPosition.d.z,
-            cameraTarget.d.x, cameraTarget.d.y, cameraTarget.d.z);
+    const vec3* cameraPosition = DK_GetCameraPosition();
+    const vec3* cameraTarget = DK_GetCameraTarget();
+    DK_BeginLookAt(cameraPosition->d.x, cameraPosition->d.y, cameraPosition->d.z,
+            cameraTarget->d.x, cameraTarget->d.y, cameraTarget->d.z);
 
     // Set projection matrix.
     if (DK_d_draw_picking_mode) {
@@ -654,6 +626,7 @@ void DK_Render(void) {
 
     // Reset model transform.
     DK_PushModelMatrix();
+    DK_SetModelMatrix(&IDENTITY_MATRIX4);
 
     // Clear to black and set default vertex color to white.
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -688,6 +661,7 @@ void DK_Render(void) {
 void DK_InitRender(void) {
     // We do use textures, so enable that.
     glEnable(GL_TEXTURE_2D);
+    glEnable(GL_MULTISAMPLE);
 
     // We want triangle surface pixels to be shaded using interpolated values.
     glShadeModel(GL_SMOOTH);
@@ -728,6 +702,18 @@ void DK_InitRender(void) {
 ///////////////////////////////////////////////////////////////////////////////
 // Material
 ///////////////////////////////////////////////////////////////////////////////
+
+GLint DK_GetPositionAttributeLocation(void) {
+    return gGeometryShader.vs_attributes.ModelVertex;
+}
+
+GLint DK_GetNormalAttributeLocation(void) {
+    return gGeometryShader.vs_attributes.ModelNormal;
+}
+
+GLint DK_GetTextureCoordinateAttributeLocation(void) {
+    return gGeometryShader.vs_attributes.TextureCoordinate;
+}
 
 static const GLint textureUnits[4] = {0, 1, 2, 3};
 

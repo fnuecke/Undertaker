@@ -74,6 +74,27 @@ extern "C" {
     ///////////////////////////////////////////////////////////////////////////
 
     /**
+     * Get the attribute location in the deferred shader that's used for the
+     * position of vertices.
+     * @return the attribute location for the vertex position.
+     */
+    GLint DK_GetPositionAttributeLocation(void);
+
+    /**
+     * Get the attribute location in the deferred shader that's used for the
+     * normal of vertices.
+     * @return the attribute location for the vertex normal.
+     */
+    GLint DK_GetNormalAttributeLocation(void);
+
+    /**
+     * Get the attribute location in the deferred shader that's used for the
+     * texture coordinate of vertices.
+     * @return the attribute location for the vertex texture coordinate.
+     */
+    GLint DK_GetTextureCoordinateAttributeLocation(void);
+
+    /**
      * Set material information to use from now on. Note that no reference will
      * be kept, all values will be copied into an internal buffer.
      * @param material the material to set.
