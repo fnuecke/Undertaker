@@ -232,19 +232,19 @@ FILE* DK_log_target;
 #define DK_CAMERA_FRICTION 0.8f
 
 /** Scroll speed of the camera */
-#define DK_CAMERA_SPEED 4
+#define DK_CAMERA_SPEED 4.0f
 
 /** Default distance of the camera from the ground */
-#define DK_CAMERA_HEIGHT DK_BLOCK_SIZE * 6
+#define DK_CAMERA_HEIGHT (DK_BLOCK_SIZE * 6)
 
 /** Distance of the look-at target to the camera */
-#define DK_CAMERA_TARGET_DISTANCE DK_BLOCK_SIZE * 2
+#define DK_CAMERA_TARGET_DISTANCE (DK_BLOCK_SIZE * 2)
 
 /** How far to zoom in (Z axis) for one zoom step */
 #define DK_CAMERA_ZOOM_STEP (1.0f / 3.0f)
 
 /** Maximum camera zoom amount */
-#define DK_CAMERA_MAX_ZOOM 3 * DK_BLOCK_SIZE
+#define DK_CAMERA_MAX_ZOOM (3 * DK_BLOCK_SIZE)
 
 ///////////////////////////////////////////////////////////////////////////////
 // Debugging

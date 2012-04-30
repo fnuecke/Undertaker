@@ -739,6 +739,7 @@ static void renderSelectionOutline(void) {
                 indices[2] = fi(x * 2 + 2, y * 2 + 2, 2);
                 glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
 
+                // Top-down lines?
                 if (x == selection.startX ||
                         ((DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y + 1)) ^
                         DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y + 1))) ||
@@ -775,6 +776,7 @@ static void renderSelectionOutline(void) {
                 indices[2] = fi(x * 2 + 2, y * 2, 2);
                 glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
 
+                // Top-down lines?
                 if (x == selection.startX ||
                         ((DK_IsBlockOpen(DK_GetBlockAt(map_x, map_y - 1)) ^
                         DK_IsBlockOpen(DK_GetBlockAt(map_x - 1, map_y - 1))) ||

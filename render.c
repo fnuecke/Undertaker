@@ -58,7 +58,7 @@ static struct {
     /** Uniforms for the fragment shader */
     struct {
         /** The textures to use */
-        GLint Textures;
+        GLint Textures[4];
 
         /** The number of textures to use */
         GLint TextureCount;
@@ -197,8 +197,12 @@ static void initShaders(void) {
             gGeometryShader.vs_attributes.TextureCoordinate =
                     glGetAttribLocation(gGeometryShader.program, "TextureCoordinate");
 
-            gGeometryShader.fs_uniforms.Textures =
-                    glGetUniformLocation(gGeometryShader.program, "Textures");
+            for (unsigned int i = 0; i < 4; ++i) {
+                char name[16];
+                sprintf(name, "Textures[%d]", i);
+                gGeometryShader.fs_uniforms.Textures[i] =
+                        glGetUniformLocation(gGeometryShader.program, name);
+            }
             gGeometryShader.fs_uniforms.TextureCount =
                     glGetUniformLocation(gGeometryShader.program, "TextureCount");
             gGeometryShader.fs_uniforms.ColorDiffuse =
@@ -731,9 +735,8 @@ void DK_SetMaterial(const DK_Material* material) {
         for (unsigned int i = 0; i < material->textureCount; ++i) {
             glActiveTexture(GL_TEXTURE0 + i);
             glBindTexture(GL_TEXTURE_2D, material->textures[i]);
+            glUniform1i(gGeometryShader.fs_uniforms.Textures[i], i);
         }
-
-        glUniform1i(gGeometryShader.fs_uniforms.Textures, 0);
         glUniform1i(gGeometryShader.fs_uniforms.TextureCount, material->textureCount);
 
         glUniform3fv(gGeometryShader.fs_uniforms.ColorDiffuse, 1, material->diffuseColor.v);

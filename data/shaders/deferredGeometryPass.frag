@@ -15,7 +15,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 // The textures to use.
-uniform sampler2D Textures;
+uniform sampler2D Textures[4];
 // The number of textures to use.
 uniform int TextureCount;
 // The diffuse base color of the material.
@@ -56,10 +56,10 @@ float brightness(vec3 color) {
 void main(void) {
 	vec3 color = ColorDiffuse;
 	if (TextureCount > 0) {
-		//for (int i = 0; i < TextureCount; ++i) {
-			vec4 texture = texture2D(Textures, fs_TextureCoordinate);
+		for (int i = 0; i < TextureCount; ++i) {
+			vec4 texture = texture2D(Textures[i], fs_TextureCoordinate);
 			color = color * (1 - texture.a) + texture.rgb * texture.a;
-		//}
+		}
 	}
 	GBuffer0 = vec4(color, Emissivity);
 	GBuffer1 = vec4(fs_WorldVertex.xyz, SpecularIntensity);
