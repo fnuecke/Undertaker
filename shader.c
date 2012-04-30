@@ -43,7 +43,7 @@ static int verify(GLuint obj, const char* path) {
     return status;
 }
 
-GLuint DK_shader_load(const char* path, GLenum type) {
+static GLuint loadShader(const char* path, GLenum type) {
     FILE* file;
     long file_length, read_count;
     char* buffer;
@@ -96,24 +96,34 @@ GLuint DK_shader_load(const char* path, GLenum type) {
     return shader;
 }
 
-GLuint DK_shader_program(GLuint vs, GLuint fs, const char** out_names, unsigned int out_count) {
-    if (!vs || !fs) {
+GLuint DK_LoadProgram(const char* vsPath, const char* fsPath, const char** out_names, unsigned int out_count) {
+    GLuint vs, fs, program;
+    // Try to load the vertex shader.
+    vs = loadShader(vsPath, GL_VERTEX_SHADER);
+    if (!vs) {
         return 0;
-    } else {
-        GLuint program = glCreateProgram();
-        glAttachShader(program, vs);
-        glAttachShader(program, fs);
-        for (unsigned int i = 0; i < out_count; ++i) {
-            glBindFragDataLocation(program, i, out_names[i]);
-        }
-        glLinkProgram(program);
-
-        // Check if linking succeeded.
-        if (verify(program, NULL) == GL_FALSE) {
-            return 0;
-        }
-
-        // Linking successful, return the program id.
-        return program;
     }
+
+    // Try to load the fragment shader.
+    fs = loadShader(fsPath, GL_FRAGMENT_SHADER);
+    if (!fs) {
+        return 0;
+    }
+
+    // Try to link them to a shader program.
+    program = glCreateProgram();
+    glAttachShader(program, vs);
+    glAttachShader(program, fs);
+    for (unsigned int i = 0; i < out_count; ++i) {
+        glBindFragDataLocation(program, i, out_names[i]);
+    }
+    glLinkProgram(program);
+
+    // Check if linking succeeded.
+    if (verify(program, NULL) == GL_FALSE) {
+        return 0;
+    }
+
+    // Linking successful, return the program id.
+    return program;
 }

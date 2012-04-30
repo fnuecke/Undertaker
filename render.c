@@ -16,6 +16,10 @@
 #include "units.h"
 #include "vmath.h"
 
+///////////////////////////////////////////////////////////////////////////////
+// Deferred shading variables
+///////////////////////////////////////////////////////////////////////////////
+
 /** Holds information on our GBuffer */
 static struct {
     /** ID of the frame buffer we use for offscreen rendering */
@@ -156,18 +160,22 @@ static struct {
     } fs_uniforms;
 } gLightShader;
 
+/** Flag if we're currently in the geometry rendering stage */
+static int gIsGeometryPass = 0;
+
 /** Represents a single light in a scene */
 static const DK_Light** gLights = 0;
 static unsigned int gLightCapacity = 0;
 static unsigned int gLightCount = 0;
 
+///////////////////////////////////////////////////////////////////////////////
+// Event callback
+///////////////////////////////////////////////////////////////////////////////
+
 /** Callbacks/hooks for different render stages */
 static Callbacks* gPreRenderCallbacks = 0;
 static Callbacks* gRenderCallbacks = 0;
 static Callbacks* gPostRenderCallbacks = 0;
-
-/** Flag if we're currently in the geometry rendering stage */
-static int gIsGeometryPass = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Shader and GBuffer setup
@@ -175,120 +183,99 @@ static int gIsGeometryPass = 0;
 
 static void initShaders(void) {
     // Load shader programs for deferred shading.
-    GLuint vs = DK_shader_load("data/shaders/deferredGeometryPass.vert", GL_VERTEX_SHADER);
-    GLuint fs = DK_shader_load("data/shaders/deferredGeometryPass.frag", GL_FRAGMENT_SHADER);
-    if (vs && fs) {
-        const char* out_names[] = {"GBuffer0", "GBuffer1", "GBuffer2"};
-        gGeometryShader.program = DK_shader_program(vs, fs, out_names, 3);
+    const char* outGeometry[] = {"GBuffer0", "GBuffer1", "GBuffer2"};
+    const char* outAmbientAndLight[1] = {"Color"};
 
-        if (gGeometryShader.program) {
-            // Get the uniform/attribute locations from the shader.
-            gGeometryShader.vs_uniforms.ModelMatrix =
-                    glGetUniformLocation(gGeometryShader.program, "ModelMatrix");
-            gGeometryShader.vs_uniforms.ModelViewProjectionMatrix =
-                    glGetUniformLocation(gGeometryShader.program, "ModelViewProjectionMatrix");
-            gGeometryShader.vs_uniforms.NormalMatrix =
-                    glGetUniformLocation(gGeometryShader.program, "NormalMatrix");
-
-            gGeometryShader.vs_attributes.ModelVertex =
-                    glGetAttribLocation(gGeometryShader.program, "ModelVertex");
-            gGeometryShader.vs_attributes.ModelNormal =
-                    glGetAttribLocation(gGeometryShader.program, "ModelNormal");
-            gGeometryShader.vs_attributes.TextureCoordinate =
-                    glGetAttribLocation(gGeometryShader.program, "TextureCoordinate");
-
-            for (unsigned int i = 0; i < 4; ++i) {
-                char name[16];
-                sprintf(name, "Textures[%d]", i);
-                gGeometryShader.fs_uniforms.Textures[i] =
-                        glGetUniformLocation(gGeometryShader.program, name);
-            }
-            gGeometryShader.fs_uniforms.TextureCount =
-                    glGetUniformLocation(gGeometryShader.program, "TextureCount");
-            gGeometryShader.fs_uniforms.ColorDiffuse =
-                    glGetUniformLocation(gGeometryShader.program, "ColorDiffuse");
-            gGeometryShader.fs_uniforms.SpecularIntensity =
-                    glGetUniformLocation(gGeometryShader.program, "SpecularIntensity");
-            gGeometryShader.fs_uniforms.SpecularExponent =
-                    glGetUniformLocation(gGeometryShader.program, "SpecularExponent");
-            gGeometryShader.fs_uniforms.Emissivity =
-                    glGetUniformLocation(gGeometryShader.program, "Emissivity");
-            EXIT_ON_OPENGL_ERROR();
-        }
-    } else {
-        gGeometryShader.program = 0;
+    gGeometryShader.program = DK_LoadProgram("data/shaders/deferredGeometryPass.vert", "data/shaders/deferredGeometryPass.frag", outGeometry, 3);
+    if (!gGeometryShader.program) {
         return;
     }
+    // Get the uniform/attribute locations from the shader.
+    gGeometryShader.vs_uniforms.ModelMatrix =
+            glGetUniformLocation(gGeometryShader.program, "ModelMatrix");
+    gGeometryShader.vs_uniforms.ModelViewProjectionMatrix =
+            glGetUniformLocation(gGeometryShader.program, "ModelViewProjectionMatrix");
+    gGeometryShader.vs_uniforms.NormalMatrix =
+            glGetUniformLocation(gGeometryShader.program, "NormalMatrix");
 
-    vs = DK_shader_load("data/shaders/deferredAmbientPass.vert", GL_VERTEX_SHADER);
-    fs = DK_shader_load("data/shaders/deferredAmbientPass.frag", GL_FRAGMENT_SHADER);
-    if (vs && fs) {
-        const char* out_names[1] = {"Color"};
-        gAmbientShader.program = DK_shader_program(vs, fs, out_names, 1);
+    gGeometryShader.vs_attributes.ModelVertex =
+            glGetAttribLocation(gGeometryShader.program, "ModelVertex");
+    gGeometryShader.vs_attributes.ModelNormal =
+            glGetAttribLocation(gGeometryShader.program, "ModelNormal");
+    gGeometryShader.vs_attributes.TextureCoordinate =
+            glGetAttribLocation(gGeometryShader.program, "TextureCoordinate");
 
-        if (gAmbientShader.program) {
-            // Get the uniform/attribute locations from the shader.
-            gAmbientShader.vs_uniforms.ModelViewProjectionMatrix =
-                    glGetUniformLocation(gAmbientShader.program, "ModelViewProjectionMatrix");
+    for (unsigned int i = 0; i < 4; ++i) {
+        char name[16];
+        sprintf(name, "Textures[%d]", i);
+        gGeometryShader.fs_uniforms.Textures[i] =
+                glGetUniformLocation(gGeometryShader.program, name);
+    }
+    gGeometryShader.fs_uniforms.TextureCount =
+            glGetUniformLocation(gGeometryShader.program, "TextureCount");
+    gGeometryShader.fs_uniforms.ColorDiffuse =
+            glGetUniformLocation(gGeometryShader.program, "ColorDiffuse");
+    gGeometryShader.fs_uniforms.SpecularIntensity =
+            glGetUniformLocation(gGeometryShader.program, "SpecularIntensity");
+    gGeometryShader.fs_uniforms.SpecularExponent =
+            glGetUniformLocation(gGeometryShader.program, "SpecularExponent");
+    gGeometryShader.fs_uniforms.Emissivity =
+            glGetUniformLocation(gGeometryShader.program, "Emissivity");
+    EXIT_ON_OPENGL_ERROR();
 
-            gAmbientShader.vs_attributes.ModelVertex =
-                    glGetAttribLocation(gAmbientShader.program, "ModelVertex");
-            gAmbientShader.vs_attributes.TextureCoordinate =
-                    glGetAttribLocation(gAmbientShader.program, "TextureCoordinate");
-
-            gAmbientShader.fs_uniforms.GBuffer0 =
-                    glGetUniformLocation(gAmbientShader.program, "GBuffer0");
-
-            gAmbientShader.fs_uniforms.AmbientLightPower =
-                    glGetUniformLocation(gAmbientShader.program, "AmbientLightPower");
-            EXIT_ON_OPENGL_ERROR();
-        }
-    } else {
-        gAmbientShader.program = 0;
+    gAmbientShader.program = DK_LoadProgram("data/shaders/deferredAmbientPass.vert", "data/shaders/deferredAmbientPass.frag", outAmbientAndLight, 1);
+    if (!gAmbientShader.program) {
         return;
     }
+    // Get the uniform/attribute locations from the shader.
+    gAmbientShader.vs_uniforms.ModelViewProjectionMatrix =
+            glGetUniformLocation(gAmbientShader.program, "ModelViewProjectionMatrix");
 
-    vs = DK_shader_load("data/shaders/deferredLightPass.vert", GL_VERTEX_SHADER);
-    fs = DK_shader_load("data/shaders/deferredLightPass.frag", GL_FRAGMENT_SHADER);
-    if (vs && fs) {
-        const char* out_names[1] = {"Color"};
-        gLightShader.program = DK_shader_program(vs, fs, out_names, 1);
+    gAmbientShader.vs_attributes.ModelVertex =
+            glGetAttribLocation(gAmbientShader.program, "ModelVertex");
+    gAmbientShader.vs_attributes.TextureCoordinate =
+            glGetAttribLocation(gAmbientShader.program, "TextureCoordinate");
 
-        if (gLightShader.program) {
-            // Get the uniform/attribute locations from the shader.
-            gLightShader.vs_uniforms.ModelViewProjectionMatrix =
-                    glGetUniformLocation(gLightShader.program, "ModelViewProjectionMatrix");
+    gAmbientShader.fs_uniforms.GBuffer0 =
+            glGetUniformLocation(gAmbientShader.program, "GBuffer0");
 
-            gLightShader.vs_attributes.ModelVertex =
-                    glGetAttribLocation(gLightShader.program, "ModelVertex");
-            gLightShader.vs_attributes.TextureCoordinate =
-                    glGetAttribLocation(gLightShader.program, "TextureCoordinate");
+    gAmbientShader.fs_uniforms.AmbientLightPower =
+            glGetUniformLocation(gAmbientShader.program, "AmbientLightPower");
+    EXIT_ON_OPENGL_ERROR();
 
-            gLightShader.fs_uniforms.GBuffer0 =
-                    glGetUniformLocation(gLightShader.program, "GBuffer0");
-            gLightShader.fs_uniforms.GBuffer1 =
-                    glGetUniformLocation(gLightShader.program, "GBuffer1");
-            gLightShader.fs_uniforms.GBuffer2 =
-                    glGetUniformLocation(gLightShader.program, "GBuffer2");
-
-            gLightShader.fs_uniforms.CameraPosition =
-                    glGetUniformLocation(gLightShader.program, "CameraPosition");
-            gLightShader.fs_uniforms.LightPosition =
-                    glGetUniformLocation(gLightShader.program, "LightPosition");
-            gLightShader.fs_uniforms.DiffuseLightColor =
-                    glGetUniformLocation(gLightShader.program, "DiffuseLightColor");
-            gLightShader.fs_uniforms.DiffuseLightPower =
-                    glGetUniformLocation(gLightShader.program, "DiffuseLightPower");
-            gLightShader.fs_uniforms.SpecularLightColor =
-                    glGetUniformLocation(gLightShader.program, "SpecularLightColor");
-            gLightShader.fs_uniforms.SpecularLightPower =
-                    glGetUniformLocation(gLightShader.program, "SpecularLightPower");
-            EXIT_ON_OPENGL_ERROR();
-        }
-    } else {
-        gLightShader.program = 0;
+    gLightShader.program = DK_LoadProgram("data/shaders/deferredLightPass.vert", "data/shaders/deferredLightPass.frag", outAmbientAndLight, 1);
+    if (!gLightShader.program) {
         return;
     }
+    // Get the uniform/attribute locations from the shader.
+    gLightShader.vs_uniforms.ModelViewProjectionMatrix =
+            glGetUniformLocation(gLightShader.program, "ModelViewProjectionMatrix");
+
+    gLightShader.vs_attributes.ModelVertex =
+            glGetAttribLocation(gLightShader.program, "ModelVertex");
+    gLightShader.vs_attributes.TextureCoordinate =
+            glGetAttribLocation(gLightShader.program, "TextureCoordinate");
+
+    gLightShader.fs_uniforms.GBuffer0 =
+            glGetUniformLocation(gLightShader.program, "GBuffer0");
+    gLightShader.fs_uniforms.GBuffer1 =
+            glGetUniformLocation(gLightShader.program, "GBuffer1");
+    gLightShader.fs_uniforms.GBuffer2 =
+            glGetUniformLocation(gLightShader.program, "GBuffer2");
+
+    gLightShader.fs_uniforms.CameraPosition =
+            glGetUniformLocation(gLightShader.program, "CameraPosition");
+    gLightShader.fs_uniforms.LightPosition =
+            glGetUniformLocation(gLightShader.program, "LightPosition");
+    gLightShader.fs_uniforms.DiffuseLightColor =
+            glGetUniformLocation(gLightShader.program, "DiffuseLightColor");
+    gLightShader.fs_uniforms.DiffuseLightPower =
+            glGetUniformLocation(gLightShader.program, "DiffuseLightPower");
+    gLightShader.fs_uniforms.SpecularLightColor =
+            glGetUniformLocation(gLightShader.program, "SpecularLightColor");
+    gLightShader.fs_uniforms.SpecularLightPower =
+            glGetUniformLocation(gLightShader.program, "SpecularLightPower");
+    EXIT_ON_OPENGL_ERROR();
 }
 
 static GLenum createRenderBuffer(GLenum internalformat, GLenum attachment) {
@@ -718,8 +705,6 @@ GLint DK_GetNormalAttributeLocation(void) {
 GLint DK_GetTextureCoordinateAttributeLocation(void) {
     return gGeometryShader.vs_attributes.TextureCoordinate;
 }
-
-static const GLint textureUnits[4] = {0, 1, 2, 3};
 
 void DK_SetMaterial(const DK_Material* material) {
     for (unsigned int i = 0; i < DK_MAX_MATERIAL_TEXTURES; ++i) {
