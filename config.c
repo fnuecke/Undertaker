@@ -5,7 +5,7 @@
 int DK_resolution_x = 1600;
 int DK_resolution_y = 1200;
 int DK_field_of_view = 90;
-char DK_use_antialiasing = 1;
+char DK_use_antialiasing = 0;
 char DK_use_fog = 1;
 FILE* DK_log_target;
 char DK_d_ai_enabled = 1;
@@ -15,6 +15,7 @@ char DK_d_draw_jobs = 0;
 DK_DisplayMode DK_d_draw_deferred = DK_D_DEFERRED_FINAL;
 char DK_d_draw_picking_mode = 0;
 char DK_d_draw_deferred_shader = 1;
+char DK_d_draw_light_volumes = 0;
 
 void DK_load_config(void) {
     DK_log_target = fopen("game.log", "w");

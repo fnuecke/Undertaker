@@ -1113,7 +1113,7 @@ static void onPreRender(void) {
 
     gHandLight.position.d.x = DK_GetCursor(DK_CURSOR_LEVEL_TOP)->v[0];
     gHandLight.position.d.y = DK_GetCursor(DK_CURSOR_LEVEL_TOP)->v[1];
-    gHandLight.position.d.z = 80.0f;
+    gHandLight.position.d.z = DK_HAND_LIGHT_HEIGHT;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

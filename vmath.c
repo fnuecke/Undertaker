@@ -102,6 +102,10 @@ float v3len(const vec3* v) {
     return v4len((const vec4*) v);
 }
 
+float v3distance(const vec3* va, const vec3* vb) {
+    return v4distance((const vec4*) va, (const vec4*) vb);
+}
+
 void v3normalize(vec3* normalized, const vec3* v) {
     v4normalize((vec4*) normalized, (const vec4*) v);
 }
@@ -209,6 +213,12 @@ float v4norm(const vec4* v) {
 
 float v4len(const vec4* v) {
     return sqrtf(v4norm(v));
+}
+
+float v4distance(const vec4* va, const vec4* vb) {
+    vec4 tmp;
+    v4sub(&tmp, va, vb);
+    return v4len(&tmp);
 }
 
 void v4normalize(vec4* normalized, const vec4* v) {

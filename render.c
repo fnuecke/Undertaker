@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <math.h>
+#include <float.h>
 
 #include <SDL/SDL.h>
 #include <GL/glew.h>
@@ -168,6 +169,10 @@ static const DK_Light** gLights = 0;
 static unsigned int gLightCapacity = 0;
 static unsigned int gLightCount = 0;
 
+/** Used for rendering light volumes */
+static GLuint gSphereArrayID = 0;
+static GLuint gSphereBufferID = 0;
+
 ///////////////////////////////////////////////////////////////////////////////
 // Event callback
 ///////////////////////////////////////////////////////////////////////////////
@@ -176,6 +181,130 @@ static unsigned int gLightCount = 0;
 static Callbacks* gPreRenderCallbacks = 0;
 static Callbacks* gRenderCallbacks = 0;
 static Callbacks* gPostRenderCallbacks = 0;
+
+///////////////////////////////////////////////////////////////////////////////
+// Sphere rendering (for light volumes)
+///////////////////////////////////////////////////////////////////////////////
+
+/** Represents a single face on a sphere */
+typedef struct Face {
+    vec3 p0, p1, p2;
+} Face;
+
+/* Six equidistant points lying on the unit sphere */
+#define XPLUS {{  1,  0,  0 }}	/*  X */
+#define XMIN  {{ -1,  0,  0 }}	/* -X */
+#define YPLUS {{  0,  1,  0 }}	/*  Y */
+#define YMIN  {{  0, -1,  0 }}	/* -Y */
+#define ZPLUS {{  0,  0,  1 }}	/*  Z */
+#define ZMIN  {{  0,  0, -1 }}	/* -Z */
+static const Face OCTAHEDRON[] = {
+    {XPLUS, YPLUS, ZPLUS},
+    {YPLUS, XMIN, ZPLUS},
+    {XMIN, YMIN, ZPLUS},
+    {YMIN, XPLUS, ZPLUS},
+    {XPLUS, ZMIN, YPLUS},
+    {YPLUS, ZMIN, XMIN},
+    {XMIN, ZMIN, YMIN},
+    {YMIN, ZMIN, XPLUS}
+};
+#undef XPLUS
+#undef XMIN
+#undef YPLUS
+#undef YMIN
+#undef ZPLUS
+#undef ZMIN
+
+#define ITERATIONS 1
+// Number of faces.
+const unsigned int faceCount = (4 << (ITERATIONS - 1)) * 8;
+
+static void midPoint(vec3* mid, const vec3* va, const vec3* vb) {
+    mid->d.x = (va->d.x + vb->d.x) / 2.0f;
+    mid->d.y = (va->d.y + vb->d.y) / 2.0f;
+    mid->d.z = (va->d.z + vb->d.z) / 2.0f;
+}
+
+static void initSphere(void) {
+    // The actual faces.
+    Face faces[faceCount];
+
+    // Counters for vertices.
+    unsigned int numFaces = 8;
+
+    // Face we're currently building.
+    Face* newFace = &faces[numFaces];
+
+    // Initialize from octahedron.
+    for (unsigned int i = 0; i < 8; ++i) {
+        faces[i] = OCTAHEDRON[i];
+    }
+
+    // Bisect each edge and move to the surface of a unit sphere.
+    for (unsigned int iteration = 0; iteration < ITERATIONS; ++iteration) {
+        for (unsigned int i = 0; i < numFaces; i++) {
+            Face* oldFace = &faces[i];
+            vec3 pa, pb, pc;
+
+            midPoint(&pa, &oldFace->p0, &oldFace->p2);
+            midPoint(&pb, &oldFace->p0, &oldFace->p1);
+            midPoint(&pc, &oldFace->p1, &oldFace->p2);
+
+            v3inormalize(&pa);
+            v3inormalize(&pb);
+            v3inormalize(&pc);
+
+            newFace->p0 = oldFace->p0;
+            newFace->p1 = pb;
+            newFace->p2 = pa;
+            ++newFace;
+
+            newFace->p0 = pb;
+            newFace->p1 = oldFace->p1;
+            newFace->p2 = pc;
+            ++newFace;
+
+            newFace->p0 = pa;
+            newFace->p1 = pc;
+            newFace->p2 = oldFace->p2;
+            ++newFace;
+
+            oldFace->p0 = pa;
+            oldFace->p1 = pb;
+            oldFace->p2 = pc;
+        }
+        numFaces *= 4;
+    }
+
+    assert(numFaces == faceCount);
+
+    glGenVertexArrays(1, &gSphereArrayID);
+    glBindVertexArray(gSphereArrayID);
+    glGenBuffers(1, &gSphereBufferID);
+    glBindBuffer(GL_ARRAY_BUFFER, gSphereBufferID);
+    glBufferData(GL_ARRAY_BUFFER, faceCount * sizeof (Face), faces, GL_STATIC_DRAW);
+}
+
+static void drawSphere(void) {
+    // Bind our vertex buffer as the array we use for attribute lookups.
+    glBindBuffer(GL_ARRAY_BUFFER, gSphereBufferID);
+
+    // Position is at 0 in fixed function pipeline.
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+    glDrawArrays(GL_TRIANGLES, 0, faceCount * 3);
+
+    // Done with the rendering, unbind attributes.
+    glDisableVertexAttribArray(0);
+
+    // Unbind vertex buffer.
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    EXIT_ON_OPENGL_ERROR();
+}
+
+#undef ITERATIONS
 
 ///////////////////////////////////////////////////////////////////////////////
 // Shader and GBuffer setup
@@ -400,134 +529,239 @@ static void geometryPass(void) {
     EXIT_ON_OPENGL_ERROR();
 }
 
-static void lightPass(void) {
-    // Stop using geometry buffer.
-    glUseProgram(0);
+static void renderQuad(float startX, float startY, float endX, float endY) {
+    const float tx0 = startX / DK_resolution_x;
+    const float tx1 = endX / DK_resolution_x;
+    const float ty0 = startY / DK_resolution_y;
+    const float ty1 = endY / DK_resolution_y;
 
-    // Done with our frame buffer.
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    // Render the quad.
+    glBegin(GL_QUADS);
+    {
+        glTexCoord2f(tx0, ty0);
+        glVertex3f(0.0f, startX, startY);
+        glTexCoord2f(tx1, ty0);
+        glVertex3f(0.0f, endX, startY);
+        glTexCoord2f(tx1, ty1);
+        glVertex3f(0.0f, endX, endY);
+        glTexCoord2f(tx0, ty1);
+        glVertex3f(0.0f, startX, endY);
+    }
+    glEnd();
+
+    EXIT_ON_OPENGL_ERROR();
+}
+
+static void ambientPass(void) {
+    // Don't change the depth mask, don't care for it.
+    glDepthMask(GL_FALSE);
+    glDisable(GL_DEPTH_TEST);
 
     // Set projection matrix to orthogonal, because we want to draw a quad
     // filling the complete screen.
     DK_BeginOrthogonal();
 
     // Set view a bit back to avoid clipping.
-    DK_BeginLookAt(1, 0, 0, 0, 0, 0);
+    DK_BeginLookAt(1.0f + DK_CLIP_NEAR, 0, 0, 0, 0, 0);
 
     // No model transform for us.
     DK_PushModelMatrix();
     DK_SetModelMatrix(&IDENTITY_MATRIX4);
 
+    // Use ambient shader program and set uniforms for it.
+    glUseProgram(gAmbientShader.program);
+    glUniformMatrix4fv(gAmbientShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
+    glUniform1i(gAmbientShader.fs_uniforms.GBuffer0, 0);
+    glUniform1f(gAmbientShader.fs_uniforms.AmbientLightPower, 0.1f);
+
+    // Render the quad.
+    renderQuad(0, 0, DK_resolution_x, DK_resolution_y);
+
+    // Done with our program.
+    glUseProgram(0);
+
+    // Reset matrices.
+    DK_PopModelMatrix();
+    DK_EndLookAt();
+    DK_EndOrthogonal();
+
+    // Restore state.
+    glDepthMask(GL_TRUE);
+    glEnable(GL_DEPTH_TEST);
+
+    EXIT_ON_OPENGL_ERROR();
+}
+
+static void drawLight(const DK_Light* light) {
+    // Get the radius of the light (i.e. how far from the center it has no
+    // noticeable effect anymore).
+    const float range = (light->diffusePower > light->specularPower ? light->diffusePower : light->specularPower);
+    const float cameraToLight = v3distance(&light->position, DK_GetCameraPosition());
+    const int cameraIsInLightVolume = cameraToLight <= range * 1.42f;
+
+    // Translate to the light.
+    DK_PushModelMatrix();
+    DK_TranslateModelMatrix(light->position.d.x, light->position.d.y, light->position.d.z);
+    DK_ScaleModelMatrix(range, range, range);
+
+    // Disable changing the depth buffer and color output.
+    glDepthMask(GL_FALSE);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+    // Use stencil buffer to determine which pixels to shade.
+    glEnable(GL_STENCIL_TEST);
+
+    // Clear stencil buffer.
+    glClearStencil(0);
+    glClear(GL_STENCIL_BUFFER_BIT);
+
+    // First pass: front faces, i.e. the light volume from the outside, but only
+    // *if* we're on the outside. Otherwise the second pass will be the deciding
+    // one.
+    if (!cameraIsInLightVolume) {
+        // Take everything we can get.
+        glStencilFunc(GL_ALWAYS, 1, 1);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+
+        // Closer to light than existing geometry.
+        glDepthFunc(GL_LESS);
+
+        drawSphere();
+
+        // For second pass, we un-set those pixels that are visible on the
+        // inside, too, because those are "in thin air".
+        glStencilFunc(GL_EQUAL, 1, 1);
+        glStencilOp(GL_ZERO, GL_ZERO, GL_KEEP);
+    } else {
+        // Only second pass, use everything we get that's "behind" something of
+        // the scene already rendered, meaning the light volume collided with it
+        // (and thus that it is lit).
+        glStencilFunc(GL_ALWAYS, 1, 1);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    }
+
+    // Second pass: back faces, i.e. light volume from the inside. Only where
+    // it's further away than existing geometry.
+    glDepthFunc(GL_GEQUAL);
+
+    // Draw back faces.
+    glFrontFace(GL_CW);
+
+    drawSphere();
+
+    // Reset to front faces.
+    glFrontFace(GL_CCW);
+
+    // Translate back away from light.
+    DK_PopModelMatrix();
+
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDepthFunc(GL_LEQUAL);
+
+    glStencilFunc(GL_EQUAL, 1, 1);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+    // Blend lights additively.
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+
+    // No depth testing for orthogonal quad rendering.
+    glDisable(GL_DEPTH_TEST);
+
+    // Set projection matrix to orthogonal, because we want to draw a quad
+    // filling the complete screen.
+    DK_BeginOrthogonal();
+
+    // Set view a bit back to avoid clipping.
+    DK_BeginLookAt(1.0f + DK_CLIP_NEAR, 0, 0, 0, 0, 0);
+
+    // No model transform for us.
+    DK_PushModelMatrix();
+    DK_SetModelMatrix(&IDENTITY_MATRIX4);
+
+    if (DK_d_draw_light_volumes) {
+        glColor3f(0.05f, 0.05f, 0.05f);
+        // Render the quad.
+        renderQuad(0, 0, DK_resolution_x, DK_resolution_y);
+        glColor3f(1.0f, 1.0f, 1.0f);
+    }
+
+    // Use lighting shader program.
+    glUseProgram(gLightShader.program);
+    glUniformMatrix4fv(gLightShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
+    glUniform1i(gLightShader.fs_uniforms.GBuffer0, 0);
+    glUniform1i(gLightShader.fs_uniforms.GBuffer1, 1);
+    glUniform1i(gLightShader.fs_uniforms.GBuffer2, 2);
+    glUniform3fv(gLightShader.fs_uniforms.CameraPosition, 1, DK_GetCameraPosition()->v);
+    glUniform3fv(gLightShader.fs_uniforms.DiffuseLightColor, 1, light->diffuseColor.v);
+    glUniform1f(gLightShader.fs_uniforms.DiffuseLightPower, light->diffusePower);
+    glUniform3fv(gLightShader.fs_uniforms.SpecularLightColor, 1, light->specularColor.v);
+    glUniform1f(gLightShader.fs_uniforms.SpecularLightPower, light->specularPower);
+    glUniform3fv(gLightShader.fs_uniforms.LightPosition, 1, light->position.v);
+
+    // Render the quad.
+    renderQuad(0, 0, DK_resolution_x, DK_resolution_y);
+
+    // Pop the shader.
+    glUseProgram(0);
+
+    // Pop orthogonal view state.
+    DK_PopModelMatrix();
+    DK_EndLookAt();
+    DK_EndOrthogonal();
+
+    // Restore old state.
+    glEnable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+    glDisable(GL_STENCIL_TEST);
+    glDepthMask(GL_TRUE);
+
+    EXIT_ON_OPENGL_ERROR();
+}
+
+static void lightPass(void) {
+    // Stop using geometry shader.
+    glUseProgram(0);
+
+    // Done with our frame buffer.
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+    // Copy over the depth buffer from our frame buffer, to preserve the depths
+    // in post-rendering (e.g. for lighting and selection outline).
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer.frameBuffer);
+    glBlitFramebuffer(0, 0, DK_resolution_x, DK_resolution_y,
+            0, 0, DK_resolution_x, DK_resolution_y,
+            GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+
     // Figure out what to draw.
     if (DK_d_draw_deferred == DK_D_DEFERRED_FINAL) {
-        // Do ambient lighting pass.
-        glUseProgram(gAmbientShader.program);
-
-        // The the global transformation matrix.
-        glUniformMatrix4fv(gAmbientShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
-
         // Set our three g-buffer textures.
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, gBuffer.texture[0]);
-        glUniform1i(gAmbientShader.fs_uniforms.GBuffer0, 0);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.texture[1]);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.texture[2]);
 
-        glUniform1f(gAmbientShader.fs_uniforms.AmbientLightPower, 0.1f);
+        // Do ambient lighting pass.
+        ambientPass();
 
-        // Render the quad.
-        glBegin(GL_QUADS);
-        {
-            glTexCoord2f(0.0f, 0.0f);
-            glVertex3f(0.0f, 0.0f, 0.0f);
-            glTexCoord2f(1.0f, 0.0f);
-            glVertex3f(0.0f, (float) DK_resolution_x, 0.0f);
-            glTexCoord2f(1.0f, 1.0f);
-            glVertex3f(0.0f, (float) DK_resolution_x, (float) DK_resolution_y);
-            glTexCoord2f(0.0f, 1.0f);
-            glVertex3f(0.0f, 0.0f, (float) DK_resolution_y);
-        }
-        glEnd();
-
+        // Set uniforms for our shader program.
+        glUseProgram(gLightShader.program);
+        glUniformMatrix4fv(gLightShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
+        glUniform1i(gLightShader.fs_uniforms.GBuffer0, 0);
+        glUniform1i(gLightShader.fs_uniforms.GBuffer1, 1);
+        glUniform1i(gLightShader.fs_uniforms.GBuffer2, 2);
+        glUniform3fv(gLightShader.fs_uniforms.CameraPosition, 1, DK_GetCameraPosition()->v);
         glUseProgram(0);
 
         EXIT_ON_OPENGL_ERROR();
-
-        // Do proper lighting pass.
-        glUseProgram(gLightShader.program);
-
-        // The the global transformation matrix.
-        glUniformMatrix4fv(gLightShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
-
-        // Set camera position.
-        glUniform3fv(gLightShader.fs_uniforms.CameraPosition, 1, DK_GetCameraPosition()->v);
-
-        // Set our three g-buffer textures.
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, gBuffer.texture[0]);
-        glUniform1i(gLightShader.fs_uniforms.GBuffer0, 0);
-
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, gBuffer.texture[1]);
-        glUniform1i(gLightShader.fs_uniforms.GBuffer1, 1);
-
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, gBuffer.texture[2]);
-        glUniform1i(gLightShader.fs_uniforms.GBuffer2, 2);
-
-        EXIT_ON_OPENGL_ERROR();
-
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_ONE, GL_ONE);
 
         // Draw lights.
         for (unsigned int i = 0; i < gLightCount; ++i) {
-            const DK_Light* light = gLights[i];
-            glUniform3fv(gLightShader.fs_uniforms.DiffuseLightColor, 1, light->diffuseColor.v);
-            glUniform1f(gLightShader.fs_uniforms.DiffuseLightPower, light->diffusePower);
-            glUniform3fv(gLightShader.fs_uniforms.SpecularLightColor, 1, light->specularColor.v);
-            glUniform1f(gLightShader.fs_uniforms.SpecularLightPower, light->specularPower);
-            glUniform3fv(gLightShader.fs_uniforms.LightPosition, 1, light->position.v);
-
-            // Render the quad.
-            glBegin(GL_QUADS);
-            {
-                glTexCoord2f(0.0f, 0.0f);
-                glVertex3f(0.0f, 0.0f, 0.0f);
-                glTexCoord2f(1.0f, 0.0f);
-                glVertex3f(0.0f, (float) DK_resolution_x, 0.0f);
-                glTexCoord2f(1.0f, 1.0f);
-                glVertex3f(0.0f, (float) DK_resolution_x, (float) DK_resolution_y);
-                glTexCoord2f(0.0f, 1.0f);
-                glVertex3f(0.0f, 0.0f, (float) DK_resolution_y);
-            }
-            glEnd();
-
-            EXIT_ON_OPENGL_ERROR();
+            drawLight(gLights[i]);
         }
-
-        glDisable(GL_BLEND);
-
-        // Unbind the textures we used.
-        glActiveTexture(GL_TEXTURE0);
-        glDisable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        glActiveTexture(GL_TEXTURE1);
-        glDisable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glActiveTexture(GL_TEXTURE2);
-        glDisable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glActiveTexture(GL_TEXTURE3);
-        glDisable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glActiveTexture(GL_TEXTURE4);
-        glDisable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        // Done with our lighting shader.
-        glUseProgram(0);
-
-        EXIT_ON_OPENGL_ERROR();
     } else if (DK_d_draw_deferred == DK_D_DEPTH_BUFFER) {
         glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer.frameBuffer);
         glBlitFramebuffer(0, 0, DK_resolution_x, DK_resolution_y,
@@ -538,7 +772,6 @@ static void lightPass(void) {
         EXIT_ON_OPENGL_ERROR();
     } else {
         glActiveTexture(GL_TEXTURE0);
-        glEnable(GL_TEXTURE_2D);
         switch (DK_d_draw_deferred) {
             case DK_D_DEFERRED_DIFFUSE:
                 glBindTexture(GL_TEXTURE_2D, gBuffer.texture[0]);
@@ -553,44 +786,45 @@ static void lightPass(void) {
                 break;
         }
 
-        EXIT_ON_OPENGL_ERROR();
+        // Not using a shader, so enable textures in fixed function pipeline.
+        glEnable(GL_TEXTURE_2D);
 
-        // Render the quad
-        glBegin(GL_QUADS);
-        {
-            glTexCoord2f(0.0f, 0.0f);
-            glVertex3f(0.0f, 0.0f, 0.0f);
-            glTexCoord2f(1.0f, 0.0f);
-            glVertex3f(0.0f, (float) DK_resolution_x, 0.0f);
-            glTexCoord2f(1.0f, 1.0f);
-            glVertex3f(0.0f, (float) DK_resolution_x, (float) DK_resolution_y);
-            glTexCoord2f(0.0f, 1.0f);
-            glVertex3f(0.0f, 0.0f, (float) DK_resolution_y);
-        }
-        glEnd();
+        // Set projection matrix to orthogonal, because we want to draw a quad
+        // filling the complete screen.
+        DK_BeginOrthogonal();
 
-        EXIT_ON_OPENGL_ERROR();
+        // Set view a bit back to avoid clipping.
+        DK_BeginLookAt(1.0f + DK_CLIP_NEAR, 0, 0, 0, 0, 0);
 
-        // Unbind the textures we used.
-        glActiveTexture(GL_TEXTURE0);
+        // No model transform for us.
+        DK_PushModelMatrix();
+        DK_SetModelMatrix(&IDENTITY_MATRIX4);
+
+        // Render the quad.
+        renderQuad(0, 0, DK_resolution_x, DK_resolution_y);
+
+        // Reset matrices.
+        DK_PopModelMatrix();
+        DK_EndLookAt();
+        DK_EndOrthogonal();
+
+        // Reset state.
         glDisable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, 0);
 
         EXIT_ON_OPENGL_ERROR();
     }
 
-    // Reset matrices.
-    DK_PopModelMatrix();
-    DK_EndLookAt();
-    DK_EndOrthogonal();
-
-    // Copy over the depth buffer from our frame buffer, to preserve the depths
-    // in post-rendering (e.g. for selection outline).
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer.frameBuffer);
-    glBlitFramebuffer(0, 0, DK_resolution_x, DK_resolution_y,
-            0, 0, DK_resolution_x, DK_resolution_y,
-            GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    // Unbind the textures we used.
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     EXIT_ON_OPENGL_ERROR();
 }
@@ -657,6 +891,8 @@ void DK_InitRender(void) {
     // We want triangle surface pixels to be shaded using interpolated values.
     glShadeModel(GL_SMOOTH);
 
+    glClearStencil(0);
+
     // Also enable depth testing to get stuff in the right order.
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
@@ -688,6 +924,8 @@ void DK_InitRender(void) {
     glLoadIdentity();
 
     DK_OnModelMatrixChanged(onModelMatrixChanged);
+
+    initSphere();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

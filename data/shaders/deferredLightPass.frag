@@ -63,25 +63,23 @@ void main(void) {
 	// Do Blinn-Phong.
 	vec3 toLight = LightPosition - position;
 	float distance = dot(toLight, toLight);
-	if (distance < max(DiffuseLightPower * DiffuseLightPower, SpecularLightPower * SpecularLightPower)) {
-		vec3 toCamera = CameraPosition - position;
+	vec3 toCamera = CameraPosition - position;
 
-		// Diffuse lighting.
-		#if HALF_LAMBERT
-		float lambertTerm = (dot(normalize(toLight), normal) * 0.5 + 0.5);
-		lambertTerm = lambertTerm * lambertTerm;
-		#else
-		float lambertTerm = max(0, dot(normalize(toLight), normal));
-		#endif
-		Color = diffuseAlbedo * DiffuseLightColor * lambertTerm * DiffuseLightPower / distance;
+	// Diffuse lighting.
+	#if HALF_LAMBERT
+	float lambertTerm = (dot(normalize(toLight), normal) * 0.5 + 0.5);
+	lambertTerm = lambertTerm * lambertTerm;
+	#else
+	float lambertTerm = max(0, dot(normalize(toLight), normal));
+	#endif
+	Color = diffuseAlbedo * DiffuseLightColor * lambertTerm * DiffuseLightPower / distance;
 
-		// Specular lighting.
-		vec3 h = normalize(toLight + toCamera);
-		float hdotn = max(0, dot(h, normal));
-		float specularTerm = pow(hdotn, specularExponent);
-		Color += specularIntensity * diffuseAlbedo * SpecularLightColor * specularTerm * SpecularLightPower / distance;
-	} else {
-		discard;
-	}
+	// Specular lighting.
+	vec3 h = normalize(toLight + toCamera);
+	float hdotn = max(0, dot(h, normal));
+	float specularTerm = pow(hdotn, specularExponent);
+	Color += specularIntensity * diffuseAlbedo * SpecularLightColor * specularTerm * SpecularLightPower / distance;
+
+	if (dot(Color, vec3(1)) == 0) discard;
 }
 ///////////////////////////////////////////////////////////////////////////////

@@ -172,6 +172,11 @@ void DK_SetModelMatrix(const mat4* m) {
     updateMatrices(1);
 }
 
+void DK_ScaleModelMatrix(float sx, float sy, float sz) {
+    miscale(&matrix.model[stack.model], sx, sy, sz);
+    updateMatrices(1);
+}
+
 void DK_TranslateModelMatrix(float tx, float ty, float tz) {
     mitranslate(&matrix.model[stack.model], tx, ty, tz);
     updateMatrices(1);
@@ -338,9 +343,7 @@ int DK_Project(float objx, float objy, float objz,
     in.d.z = objz;
     in.d.w = 1.0f;
 
-    //__gluMultMatrixVecd(modelMatrix, in, out);
-    mmulv(&out, &in, &matrix.mv);
-    //__gluMultMatrixVecd(projMatrix, out, in);
+    mmulv(&out, &in, DK_GetModelViewMatrix());
     mmulv(&in, &out, DK_GetProjectionMatrix());
 
     if (in.d.w * in.d.w < 1e-25) {

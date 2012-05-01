@@ -18,9 +18,11 @@ extern "C" {
 
     typedef union vec2 {
         float v[2];
+
         struct {
             float x, y;
         } d;
+
         struct {
             float u, v;
         } t;
@@ -28,9 +30,11 @@ extern "C" {
 
     typedef union vec3 {
         float v[3];
+
         struct {
             float x, y, z;
         } d;
+
         struct {
             float r, g, b;
         } c;
@@ -38,9 +42,11 @@ extern "C" {
 
     typedef union vec4 {
         float v[4];
+
         struct {
             float x, y, z, w;
         } d;
+
         struct {
             float r, g, b, a;
         } c;
@@ -109,6 +115,8 @@ extern "C" {
 
     float v3len(const vec3* v);
 
+    float v3distance(const vec3* va, const vec3* vb);
+
     void v3normalize(vec3* normalized, const vec3* v);
 
     void v3inormalize(vec3* v);
@@ -150,6 +158,8 @@ extern "C" {
     float v4norm(const vec4* v);
 
     float v4len(const vec4* v);
+
+    float v4distance(const vec4* va, const vec4* vb);
 
     void v4normalize(vec4* normalized, const vec4* v);
 

@@ -520,10 +520,6 @@ static void onMapChange(void) {
 static void onRender(void) {
     DK_Material material;
 
-    if (!quadratic) {
-        quadratic = gluNewQuadric();
-    }
-
     for (unsigned int i = 0; i < total_unit_count; ++i) {
         const DK_Unit* unit = &units[i];
         const AI_Node* ai = &unit->ai[unit->ai_count - 1];
@@ -675,4 +671,6 @@ void DK_InitUnits(void) {
     DK_OnUpdate(onUpdate);
     DK_OnRender(onRender);
     DK_OnMapChange(onMapChange);
+
+    quadratic = gluNewQuadric();
 }

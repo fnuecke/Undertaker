@@ -75,17 +75,20 @@ static void key_up(const SDL_Event* e) {
             light->diffuseColor.c.r = 1;
             light->diffuseColor.c.g = 1;
             light->diffuseColor.c.b = 1;
-            light->diffusePower = 80;
+            light->diffusePower = 40;
             light->specularColor.c.r = 1;
             light->specularColor.c.g = 1;
             light->specularColor.c.b = 1;
-            light->specularPower = 80;
+            light->specularPower = 40;
             light->position.d.x = DK_GetCursor(DK_CURSOR_LEVEL_FLOOR)->v[0];
             light->position.d.y = DK_GetCursor(DK_CURSOR_LEVEL_FLOOR)->v[1];
             light->position.d.z = DK_BLOCK_HEIGHT / 2;
             DK_AddLight(light);
             break;
         }
+        case SDLK_F10:
+            DK_d_draw_light_volumes = 1 - DK_d_draw_light_volumes;
+            break;
         default:
             break;
     }

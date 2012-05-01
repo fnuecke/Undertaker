@@ -33,10 +33,10 @@ int DK_resolution_y;
 int DK_field_of_view;
 
 /** Near clip plane for rendering */
-#define DK_CLIP_NEAR 0.1f
+#define DK_CLIP_NEAR 10.0f
 
 /** Far clip plane for rendering */
-#define DK_CLIP_FAR 500.0f
+#define DK_CLIP_FAR 600.0f
 
 /** Whether to use anti aliasing or not */
 char DK_use_antialiasing;
@@ -221,8 +221,11 @@ FILE* DK_log_target;
 #define DK_HAND_LIGHT_COLOR_G 1.0f
 #define DK_HAND_LIGHT_COLOR_B 1.0f
 
+/** Height of the hand light */
+#define DK_HAND_LIGHT_HEIGHT (DK_BLOCK_SIZE * 3)
+
 /** Brightness of the light at the cursor */
-#define DK_HAND_LIGHT_POWER 3000.0f
+#define DK_HAND_LIGHT_POWER 500.0f
 
 ///////////////////////////////////////////////////////////////////////////////
 // Camera
@@ -289,6 +292,9 @@ char DK_d_draw_picking_mode;
 
 /** Render using the deferred shading pipeline (shaders)? */
 char DK_d_draw_deferred_shader;
+
+/** Visualize the number of lights processed per pixel */
+char DK_d_draw_light_volumes;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Macros

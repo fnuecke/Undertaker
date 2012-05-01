@@ -35,6 +35,8 @@ extern "C" {
 
     void DK_SetModelMatrix(const mat4* m);
 
+    void DK_ScaleModelMatrix(float sx, float sy, float sz);
+
     void DK_TranslateModelMatrix(float tx, float ty, float tz);
 
     ///////////////////////////////////////////////////////////////////////////
