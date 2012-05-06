@@ -1,16 +1,17 @@
+#include "map_loader.h"
+
 #include <string.h>
 #include <stdlib.h>
+
+#include "lua/lua.h"
+#include "lua/lauxlib.h"
 
 #include "block.h"
 #include "config.h"
 #include "map.h"
-#include "map_loader.h"
 #include "room_meta.h"
 #include "textures.h"
 #include "units_meta.h"
-
-#include "lua/lua.h"
-#include "lua/lauxlib.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Loader state

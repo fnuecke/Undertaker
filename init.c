@@ -1,3 +1,5 @@
+#include "init.h"
+
 #include <stdio.h>
 
 #include <SDL/SDL.h>
@@ -8,7 +10,6 @@
 #include "camera.h"
 #include "config.h"
 #include "graphics.h"
-#include "init.h"
 #include "map.h"
 #include "map_loader.h"
 #include "render.h"

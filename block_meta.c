@@ -1,6 +1,7 @@
+#include "block_meta.h"
+
 #include <stdio.h>
 
-#include "block_meta.h"
 #include "textures.h"
 
 /** File name suffixes for textures */

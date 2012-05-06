@@ -24,9 +24,9 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include <math.h>
-
 #include "vmath.h"
+
+#include <math.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 // Vector math (2d)

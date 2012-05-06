@@ -1,6 +1,6 @@
-#include <malloc.h>
-
 #include "quadtree.h"
+
+#include <malloc.h>
 
 typedef struct QuadEntry {
     void* object;
@@ -16,11 +16,12 @@ enum {
 };
 
 typedef struct QuadNode QuadNode;
+
 struct QuadNode {
     QuadEntry** entries;
     unsigned int entryCapacity;
     unsigned int entryCount;
-    QuadNode* childNodes[4];
+    QuadNode * childNodes[4];
 };
 
 static void deleteNode(QuadNode* node) {

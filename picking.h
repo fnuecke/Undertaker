@@ -8,6 +8,8 @@
 #ifndef PICKING_H
 #define	PICKING_H
 
+#include <GL/glew.h>
+
 #ifdef	__cplusplus
 extern "C" {
 #endif

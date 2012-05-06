@@ -1,10 +1,11 @@
+#include "graphics.h"
+
 #include <math.h>
 #include <GL/glew.h>
 
 #include "callbacks.h"
 #include "config.h"
 #include "events.h"
-#include "graphics.h"
 #include "vmath.h"
 
 ///////////////////////////////////////////////////////////////////////////////

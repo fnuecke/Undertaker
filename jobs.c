@@ -1,3 +1,5 @@
+#include "jobs.h"
+
 #include <float.h>
 #include <malloc.h>
 #include <stdio.h>
@@ -6,7 +8,6 @@
 #include "astar.h"
 #include "block.h"
 #include "config.h"
-#include "jobs.h"
 #include "map.h"
 #include "render.h"
 #include "selection.h"

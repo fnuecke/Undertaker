@@ -1,3 +1,5 @@
+#include "map.h"
+
 #include <math.h>
 #include <string.h>
 #include <malloc.h>
@@ -14,7 +16,6 @@
 #include "cursor.h"
 #include "graphics.h"
 #include "jobs.h"
-#include "map.h"
 #include "picking.h"
 #include "render.h"
 #include "selection.h"
@@ -478,18 +479,22 @@ static void updateBlock(DK_Block* block) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static void pushTexture(int x, int y, unsigned int z, DK_TextureID textureId) {
-    const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
-    gMaterial.textures[gMaterial.textureCount] = DK_GetTexture(textureId, variation);
-    ++gMaterial.textureCount;
-    DK_SetMaterial(&gMaterial);
+    if (!gIsPicking) {
+        const unsigned int variation = (unsigned int) ((snoise2(x, y + z) + 1) / 2 * DK_TEX_MAX_VARIATIONS);
+        gMaterial.textures[gMaterial.textureCount] = DK_GetTexture(textureId, variation);
+        ++gMaterial.textureCount;
+        DK_SetMaterial(&gMaterial);
+    }
 }
 
 static void setDiffuseColor(float r, float g, float b, float a) {
-    gMaterial.diffuseColor.c.r = r;
-    gMaterial.diffuseColor.c.g = g;
-    gMaterial.diffuseColor.c.b = b;
-    gMaterial.diffuseColor.c.a = a;
-    DK_SetMaterial(&gMaterial);
+    if (!gIsPicking) {
+        gMaterial.diffuseColor.c.r = r;
+        gMaterial.diffuseColor.c.g = g;
+        gMaterial.diffuseColor.c.b = b;
+        gMaterial.diffuseColor.c.a = a;
+        DK_SetMaterial(&gMaterial);
+    }
 }
 
 static void beginDraw(void) {
@@ -904,12 +909,10 @@ static void onRender(void) {
 
     beginDraw();
 
+#define LN(x, y) glLoadName(((unsigned short) (y) << 16) | (unsigned short) (x))
     for (int x = x_begin; x < x_end; ++x) {
         for (int y = y_begin; y < y_end; ++y) {
             DK_Block* block = DK_GetBlockAt(x, y);
-
-            // Mark for select mode, coordinates of that block.
-            glLoadName(((unsigned short) y << 16) | (unsigned short) x);
 
             // Get block info.
             if (block) {
@@ -979,6 +982,15 @@ static void onRender(void) {
                 pushTexture(x, y, meta->level, meta->texturesTop[DK_BLOCK_TEXTURE_TOP_OWNED_OVERLAY]);
             }
 
+            // Highlight if hovered (selectable or no).
+            if (x == gCursorX && y == gCursorY) {
+                gMaterial.emissivity = 0.2f;
+                DK_SetMaterial(&gMaterial);
+            }
+
+            // Mark for select mode, coordinates of that block.
+            LN(x, y);
+
             // Render top element.
             drawTop(x, y, (meta->level - 1) * 2);
 
@@ -997,6 +1009,9 @@ static void onRender(void) {
                     DK_InitMaterial(&gMaterial);
                     pushTexture(x, y + 1, level, meta->texturesSide[level][DK_BLOCK_TEXTURE_SIDE]);
 
+                    // Mark for select mode, coordinates of that block.
+                    LN(x, y + 1);
+
                     // Render.
                     drawSouth(x, y + 1, (level - 1) * 2);
                 }
@@ -1013,6 +1028,9 @@ static void onRender(void) {
                     // Set up material.
                     DK_InitMaterial(&gMaterial);
                     pushTexture(x, y - 1, level, meta->texturesSide[level][DK_BLOCK_TEXTURE_SIDE]);
+
+                    // Mark for select mode, coordinates of that block.
+                    LN(x, y - 1);
 
                     // Render.
                     drawNorth(x, y, (level - 1) * 2);
@@ -1031,6 +1049,9 @@ static void onRender(void) {
                     DK_InitMaterial(&gMaterial);
                     pushTexture(x - 1, y, level, meta->texturesSide[level][DK_BLOCK_TEXTURE_SIDE]);
 
+                    // Mark for select mode, coordinates of that block.
+                    LN(x - 1, y);
+
                     // Render.
                     drawEast(x, y, (level - 1) * 2);
                 }
@@ -1048,12 +1069,16 @@ static void onRender(void) {
                     DK_InitMaterial(&gMaterial);
                     pushTexture(x + 1, y, level, meta->texturesSide[level][DK_BLOCK_TEXTURE_SIDE]);
 
+                    // Mark for select mode, coordinates of that block.
+                    LN(x + 1, y);
+
                     // Render.
                     drawWest(x + 1, y, (level - 1) * 2);
                 }
             }
         }
     }
+#undef LN
 
     endDraw();
 }
@@ -1063,17 +1088,19 @@ static void onRender(void) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static void onPreRender(void) {
-    int mouse_x, mouse_y;
-    GLuint selected_name;
+    int mouseX, mouseY;
+    GLuint name;
 
-    SDL_GetMouseState(&mouse_x, &mouse_y);
+    SDL_GetMouseState(&mouseX, &mouseY);
 
     gIsPicking = true;
-    selected_name = DK_Pick(mouse_x, DK_resolution_y - mouse_y, &onRender);
+    name = DK_Pick(mouseX, DK_resolution_y - mouseY, &onRender);
     gIsPicking = false;
 
-    gCursorX = (short) (selected_name & 0xFFFF);
-    gCursorY = (short) (selected_name >> 16);
+    if (name) {
+        gCursorX = (short) (name & 0xFFFF);
+        gCursorY = (short) (name >> 16);
+    }
 
     gHandLight.position.d.x = DK_GetCursor(DK_CURSOR_LEVEL_TOP)->v[0];
     gHandLight.position.d.y = DK_GetCursor(DK_CURSOR_LEVEL_TOP)->v[1];

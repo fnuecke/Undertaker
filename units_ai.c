@@ -1,3 +1,5 @@
+#include "units_ai.h"
+
 #include <assert.h>
 #include <float.h>
 #include <math.h>
@@ -7,7 +9,6 @@
 #include "jobs.h"
 #include "map.h"
 #include "units.h"
-#include "units_ai.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
@@ -325,14 +326,14 @@ static void updateDig(DK_Unit* unit) {
     assert(state->jobInfo);
 
     // Else attack the dirt! Update cooldown and apply damage.
-/*
-    unit->cooldowns[DK_ABILITY_IMP_ATTACK] =
-            cooldowns[DK_UNIT_IMP][DK_ABILITY_IMP_ATTACK];
-    if (DK_DamageBlock(state->job->block, damage[DK_UNIT_IMP][DK_ABILITY_IMP_ATTACK])) {
-        // Block was destroyed! Job done.
-        --unit->ai_count;
-    }
-*/
+    /*
+        unit->cooldowns[DK_ABILITY_IMP_ATTACK] =
+                cooldowns[DK_UNIT_IMP][DK_ABILITY_IMP_ATTACK];
+        if (DK_DamageBlock(state->job->block, damage[DK_UNIT_IMP][DK_ABILITY_IMP_ATTACK])) {
+            // Block was destroyed! Job done.
+            --unit->ai_count;
+        }
+     */
 }
 
 static void updateConvert(DK_Unit* unit) {
@@ -341,14 +342,14 @@ static void updateConvert(DK_Unit* unit) {
     assert(state->jobInfo);
 
     // Else hoyoyo! Update cooldown and apply conversion.
-/*
-    unit->cooldowns[DK_ABILITY_IMP_CONVERT] =
-            cooldowns[DK_UNIT_IMP][DK_ABILITY_IMP_CONVERT];
-    if (DK_ConvertBlock(state->job->block, damage[DK_UNIT_IMP][DK_ABILITY_IMP_CONVERT], unit->owner)) {
-        // Block was destroyed! Job done.
-        --unit->ai_count;
-    }
-*/
+    /*
+        unit->cooldowns[DK_ABILITY_IMP_CONVERT] =
+                cooldowns[DK_UNIT_IMP][DK_ABILITY_IMP_CONVERT];
+        if (DK_ConvertBlock(state->job->block, damage[DK_UNIT_IMP][DK_ABILITY_IMP_CONVERT], unit->owner)) {
+            // Block was destroyed! Job done.
+            --unit->ai_count;
+        }
+     */
 }
 
 ///////////////////////////////////////////////////////////////////////////////

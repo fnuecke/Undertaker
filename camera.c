@@ -1,6 +1,7 @@
+#include "camera.h"
+
 #include <math.h>
 
-#include "camera.h"
 #include "config.h"
 #include "events.h"
 #include "map.h"

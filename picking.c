@@ -1,9 +1,10 @@
+#include "picking.h"
+
 #include <inttypes.h>
 
 #include <GL/glew.h>
 
 #include "config.h"
-#include "picking.h"
 #include "graphics.h"
 #include "vmath.h"
 

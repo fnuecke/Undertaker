@@ -1,10 +1,11 @@
+#include "shader.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <GL/glew.h>
 
 #include "config.h"
-#include "shader.h"
 
 /** Print info log of a shader or program in case it failed to compile / link */
 static int verify(GLuint obj, const char* path) {

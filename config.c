@@ -1,6 +1,6 @@
-#include <stdio.h>
-
 #include "config.h"
+
+#include <stdio.h>
 
 int DK_resolution_x = 1600;
 int DK_resolution_y = 1200;

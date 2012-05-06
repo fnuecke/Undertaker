@@ -1,11 +1,11 @@
+#include "timer.h"
+
 #include <stdlib.h>
 #ifdef WIN32   // Windows system specific
 #include <windows.h>
 #else          // Unix based system specific
 #include <sys/time.h>
 #endif
-
-#include "timer.h"
 
 double gStartTimeInMicroSec; // starting time in micro-second
 double gEndTimeInMicroSec; // ending time in micro-second

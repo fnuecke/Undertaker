@@ -1,3 +1,5 @@
+#include "render.h"
+
 #include <assert.h>
 #include <math.h>
 #include <float.h>
@@ -11,7 +13,6 @@
 #include "graphics.h"
 #include "jobs.h"
 #include "map.h"
-#include "render.h"
 #include "shader.h"
 #include "textures.h"
 #include "units.h"

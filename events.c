@@ -1,9 +1,10 @@
+#include "events.h"
+
 #include <SDL/SDL.h>
 
 #include "camera.h"
 #include "config.h"
 #include "cursor.h"
-#include "events.h"
 #include "render.h"
 #include "selection.h"
 #include "units.h"

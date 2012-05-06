@@ -1,7 +1,6 @@
-#include "camera.h"
-#include "map.h"
-#include "units.h"
 #include "update.h"
+
+#include "events.h"
 
 static Callbacks* gUpdateCallbacks = 0;
 

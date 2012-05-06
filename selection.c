@@ -1,8 +1,9 @@
+#include "selection.h"
+
 #include "bitset.h"
 #include "block.h"
 #include "jobs.h"
 #include "map.h"
-#include "selection.h"
 #include "update.h"
 
 ///////////////////////////////////////////////////////////////////////////////

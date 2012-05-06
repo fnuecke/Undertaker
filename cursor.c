@@ -1,13 +1,13 @@
+#include "cursor.h"
+
 #include <SDL/SDL.h>
 #include <GL/glew.h>
 
 #include "camera.h"
 #include "config.h"
-#include "cursor.h"
 #include "events.h"
-#include "vmath.h"
 #include "graphics.h"
-#include "update.h"
+#include "vmath.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals

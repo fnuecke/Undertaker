@@ -1,6 +1,6 @@
-#include <malloc.h>
-
 #include "callbacks.h"
+
+#include <malloc.h>
 
 struct Callbacks {
     callback* list;
