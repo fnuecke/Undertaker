@@ -8,6 +8,7 @@
 #ifndef ROOM_META_H
 #define	ROOM_META_H
 
+#include "meta.h"
 #include "types.h"
 
 #ifdef	__cplusplus
@@ -32,19 +33,13 @@ extern "C" {
         DK_BlockLevel level;
 
         /** Determines whether the room is a door (can be locked) */
-        char isDoor;
+        bool isDoor;
 
         /** Health of this block (conversion resistance or damage it can take) */
         unsigned int health;
     };
 
-    const DK_RoomMeta* DK_GetRoomMeta(unsigned int id);
-
-    const DK_RoomMeta* DK_GetRoomMetaByName(const char* name);
-
-    void DK_AddRoomMeta(const DK_RoomMeta* meta);
-
-    void DK_InitRoomMeta(void);
+    META_header(DK_RoomMeta, Room)
 
 #ifdef	__cplusplus
 }

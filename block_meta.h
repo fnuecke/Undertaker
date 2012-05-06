@@ -8,6 +8,7 @@
 #ifndef BLOCK_META_H
 #define	BLOCK_META_H
 
+#include "meta.h"
 #include "types.h"
 
 #ifdef	__cplusplus
@@ -34,7 +35,7 @@ extern "C" {
         unsigned int gold;
 
         /** The type of block this one becomes upon destruction */
-        DK_BlockMeta* becomes;
+        const DK_BlockMeta* becomes;
 
         /** The level (height) at which to render this block type */
         DK_BlockLevel level;
@@ -43,13 +44,7 @@ extern "C" {
         DK_TextureID textures[DK_BLOCK_LEVEL_COUNT][DK_BLOCK_TEXTURE_COUNT];
     };
 
-    const DK_BlockMeta* DK_GetBlockMeta(unsigned int id);
-
-    const DK_BlockMeta* DK_GetBlockMetaByName(const char* name);
-
-    void DK_AddBlockMeta(const DK_BlockMeta* meta);
-
-    void DK_InitBlockMeta(void);
+    META_header(DK_BlockMeta, Block)
 
 #ifdef	__cplusplus
 }

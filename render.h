@@ -10,7 +10,6 @@
 
 #include <GL/glew.h>
 
-#include "callbacks.h"
 #include "vmath.h"
 
 /**
@@ -141,31 +140,6 @@ extern "C" {
      * Render the game to the screen.
      */
     void DK_Render(void);
-
-    ///////////////////////////////////////////////////////////////////////////
-    // Events
-    ///////////////////////////////////////////////////////////////////////////
-
-    /**
-     * Register methods here that need to execute before rendering, but after
-     * the view has been set up.
-     * @param callback the method to call.
-     */
-    void DK_OnPreRender(callback method);
-
-    /**
-     * Register a method that should be called when an render pass is performed.
-     * Methods are called in the order in which they are registered.
-     * @param callback the method to call.
-     */
-    void DK_OnRender(callback method);
-
-    /**
-     * Register methods that need to render on top of the finished world render,
-     * such as overlays.
-     * @param callback the method to call.
-     */
-    void DK_OnPostRender(callback method);
 
 #ifdef	__cplusplus
 }

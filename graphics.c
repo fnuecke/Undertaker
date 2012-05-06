@@ -3,6 +3,7 @@
 
 #include "callbacks.h"
 #include "config.h"
+#include "events.h"
 #include "graphics.h"
 #include "vmath.h"
 

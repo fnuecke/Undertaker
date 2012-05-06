@@ -2,9 +2,9 @@
 
 #include "camera.h"
 #include "config.h"
+#include "events.h"
 #include "map.h"
 #include "vmath.h"
-#include "update.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals

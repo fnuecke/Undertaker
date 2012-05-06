@@ -8,6 +8,7 @@
 #ifndef UNITS_META_H
 #define	UNITS_META_H
 
+#include "meta.h"
 #include "types.h"
 
 #ifdef	__cplusplus
@@ -117,7 +118,7 @@ extern "C" {
         float moveSpeed;
 
         /** Jobs the unit can perform */
-        unsigned char jobs[DK_JOB_TYPE_COUNT];
+        bool jobs[DK_JOB_TYPE_COUNT];
 
         /** Information on unit satisfaction */
         DK_UnitSatisfactionMeta satisfaction;
@@ -126,13 +127,7 @@ extern "C" {
         //DK_Ability* abilities;
     };
 
-    const DK_UnitMeta* DK_GetUnitMeta(unsigned int id);
-
-    const DK_UnitMeta* DK_GetUnitMetaByName(const char* name);
-
-    void DK_AddUnitMeta(const DK_UnitMeta* meta);
-
-    void DK_InitUnitMeta(void);
+    META_header(DK_UnitMeta, Unit)
 
 #ifdef	__cplusplus
 }

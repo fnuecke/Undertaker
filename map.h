@@ -8,7 +8,6 @@
 #ifndef MAP_H
 #define	MAP_H
 
-#include "callbacks.h"
 #include "types.h"
 
 #ifdef	__cplusplus
@@ -18,13 +17,6 @@ extern "C" {
     ///////////////////////////////////////////////////////////////////////////
     // Accessors
     ///////////////////////////////////////////////////////////////////////////
-
-    /**
-     * Change the size of the map data structures. This will trigger a resize
-     * event, which should invalidate all other map size dependent data (and
-     * generally means that the old map has been unloaded -> cleanup).
-     */
-    void DK_SetMapSize(unsigned short size);
 
     /**
      * Size (width and height, maps are always squared) of the current map.
@@ -44,11 +36,18 @@ extern "C" {
     /**
      * Gets the block currently hovered by the mouse, and its coordinates.
      */
-    DK_Block* DK_GetBlockUnderCursor(int* block_x, int* block_y);
+    DK_Block* DK_GetBlockUnderCursor(int* x, int* y);
 
     ///////////////////////////////////////////////////////////////////////////
     // Modifiers
     ///////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Change the size of the map data structures. This will trigger a resize
+     * event, which should invalidate all other map size dependent data (and
+     * generally means that the old map has been unloaded -> cleanup).
+     */
+    void DK_SetMapSize(unsigned short size);
 
     /**
      * Change the type of a block.
@@ -88,14 +87,6 @@ extern "C" {
      * Initialize map related event logic.
      */
     void DK_InitMap(void);
-
-    /**
-     * Register a method that should be called when the map size changes.
-     * Methods are called in the order in which they are registered.
-     * This should be used for disposing old data and register new meta data.
-     * @param callback the method to call.
-     */
-    void DK_OnMapSizeChange(callback method);
 
 #ifdef	__cplusplus
 }

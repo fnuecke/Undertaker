@@ -19,7 +19,7 @@ extern "C" {
         unsigned int id;
 
         /** The name of the ability type */
-        char name[32];
+        char* name;
 
         /** The time it takes before the ability can trigger again */
         float cooldown;

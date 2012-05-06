@@ -1,9 +1,6 @@
-#include <malloc.h>
 #include <stdio.h>
-#include <string.h>
 
 #include "block_meta.h"
-#include "map.h"
 #include "textures.h"
 
 /** File name suffixes for textures */
@@ -29,46 +26,9 @@ const char* BLOCK_TEXTURE_SUFFIX[] = {
     [DK_BLOCK_TEXTURE_TOP_OWNED_OVERLAY] = "top_owned",
 };
 
-static DK_BlockMeta* gMetas = 0;
-static unsigned int gMetaCount = 0;
-static unsigned int gMetaCapacity = 0;
-
-static DK_BlockMeta* getNextFreeEntry(void) {
-    if (gMetaCount >= gMetaCapacity) {
-        gMetaCapacity = gMetaCapacity * 2 + 1;
-        gMetas = realloc(gMetas, gMetaCapacity * sizeof (DK_BlockMeta));
-    }
-    return &gMetas[gMetaCount++];
-}
-
-static void onMapChange(void) {
-    gMetaCount = 0;
-}
-
-const DK_BlockMeta* DK_GetBlockMeta(unsigned int id) {
-    if (id > 0 && id - 1 < gMetaCount) {
-        return &gMetas[id - 1];
-    }
-    return NULL;
-}
-
-const DK_BlockMeta* DK_GetBlockMetaByName(const char* name) {
-    for (unsigned int id = 0; id < gMetaCount; ++id) {
-        if (strcmp(name, gMetas[id].name) == 0) {
-            return &gMetas[id];
-        }
-    }
-    return NULL;
-}
-
-void DK_AddBlockMeta(const DK_BlockMeta* meta) {
+static void loadTexturesFor(DK_BlockMeta* m) {
     char basename[128];
     DK_TextureID textures[DK_BLOCK_TEXTURE_COUNT] = {0};
-
-    // Create new entry and copy data.
-    DK_BlockMeta* m = getNextFreeEntry();
-    *m = *meta;
-    m->id = gMetaCount;
 
     // Clear.
     memset(m->textures, 0, DK_BLOCK_LEVEL_COUNT * DK_BLOCK_TEXTURE_COUNT * sizeof (DK_TextureID));
@@ -98,6 +58,18 @@ void DK_AddBlockMeta(const DK_BlockMeta* meta) {
     }
 }
 
-void DK_InitBlockMeta(void) {
-    DK_OnMapSizeChange(onMapChange);
+static void initMeta(DK_BlockMeta* m, const DK_BlockMeta* meta) {
+    *m = *meta;
+    loadTexturesFor(m);
 }
+
+static void updateMeta(DK_BlockMeta* m, const DK_BlockMeta* meta) {
+    m->durability = meta->durability;
+    m->strength = meta->strength;
+    m->gold = meta->gold;
+    m->level = meta->level;
+    m->passability = meta->passability;
+    m->becomes = meta->becomes;
+}
+
+META_impl(DK_BlockMeta, Block)

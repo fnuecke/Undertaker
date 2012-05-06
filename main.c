@@ -6,6 +6,7 @@
 #include "init.h"
 #include "events.h"
 #include "render.h"
+#include "timer.h"
 #include "update.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -26,15 +27,15 @@ static int running = 1;
 ///////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char** argv) {
-    Uint32 start, end;
     int delay;
 
     // Initialize basics, such as SDL and data.
     DK_Init();
+    T_Init();
 
     // Start the main loop.
     while (running) {
-        start = SDL_GetTicks();
+        T_Start();
 
         DK_Events();
         DK_Update();
@@ -42,15 +43,15 @@ int main(int argc, char** argv) {
 
         SDL_GL_SwapBuffers();
 
-        end = SDL_GetTicks();
+        T_Stop();
 
         // Wait to get a constant frame rate.
-        delay = 1000.0f / DK_FRAMERATE - (end - start);
+        delay = 1000.0f / DK_FRAMERATE - T_GetElapsedTimeInMilliSec();
         if (delay > 0) {
-            load_accumulator += (end - start) * DK_FRAMERATE / 1000.0f;
+            load_accumulator += T_GetElapsedTimeInMicroSec();
             if (load_counter++ > DK_FRAMERATE) {
                 char title[32] = {0};
-                sprintf(title, "Undertaker - Load: %.2f", load_accumulator / DK_FRAMERATE);
+                sprintf(title, "Undertaker - Load: %.2f", load_accumulator / 1000000.0f);
                 SDL_WM_SetCaption(title, NULL);
                 load_counter = 0;
                 load_accumulator = 0;

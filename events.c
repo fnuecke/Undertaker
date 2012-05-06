@@ -7,6 +7,8 @@
 #include "render.h"
 #include "selection.h"
 #include "units.h"
+#include "map.h"
+#include "block_meta.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Event handlers
@@ -83,6 +85,28 @@ static void key_down(const SDL_Event* e) {
         }
         case SDLK_F10:
             DK_d_draw_light_volumes = 1 - DK_d_draw_light_volumes;
+            break;
+
+        case SDLK_1:
+            DK_SetBlockMeta(DK_GetBlockUnderCursor(NULL, NULL), DK_GetBlockMeta(1));
+            break;
+        case SDLK_2:
+            DK_SetBlockMeta(DK_GetBlockUnderCursor(NULL, NULL), DK_GetBlockMeta(2));
+            break;
+        case SDLK_3:
+            DK_SetBlockMeta(DK_GetBlockUnderCursor(NULL, NULL), DK_GetBlockMeta(3));
+            break;
+        case SDLK_4:
+            DK_SetBlockMeta(DK_GetBlockUnderCursor(NULL, NULL), DK_GetBlockMeta(4));
+            break;
+        case SDLK_5:
+            DK_SetBlockMeta(DK_GetBlockUnderCursor(NULL, NULL), DK_GetBlockMeta(5));
+            break;
+        case SDLK_6:
+            DK_SetBlockMeta(DK_GetBlockUnderCursor(NULL, NULL), DK_GetBlockMeta(6));
+            break;
+        case SDLK_7:
+            DK_SetBlockMeta(DK_GetBlockUnderCursor(NULL, NULL), DK_GetBlockMeta(7));
             break;
         default:
             break;

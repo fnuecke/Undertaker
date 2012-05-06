@@ -63,7 +63,7 @@ static DK_Light gHandLight;
 /**
  * Currently doing a picking (select) render pass?
  */
-static char gIsPicking = 0;
+static bool gIsPicking = false;
 
 /**
  * List of methods to call when map size changes.
@@ -452,14 +452,14 @@ static void updateBlock(DK_Block* block) {
         const int end_x = x * 2 + 3 + DK_MAP_BORDER;
         const int end_y = y * 2 + 3 + DK_MAP_BORDER;
 
-        for (int lx = start_x; lx < end_x; ++lx) {
-            for (int ly = start_y; ly < end_y; ++ly) {
+        for (int lx = start_x; lx <= end_x; ++lx) {
+            for (int ly = start_y; ly <= end_y; ++ly) {
                 updateVerticesAt(lx, ly);
             }
         }
 
-        for (int lx = start_x; lx < end_x; ++lx) {
-            for (int ly = start_y; ly < end_y; ++ly) {
+        for (int lx = start_x; lx <= end_x; ++lx) {
+            for (int ly = start_y; ly <= end_y; ++ly) {
                 updateNormalsAt(lx, ly);
             }
         }
@@ -824,6 +824,8 @@ static void renderSelectionOverlay(void) {
     const int x_end = x_begin + DK_RENDER_AREA_X;
     const int y_end = y_begin + DK_RENDER_AREA_Y;
 
+    beginDraw();
+
     // Set up coloring.
     DK_InitMaterial(&gMaterial);
     setDiffuseColor(DK_MAP_SELECTED_COLOR_R,
@@ -834,8 +836,6 @@ static void renderSelectionOverlay(void) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
     glDepthMask(GL_FALSE);
-
-    beginDraw();
 
     for (int x = x_begin; x < x_end; ++x) {
         for (int y = y_begin; y < y_end; ++y) {
@@ -898,6 +898,7 @@ static void onRender(void) {
     const int x_end = x_begin + DK_RENDER_AREA_X;
     const int y_end = y_begin + DK_RENDER_AREA_Y;
 
+    const DK_BlockMeta* defaultMeta = DK_GetBlockMeta(1);
     const DK_BlockMeta* meta;
     DK_Player owner;
 
@@ -916,7 +917,7 @@ static void onRender(void) {
                 owner = block->owner;
             } else {
                 // Out of bounds, use default block type.
-                meta = DK_GetBlockMeta(1);
+                meta = defaultMeta;
                 owner = DK_PLAYER_NONE;
             }
 
@@ -982,46 +983,70 @@ static void onRender(void) {
             drawTop(x, y, (meta->level - 1) * 2);
 
             // Check for walling, for this level and the lower ones.
-            for (DK_BlockLevel level = meta->level; level > DK_BLOCK_LEVEL_PIT; --level) {
+            for (DK_BlockLevel level = meta->level; level < DK_BLOCK_LEVEL_HIGH; ++level) {
                 // North wall.
-                if ((block = DK_GetBlockAt(x, y + 1)) &&
-                        block->meta->level > level) {
+                if ((block = DK_GetBlockAt(x, y + 1))) {
+                    meta = block->meta;
+                    owner = block->owner;
+                } else {
+                    meta = defaultMeta;
+                    owner = DK_PLAYER_NONE;
+                }
+                if (meta->level > level) {
                     // Set up material.
                     DK_InitMaterial(&gMaterial);
-                    pushTexture(x, y + 1, level, block->meta->textures[level][DK_BLOCK_TEXTURE_SIDE]);
+                    pushTexture(x, y + 1, level, meta->textures[level][DK_BLOCK_TEXTURE_SIDE]);
 
                     // Render.
                     drawSouth(x, y + 1, (level - 1) * 2);
                 }
 
                 // South wall.
-                if ((block = DK_GetBlockAt(x, y - 1)) &&
-                        block->meta->level > level) {
+                if ((block = DK_GetBlockAt(x, y - 1))) {
+                    meta = block->meta;
+                    owner = block->owner;
+                } else {
+                    meta = defaultMeta;
+                    owner = DK_PLAYER_NONE;
+                }
+                if (meta->level > level) {
                     // Set up material.
                     DK_InitMaterial(&gMaterial);
-                    pushTexture(x, y - 1, level, block->meta->textures[level][DK_BLOCK_TEXTURE_SIDE]);
+                    pushTexture(x, y - 1, level, meta->textures[level][DK_BLOCK_TEXTURE_SIDE]);
 
                     // Render.
                     drawNorth(x, y, (level - 1) * 2);
                 }
 
                 // West wall.
-                if ((block = DK_GetBlockAt(x - 1, y)) &&
-                        block->meta->level > level) {
+                if ((block = DK_GetBlockAt(x - 1, y))) {
+                    meta = block->meta;
+                    owner = block->owner;
+                } else {
+                    meta = defaultMeta;
+                    owner = DK_PLAYER_NONE;
+                }
+                if (meta->level > level) {
                     // Set up material.
                     DK_InitMaterial(&gMaterial);
-                    pushTexture(x - 1, y, level, block->meta->textures[level][DK_BLOCK_TEXTURE_SIDE]);
+                    pushTexture(x - 1, y, level, meta->textures[level][DK_BLOCK_TEXTURE_SIDE]);
 
                     // Render.
                     drawEast(x, y, (level - 1) * 2);
                 }
 
                 // East wall.
-                if ((block = DK_GetBlockAt(x + 1, y)) &&
-                        block->meta->level > level) {
+                if ((block = DK_GetBlockAt(x + 1, y))) {
+                    meta = block->meta;
+                    owner = block->owner;
+                } else {
+                    meta = defaultMeta;
+                    owner = DK_PLAYER_NONE;
+                }
+                if (meta->level > level) {
                     // Set up material.
                     DK_InitMaterial(&gMaterial);
-                    pushTexture(x + 1, y, level, block->meta->textures[level][DK_BLOCK_TEXTURE_SIDE]);
+                    pushTexture(x + 1, y, level, meta->textures[level][DK_BLOCK_TEXTURE_SIDE]);
 
                     // Render.
                     drawWest(x + 1, y, (level - 1) * 2);
@@ -1224,9 +1249,13 @@ int DK_GetBlockCoordinates(unsigned short* x, unsigned short* y, const DK_Block 
     return 0;
 }
 
-DK_Block * DK_GetBlockUnderCursor(int* block_x, int* block_y) {
-    *block_x = gCursorX;
-    *block_y = gCursorY;
+DK_Block * DK_GetBlockUnderCursor(int* x, int* y) {
+    if (x) {
+        *x = gCursorX;
+    }
+    if (y) {
+        *y = gCursorY;
+    }
     return DK_GetBlockAt(gCursorX, gCursorY);
 }
 
@@ -1360,6 +1389,10 @@ int DK_ConvertBlock(DK_Block* block, unsigned int strength, DK_Player player) {
 }
 
 void DK_SetBlockMeta(DK_Block* block, const DK_BlockMeta* meta) {
+    if (!block || !meta) {
+        return;
+    }
+
     block->meta = meta;
 
     // Update values.
@@ -1371,6 +1404,10 @@ void DK_SetBlockMeta(DK_Block* block, const DK_BlockMeta* meta) {
 }
 
 void DK_SetBlockOwner(DK_Block* block, DK_Player player) {
+    if (!block) {
+        return;
+    }
+
     block->owner = player;
 
     // Update values.

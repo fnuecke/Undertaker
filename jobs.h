@@ -60,17 +60,6 @@ extern "C" {
     };
 
     /**
-     * Initialize job system.
-     */
-    void DK_InitJobs(void);
-
-    /**
-     * DEBUGGING FEATURE
-     * Display hints for job slots.
-     */
-    void DK_RenderJobs(void);
-
-    /**
      * Find and make available jobs at and surrounding the block at the
      * specified coordinate. This will also free old jobs related to the block
      * at that location.
@@ -88,6 +77,11 @@ extern "C" {
      * @return the closest job of that type to the unit. May be null.
      */
     DK_Job* DK_FindJob(const DK_Unit* unit, DK_JobType type, float* distance);
+
+    /**
+     * Initialize job system.
+     */
+    void DK_InitJobs(void);
 
 #ifdef	__cplusplus
 }

@@ -12,6 +12,8 @@
 
 #include <GL/glew.h>
 
+#include "types.h"
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
@@ -39,13 +41,13 @@ extern "C" {
 #define DK_CLIP_FAR 600.0f
 
     /** Whether to use anti aliasing or not */
-    char DK_use_antialiasing;
+    bool DK_use_antialiasing;
 
     /** Target framerate */
 #define DK_FRAMERATE 60
 
     /** Use fog in the distance, to fade out to black */
-    char DK_use_fog;
+    bool DK_use_fog;
 
     /** The stream to write log messages to */
     FILE* DK_log_target;
@@ -229,19 +231,19 @@ extern "C" {
 #define DK_D_USE_NOISE_OFFSET 1
 
     /** Whether the AI is enabled (units are being updated) */
-    char DK_d_ai_enabled;
+    bool DK_d_ai_enabled;
 
     /** Use test texture instead of actual textures */
-    char DK_d_draw_test_texture;
+    bool DK_d_draw_test_texture;
 
     /** Render unit paths */
-    char DK_d_draw_paths;
+    bool DK_d_draw_paths;
 
     /** Height at which to render paths */
 #define DK_D_DRAW_PATH_HEIGHT 1.1f
 
     /** Render job slots for player red */
-    char DK_d_draw_jobs;
+    bool DK_d_draw_jobs;
 
     /** Possible steps of the deferred rendering that can be rendered */
     typedef enum {
@@ -257,13 +259,13 @@ extern "C" {
     DK_DisplayMode DK_d_draw_deferred;
 
     /** Show what the picking matrix sees */
-    char DK_d_draw_picking_mode;
+    bool DK_d_draw_picking_mode;
 
     /** Render using the deferred shading pipeline (shaders)? */
-    char DK_d_draw_deferred_shader;
+    bool DK_d_draw_deferred_shader;
 
     /** Visualize the number of lights processed per pixel */
-    char DK_d_draw_light_volumes;
+    bool DK_d_draw_light_volumes;
 
     ///////////////////////////////////////////////////////////////////////////////
     // Macros

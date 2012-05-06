@@ -37,7 +37,7 @@ typedef struct {
 ///////////////////////////////////////////////////////////////////////////////
 
 /** Root of two */
-static const float M_SQRT2 = 1.41421356237309504880f;
+static const float SQRT2 = 1.41421356237309504880f;
 
 /** Number of cells in the grid used for our A* algorithm */
 static int gGridSize = 0;
@@ -151,7 +151,7 @@ inline static float h(unsigned int fromX, unsigned int fromY, unsigned int toX, 
 inline static float f(unsigned int x, unsigned int y, unsigned int goalX, unsigned int goalY) {
     const unsigned int dx = abs(x - goalX);
     const unsigned int dy = abs(y - goalY);
-    return M_SQRT2 * (dx > dy ? dx : dy);
+    return SQRT2 * (dx > dy ? dx : dy);
 }
 
 /** Converts local coordinates to map ones */
@@ -382,7 +382,7 @@ static float computeLength(const PathNode* tail, const vec2* start, const vec2* 
  * Converts the path ending in the specified tail node to a buffer of the
  * specified length.
  */
-static unsigned int writePath(DK_AStarWaypoint* path, unsigned int depth,
+static unsigned int writePath(vec2* path, unsigned int depth,
         const PathNode* tail, unsigned int realDepth,
         const vec2* start, const vec2* goal) {
     // Follow the path until only as many nodes as we can fit into the
@@ -394,20 +394,20 @@ static unsigned int writePath(DK_AStarWaypoint* path, unsigned int depth,
 
     // Set the start node to the actual start coordinates, instead of the
     // ones of the waypoint.
-    path[0].x = start->d.x;
-    path[0].y = start->d.y;
+    path[0].d.x = start->d.x;
+    path[0].d.y = start->d.y;
     // Same for the last one.
-    path[realDepth - 1].x = goal->d.x;
-    path[realDepth - 1].y = goal->d.y;
+    path[realDepth - 1].d.x = goal->d.x;
+    path[realDepth - 1].d.y = goal->d.y;
     // And skip it, too.
     tail = &gClosedSet[tail->came_from - 1];
 
     // Push the remaining nodes' coordinates (in reverse walk order to
     // make it forward work order).
     for (int i = realDepth - 2; i > 0; --i, tail = &gClosedSet[tail->came_from - 1]) {
-        DK_AStarWaypoint* waypoint = &path[i];
-        waypoint->x = toMapSpace(tail->x);
-        waypoint->y = toMapSpace(tail->y);
+        vec2* waypoint = &path[i];
+        waypoint->d.x = toMapSpace(tail->x);
+        waypoint->d.y = toMapSpace(tail->y);
     }
 
     return realDepth;
@@ -425,7 +425,7 @@ static unsigned int writePath(DK_AStarWaypoint* path, unsigned int depth,
  * @param goal the goal coordinates in map space.
  * @return whether the goal was reached or not.
  */
-static int isGoal(DK_AStarWaypoint* path, unsigned int* depth, float* length,
+static int isGoal(vec2* path, unsigned int* depth, float* length,
         PathNode* node, unsigned int gx, unsigned int gy,
         const vec2* start, const vec2* goal) {
     // Test whether node coordinates are goal coordinates.
@@ -465,7 +465,7 @@ static int isGoal(DK_AStarWaypoint* path, unsigned int* depth, float* length,
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-int DK_AStar(const DK_Unit* unit, const vec2* goal, DK_AStarWaypoint* path, unsigned int* depth, float* length) {
+int DK_AStar(const DK_Unit* unit, const vec2* goal, vec2* path, unsigned int* depth, float* length) {
     unsigned int gx, gy, begin_x, begin_y, end_x, end_y, neighbor_x, neighbor_y;
     int x, y;
     float gscore, fscore;

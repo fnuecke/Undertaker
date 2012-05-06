@@ -106,7 +106,7 @@ static void onRender(void) {
 
         // If we display pathing render the units current path.
         if (DK_d_draw_paths && DK_IsUnitMoving(unit)) {
-            const DK_AStarWaypoint* path = unit->ai->pathing.nodes;
+            const vec2* path = unit->ai->pathing.nodes;
             const unsigned int depth = unit->ai->pathing.depth;
 
             // Draw a line along the path.
@@ -121,20 +121,20 @@ static void onRender(void) {
             glBegin(GL_LINES);
             {
                 unsigned int j = 0;
-                glVertex3f(path[1].x * DK_BLOCK_SIZE, path[1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                glVertex3f(path[1].d.x * DK_BLOCK_SIZE, path[1].d.y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
                 /*
                                 for (j = 2; j <= depth; ++j) {
                                     // Somewhere in the middle, smooth the path.
                                     for (unsigned int k = 1; k < 20; ++k) {
                                         const float t = k / 20.0f;
-                                        const float x = catmull_rom(path[j - 2].x, path[j - 1].x, path[j].x, path[j + 1].x, t);
-                                        const float y = catmull_rom(path[j - 2].y, path[j - 1].y, path[j].y, path[j + 1].y, t);
+                                        const float x = catmull_rom(path[j - 2].d.x, path[j - 1].d.x, path[j].d.x, path[j + 1].d.x, t);
+                                        const float y = catmull_rom(path[j - 2].d.y, path[j - 1].d.y, path[j].d.y, path[j + 1].d.y, t);
                                         glVertex3f(x * DK_BLOCK_SIZE, y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
                                         glVertex3f(x * DK_BLOCK_SIZE, y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
                                     }
                                 }
                  */
-                glVertex3f(path[j - 1].x * DK_BLOCK_SIZE, path[j - 1].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                glVertex3f(path[j - 1].d.x * DK_BLOCK_SIZE, path[j - 1].d.y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
             }
             glEnd();
 
@@ -146,7 +146,7 @@ static void onRender(void) {
 
             for (unsigned int j = 1; j <= depth; ++j) {
                 DK_PushModelMatrix();
-                DK_TranslateModelMatrix(path[j].x * DK_BLOCK_SIZE, path[j].y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                DK_TranslateModelMatrix(path[j].d.x * DK_BLOCK_SIZE, path[j].d.y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
                 gluSphere(quadratic, 0.5f, 8, 8);
                 DK_PopModelMatrix();
             }
@@ -209,7 +209,7 @@ void DK_StopJob(DK_Unit* unit, DK_JobType jobType) {
                 state->jobInfo->worker = NULL;
                 state->jobInfo = NULL;
             }
-            state->shouldCancel = 1;
+            state->shouldCancel = true;
         }
 
         // And move on to the next (could be more than one occurrence).

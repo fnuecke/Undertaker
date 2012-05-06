@@ -32,13 +32,13 @@ extern "C" {
          * themselves, to avoid stack corruption regardless of the call chain, and
          * this is how we notify them they should do just that.
          */
-        char shouldCancel;
+        bool shouldCancel;
     } AI_State;
 
     /** Pathing information for traveling along a path */
     typedef struct AI_Path {
         /** The path the unit currently follows (if moving) */
-        DK_AStarWaypoint nodes[DK_AI_PATH_DEPTH + 2];
+        vec2 nodes[DK_AI_PATH_DEPTH + 2];
 
         /** The total depth of the path (number of nodes) */
         unsigned int depth;

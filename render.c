@@ -993,8 +993,14 @@ void DK_SetMaterial(const DK_Material* material) {
         }
 
         EXIT_ON_OPENGL_ERROR();
+    } else {
+        // Otherwise we're not really interested in shading stuff properly, just
+        // set the color.
+        glColor4f(material->diffuseColor.c.r,
+                material->diffuseColor.c.g,
+                material->diffuseColor.c.b,
+                material->diffuseColor.c.a);
     }
-    // Otherwise we're not really interested in shading stuff properly.
 }
 
 void DK_InitMaterial(DK_Material* material) {

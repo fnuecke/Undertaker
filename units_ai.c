@@ -45,8 +45,8 @@ static void updateMove(DK_Unit* unit) {
         ++path->index;
         if (path->index > path->depth) {
             // Reached final node, we're done.
-            unit->position.d.x = path->nodes[path->index - 1].x;
-            unit->position.d.y = path->nodes[path->index - 1].y;
+            unit->position.d.x = path->nodes[path->index - 1].d.x;
+            unit->position.d.y = path->nodes[path->index - 1].d.y;
             return;
         } else {
             // Subtract length of previous to carry surplus movement.
@@ -55,21 +55,21 @@ static void updateMove(DK_Unit* unit) {
             // Do a direct check for distance, to allow skipping equal
             // nodes.
             {
-                const float dx = path->nodes[path->index].x - path->nodes[path->index - 1].x;
-                const float dy = path->nodes[path->index].y - path->nodes[path->index - 1].y;
+                const float dx = path->nodes[path->index].d.x - path->nodes[path->index - 1].d.x;
+                const float dy = path->nodes[path->index].d.y - path->nodes[path->index - 1].d.y;
                 path->distance = sqrtf(dx * dx + dy * dy);
             }
             // If there is a distance, estimate the actual path length.
             if (path->distance > 0 && DK_AI_PATH_INTERPOLATE) {
                 int e;
                 float x, y, dx, dy;
-                float lx = path->nodes[path->index - 1].x;
-                float ly = path->nodes[path->index - 1].y;
+                float lx = path->nodes[path->index - 1].d.x;
+                float ly = path->nodes[path->index - 1].d.y;
                 path->distance = 0;
                 for (e = 1; e <= DK_AI_PATH_INTERPOLATION; ++e) {
                     const float t = e / (float) DK_AI_PATH_INTERPOLATION;
-                    x = cr(path->nodes[path->index - 2].x, path->nodes[path->index - 1].x, path->nodes[path->index].x, path->nodes[path->index + 1].x, t);
-                    y = cr(path->nodes[path->index - 2].y, path->nodes[path->index - 1].y, path->nodes[path->index].y, path->nodes[path->index + 1].y, t);
+                    x = cr(path->nodes[path->index - 2].d.x, path->nodes[path->index - 1].d.x, path->nodes[path->index].d.x, path->nodes[path->index + 1].d.x, t);
+                    y = cr(path->nodes[path->index - 2].d.y, path->nodes[path->index - 1].d.y, path->nodes[path->index].d.y, path->nodes[path->index + 1].d.y, t);
                     dx = x - lx;
                     dy = y - ly;
                     lx = x;
@@ -83,8 +83,8 @@ static void updateMove(DK_Unit* unit) {
     // Compute actual position of the unit.
     if (path->distance > 0) {
         const float t = path->traveled / path->distance;
-        unit->position.d.x = cr(path->nodes[path->index - 2].x, path->nodes[path->index - 1].x, path->nodes[path->index].x, path->nodes[path->index + 1].x, t);
-        unit->position.d.y = cr(path->nodes[path->index - 2].y, path->nodes[path->index - 1].y, path->nodes[path->index].y, path->nodes[path->index + 1].y, t);
+        unit->position.d.x = cr(path->nodes[path->index - 2].d.x, path->nodes[path->index - 1].d.x, path->nodes[path->index].d.x, path->nodes[path->index + 1].d.x, t);
+        unit->position.d.y = cr(path->nodes[path->index - 2].d.y, path->nodes[path->index - 1].d.y, path->nodes[path->index].d.y, path->nodes[path->index + 1].d.y, t);
     }
 }
 
@@ -96,7 +96,7 @@ static void updateSatisfaction(DK_Unit* unit) {
 
     // Update job satisfaction values. Remember if there are any jobs we're not
     // satisfied with (except the one we're currently doing).
-    unsigned char someUnsatisfied = 0;
+    bool someUnsatisfied = false;
     for (unsigned int jobType; jobType < DK_JOB_TYPE_COUNT; ++jobType) {
         // Check if the unit even does this job.
         if (!unit->meta->jobs[jobType]) {
@@ -122,7 +122,7 @@ static void updateSatisfaction(DK_Unit* unit) {
         // Are we unsatisfied with this job (and it's not the current one)?
         if (ai->jobType != jobType &&
                 state->jobSatisfaction[jobType] < meta->jobs[jobType].unsatisfiedThreshold) {
-            someUnsatisfied = 1;
+            someUnsatisfied = true;
         }
     }
 
@@ -162,7 +162,7 @@ static void findJob(DK_Unit* unit) {
     float bestWeightedDistance = FLT_MAX;
 
     // Do a quick scan to see if the unit has any unsatisfied job desires.
-    unsigned char someUnsatisfied = 0;
+    bool someUnsatisfied = false;
     for (unsigned int jobType = 0; jobType < DK_JOB_TYPE_COUNT; ++jobType) {
         // Check if the unit can handle this job type.
         if (!unit->meta->jobs[jobType]) {
@@ -171,7 +171,7 @@ static void findJob(DK_Unit* unit) {
 
         // Check if the unit is unsatisfied.
         if (state->jobSatisfaction[jobType] < meta->jobs[jobType].unsatisfiedThreshold) {
-            someUnsatisfied = 1;
+            someUnsatisfied = true;
         }
     }
 
@@ -223,7 +223,7 @@ static void findJob(DK_Unit* unit) {
             ai->jobType = bestJobType;
             ai->jobInfo = bestJob;
             ai->delay = 0;
-            ai->shouldCancel = 0;
+            ai->shouldCancel = false;
         }
 
         // We found work, reserve it for ourself.
@@ -248,25 +248,25 @@ static int moveTo(const DK_Unit* unit, const vec2* position) {
         // extend the path in the direction of the last two
         // nodes before that end.
         {
-            const float dlx = pathing->nodes[1].x - pathing->nodes[2].x;
-            const float dly = pathing->nodes[1].y - pathing->nodes[2].y;
+            const float dlx = pathing->nodes[1].d.x - pathing->nodes[2].d.x;
+            const float dly = pathing->nodes[1].d.y - pathing->nodes[2].d.y;
             const float l = sqrtf(dlx * dlx + dly * dly);
-            pathing->nodes[0].x = pathing->nodes[1].x;
-            pathing->nodes[0].y = pathing->nodes[1].y;
+            pathing->nodes[0].d.x = pathing->nodes[1].d.x;
+            pathing->nodes[0].d.y = pathing->nodes[1].d.y;
             if (l > 0) {
-                pathing->nodes[0].x += dlx / l;
-                pathing->nodes[0].y += dly / l;
+                pathing->nodes[0].d.x += dlx / l;
+                pathing->nodes[0].d.y += dly / l;
             }
         }
         {
-            const float dlx = pathing->nodes[depth].x - pathing->nodes[depth - 1].x;
-            const float dly = pathing->nodes[depth].y - pathing->nodes[depth - 1].y;
+            const float dlx = pathing->nodes[depth].d.x - pathing->nodes[depth - 1].d.x;
+            const float dly = pathing->nodes[depth].d.y - pathing->nodes[depth - 1].d.y;
             const float l = sqrtf(dlx * dlx + dly * dly);
-            pathing->nodes[depth + 1].x = pathing->nodes[depth].x;
-            pathing->nodes[depth + 1].y = pathing->nodes[depth].y;
+            pathing->nodes[depth + 1].d.x = pathing->nodes[depth].d.x;
+            pathing->nodes[depth + 1].d.y = pathing->nodes[depth].d.y;
             if (l > 0) {
-                pathing->nodes[depth + 1].x += dlx / l;
-                pathing->nodes[depth + 1].y += dly / l;
+                pathing->nodes[depth + 1].d.x += dlx / l;
+                pathing->nodes[depth + 1].d.y += dly / l;
             }
         }
 

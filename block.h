@@ -39,13 +39,13 @@ extern "C" {
 
     DK_BlockLevel DK_GetBlockLevel(const DK_Block* block);
 
-    char DK_IsBlockPassable(const DK_Block* block);
+    bool DK_IsBlockPassable(const DK_Block* block);
 
-    char DK_IsBlockPassableBy(const DK_Block* block, const DK_Unit* unit);
+    bool DK_IsBlockPassableBy(const DK_Block* block, const DK_Unit* unit);
 
-    char DK_IsBlockDestructible(const DK_Block* block);
+    bool DK_IsBlockDestructible(const DK_Block* block);
 
-    char DK_IsBlockConvertible(const DK_Block* block);
+    bool DK_IsBlockConvertible(const DK_Block* block);
 
 #ifdef	__cplusplus
 }

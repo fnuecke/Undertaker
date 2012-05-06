@@ -12,11 +12,10 @@
 extern "C" {
 #endif
 
+    /** Signature of supported methods */
     typedef void(*callback)(void);
 
-    /**
-     * The data structure used to track the callback list.
-     */
+    /** The data structure used to track the callback list */
     typedef struct Callbacks Callbacks;
 
     /**

@@ -4,10 +4,10 @@
 #include "camera.h"
 #include "config.h"
 #include "cursor.h"
+#include "events.h"
 #include "vmath.h"
 #include "graphics.h"
 #include "update.h"
-#include "render.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
