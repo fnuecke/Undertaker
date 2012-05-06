@@ -1,14 +1,19 @@
+#include <string.h>
+
 #include "block.h"
 #include "map.h"
 #include "map_loader.h"
 #include "textures.h"
+#include "units_meta.h"
 
 static bool isLoading = false;
 
 static const char* rock = "rock";
+static const char* imp = "imp";
 
 static void onMapSizeChange(void) {
-    DK_BlockMeta m;
+    DK_BlockMeta bm;
+    DK_UnitMeta um;
 
     if (!isLoading) {
         return;
@@ -16,16 +21,21 @@ static void onMapSizeChange(void) {
 
     DK_UnloadTextures();
 
-    m.becomes = 0;
-    m.name = rock;
-    m.durability = 0;
-    m.gold = 0;
-    m.id = 0;
-    m.level = DK_BLOCK_LEVEL_HIGH;
-    m.passability = 0;
-    m.strength = 0;
+    bm.name = rock;
+    bm.durability = 0;
+    bm.strength = 0;
+    bm.gold = 0;
+    bm.passability = 1;
+    bm.level = DK_BLOCK_LEVEL_HIGH;
+    bm.becomes = 0;
 
-    DK_AddBlockMeta(&m);
+    DK_AddBlockMeta(&bm);
+
+    memset(&um, 0, sizeof (DK_UnitMeta));
+    um.name = imp;
+    um.passability = 1;
+
+    DK_AddUnitMeta(&um);
 
     DK_GL_GenerateTextures();
 }

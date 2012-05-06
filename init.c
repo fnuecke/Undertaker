@@ -7,6 +7,7 @@
 #include "block.h"
 #include "camera.h"
 #include "config.h"
+#include "graphics.h"
 #include "init.h"
 #include "map.h"
 #include "map_loader.h"
@@ -89,6 +90,8 @@ void DK_Init(void) {
     fprintf(DK_log_target, "INFO: Done initializing OpenGL.\n");
 
     // Set up event bindings.
+    DK_InitGraphics();
+
     DK_InitBlockMeta();
     DK_InitRoomMeta();
     DK_InitUnitMeta();

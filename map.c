@@ -105,11 +105,10 @@ static struct Vertex {
 } *gVertices = 0;
 
 /** Array and buffer IDs */
-static GLuint gVertexArrayID = 0;
 static GLuint gVertexBufferID = 0;
 
 /** Are our buffers initialized, i.e. should we push changes to the GPU? */
-static char gShouldUpdateVertexByffer = 0;
+static bool gShouldUpdateVertexBuffer = false;
 
 /** Number of vertices in x and y direction */
 static unsigned int gVerticesPerDimension = 0;
@@ -303,7 +302,7 @@ static void updateVerticesAt(int x, int y) {
 #endif
 
         // Update data on GPU?
-        if (gShouldUpdateVertexByffer) {
+        if (gShouldUpdateVertexBuffer) {
             glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferID);
             glBufferSubData(GL_ARRAY_BUFFER, idx * sizeof (struct Vertex), sizeof (vec3), v);
 
@@ -419,7 +418,7 @@ static void updateNormalsAt(int x, int y) {
         }
 
         // Update data on GPU?
-        if (gShouldUpdateVertexByffer) {
+        if (gShouldUpdateVertexBuffer) {
             glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferID);
             glBufferSubData(GL_ARRAY_BUFFER, idx * sizeof (struct Vertex) + sizeof (vec3), sizeof (vec3) * 5, vert->normal);
 
@@ -909,9 +908,7 @@ static void onRender(void) {
             DK_Block* block = DK_GetBlockAt(x, y);
 
             // Mark for select mode, coordinates of that block.
-            if (gIsPicking) {
-                glLoadName(((unsigned short) y << 16) | (unsigned short) x);
-            }
+            glLoadName(((unsigned short) y << 16) | (unsigned short) x);
 
             // Get block info.
             if (block) {
@@ -919,7 +916,7 @@ static void onRender(void) {
                 owner = block->owner;
             } else {
                 // Out of bounds, use default block type.
-                meta = DK_GetBlockMeta(0);
+                meta = DK_GetBlockMeta(1);
                 owner = DK_PLAYER_NONE;
             }
 
@@ -1099,7 +1096,7 @@ void DK_SetMapSize(unsigned short size) {
     for (unsigned int x = 0; x < size; ++x) {
         for (unsigned int y = 0; y < size; ++y) {
             DK_Block* block = DK_GetBlockAt(x, y);
-            block->meta = DK_GetBlockMeta(0);
+            block->meta = DK_GetBlockMeta(1);
             block->durability = block->meta->durability;
             block->strength = block->meta->strength;
             block->gold = block->meta->gold;
@@ -1167,31 +1164,25 @@ unsigned short DK_GetMapSize(void) {
 }
 
 void DK_GL_GenerateMap(void) {
-    glGenVertexArrays(1, &gVertexArrayID);
-    glBindVertexArray(gVertexArrayID);
     if (!gVertexBufferID) {
         glGenBuffers(1, &gVertexBufferID);
     }
     glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferID);
 
     glBufferData(GL_ARRAY_BUFFER, gVerticesPerDimension * gVerticesPerDimension * 5 * sizeof (struct Vertex), gVertices, GL_DYNAMIC_DRAW);
-    gShouldUpdateVertexByffer = 1;
+    gShouldUpdateVertexBuffer = 1;
 
     EXIT_ON_OPENGL_ERROR();
 }
 
 void DK_GL_DeleteMap(void) {
-    if (gVertexArrayID) {
-        glDeleteVertexArrays(1, &gVertexArrayID);
-        gVertexArrayID = 0;
-    }
     if (gVertexBufferID) {
         glDeleteBuffers(1, &gVertexBufferID);
         gVertexBufferID = 0;
 
         EXIT_ON_OPENGL_ERROR();
     }
-    gShouldUpdateVertexByffer = 0;
+    gShouldUpdateVertexBuffer = 0;
 }
 
 void DK_InitMap(void) {

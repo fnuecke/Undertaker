@@ -865,6 +865,8 @@ void DK_Render(void) {
     if (DK_d_draw_deferred_shader && gGeometryShader.program && gLightShader.program) {
         geometryPass();
         gIsGeometryPass = 1;
+        // Push current matrix state to shader.
+        onModelMatrixChanged();
     }
 
     // Render game components.

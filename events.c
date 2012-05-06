@@ -49,7 +49,7 @@ static void key_down(const SDL_Event* e) {
             vec2 p = {
                 {5, 10}
             };
-            DK_AddUnit(DK_PLAYER_ONE, DK_GetUnitMeta(0), &p);
+            DK_AddUnit(DK_PLAYER_ONE, DK_GetUnitMeta(1), &p);
             break;
         }
         case SDLK_F5:

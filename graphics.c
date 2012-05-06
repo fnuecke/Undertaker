@@ -47,7 +47,7 @@ static struct {
 
     /** Model transform stack depth */
     unsigned int model;
-} stack = {MATRIX_STACK_SIZE - 1, MATRIX_STACK_SIZE - 1, MATRIX_STACK_SIZE - 1};
+} stack;
 
 /** Methods to call when the model matrix changes */
 static Callbacks* gModelMatrixChangedCallbacks = 0;
@@ -408,8 +408,24 @@ int DK_UnProject(float winx, float winy, float winz,
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Events
+// Init / Events
 ///////////////////////////////////////////////////////////////////////////////
+
+void DK_InitGraphics(void) {
+    for (unsigned int i = 0; i < MATRIX_STACK_SIZE; ++i) {
+        matrix.model[i] = IDENTITY_MATRIX4;
+        matrix.view[i] = IDENTITY_MATRIX4;
+        matrix.projection[i] = IDENTITY_MATRIX4;
+    }
+    
+    matrix.mv = IDENTITY_MATRIX4;
+    matrix.mvp = IDENTITY_MATRIX4;
+    matrix.normal = IDENTITY_MATRIX3;
+    
+    stack.model = MATRIX_STACK_SIZE - 1;
+    stack.projection = MATRIX_STACK_SIZE - 1;
+    stack.view = MATRIX_STACK_SIZE - 1;
+}
 
 void DK_OnModelMatrixChanged(callback method) {
     if (!gModelMatrixChangedCallbacks) {

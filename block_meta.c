@@ -46,8 +46,8 @@ static void onMapChange(void) {
 }
 
 const DK_BlockMeta* DK_GetBlockMeta(unsigned int id) {
-    if (id < gMetaCount) {
-        return &gMetas[id];
+    if (id > 0 && id - 1 < gMetaCount) {
+        return &gMetas[id - 1];
     }
     return NULL;
 }
@@ -68,6 +68,7 @@ void DK_AddBlockMeta(const DK_BlockMeta* meta) {
     // Create new entry and copy data.
     DK_BlockMeta* m = getNextFreeEntry();
     *m = *meta;
+    m->id = gMetaCount;
 
     // Clear.
     memset(m->textures, 0, DK_BLOCK_LEVEL_COUNT * DK_BLOCK_TEXTURE_COUNT * sizeof (DK_TextureID));

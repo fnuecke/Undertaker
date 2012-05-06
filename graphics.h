@@ -72,6 +72,11 @@ extern "C" {
     ///////////////////////////////////////////////////////////////////////////
 
     /**
+     * Initializes the graphics environment.
+     */
+    void DK_InitGraphics(void);
+
+    /**
      * Register a method to be notified whenever the model matrix changes.
      * @param method the method to call when the model matrix changes.
      */

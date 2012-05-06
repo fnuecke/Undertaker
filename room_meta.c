@@ -21,8 +21,8 @@ static void onMapChange(void) {
 }
 
 const DK_RoomMeta* DK_GetRoomMeta(unsigned int id) {
-    if (id < gMetaCount) {
-        return &gMetas[id];
+    if (id > 0 && id - 1 < gMetaCount) {
+        return &gMetas[id - 1];
     }
     return NULL;
 }
@@ -40,6 +40,7 @@ void DK_AddRoomMeta(const DK_RoomMeta* meta) {
     // Create new entry and copy data.
     DK_RoomMeta* m = getNextFreeEntry();
     *m = *meta;
+    m->id = gMetaCount;
 }
 
 void DK_InitRoomMeta(void) {

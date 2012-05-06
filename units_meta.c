@@ -21,8 +21,8 @@ static void onMapChange(void) {
 }
 
 const DK_UnitMeta* DK_GetUnitMeta(unsigned int id) {
-    if (id < gMetaCount) {
-        return &gMetas[id];
+    if (id > 0 && id - 1 < gMetaCount) {
+        return &gMetas[id - 1];
     }
     return NULL;
 }
@@ -40,6 +40,7 @@ void DK_AddUnitMeta(const DK_UnitMeta* meta) {
     // Create new entry and copy data.
     DK_UnitMeta* m = getNextFreeEntry();
     *m = *meta;
+    m->id = gMetaCount;
 }
 
 void DK_InitUnitMeta(void) {
