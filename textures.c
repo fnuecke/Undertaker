@@ -85,7 +85,8 @@ static GLuint generateTexture(const SDL_Surface* surface) {
 
 GLuint DK_GetTexture(DK_TextureID textureId, unsigned int hash) {
     if (!DK_d_draw_test_texture && textureId > 0 && textureId - 1 < gTextureCount) {
-        return gTextures[textureId - 1].textureId[hash];
+        const Texture* texture = &gTextures[textureId - 1];
+        return texture->textureId[hash % texture->count];
     } else {
         return gTestTextureId;
     }
@@ -149,8 +150,10 @@ void DK_UnloadTextures(void) {
         free(texture->textureId);
         texture->textureId = 0;
     }
-    free(gTextures);
-    gTextures = 0;
+    if (gTextures) {
+        free(gTextures);
+        gTextures = 0;
+    }
     gTextureCount = 0;
     gTextureCapacity = 0;
 }

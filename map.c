@@ -1063,8 +1063,6 @@ static void onPreRender(void) {
 ///////////////////////////////////////////////////////////////////////////////
 
 void DK_SetMapSize(unsigned short size) {
-    unsigned int x, y, z;
-
     // Reallocate data only if the size changed.
     if (size != gMapSize) {
         // Free old map data.
@@ -1098,12 +1096,13 @@ void DK_SetMapSize(unsigned short size) {
     CB_Call(gMapSizeChangeCallbacks);
 
     // Initialize map data.
-    for (x = 0; x < size; ++x) {
-        for (y = 0; y < size; ++y) {
+    for (unsigned int x = 0; x < size; ++x) {
+        for (unsigned int y = 0; y < size; ++y) {
             DK_Block* block = DK_GetBlockAt(x, y);
             block->meta = DK_GetBlockMeta(0);
             block->durability = block->meta->durability;
             block->strength = block->meta->strength;
+            block->gold = block->meta->gold;
             block->room = NULL;
         }
     }
@@ -1111,12 +1110,12 @@ void DK_SetMapSize(unsigned short size) {
     // Initialize map model data.
 
     // Pass 1: set vertex positions.
-    for (x = 0; x < gVerticesPerDimension; ++x) {
-        for (y = 0; y < gVerticesPerDimension; ++y) {
+    for (unsigned int x = 0; x < gVerticesPerDimension; ++x) {
+        for (unsigned int y = 0; y < gVerticesPerDimension; ++y) {
             // Set actual vertex position, applying noise and such.
             updateVerticesAt(x, y);
 
-            for (z = 0; z < 5; ++z) {
+            for (unsigned int z = 0; z < 5; ++z) {
                 struct Vertex* v = &gVertices[fi(x, y, z)];
 
                 // Initialize normals to defaults (especially the border cases, i.e.
@@ -1154,8 +1153,8 @@ void DK_SetMapSize(unsigned short size) {
     }
 
     // Pass 2: compute normals.
-    for (x = 1; x < gVerticesPerDimension - 1; ++x) {
-        for (y = 1; y < gVerticesPerDimension - 1; ++y) {
+    for (unsigned int x = 1; x < gVerticesPerDimension - 1; ++x) {
+        for (unsigned int y = 1; y < gVerticesPerDimension - 1; ++y) {
             updateNormalsAt(x, y);
         }
     }
@@ -1172,10 +1171,8 @@ void DK_GL_GenerateMap(void) {
     glBindVertexArray(gVertexArrayID);
     if (!gVertexBufferID) {
         glGenBuffers(1, &gVertexBufferID);
-        glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferID);
-
-        EXIT_ON_OPENGL_ERROR();
     }
+    glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferID);
 
     glBufferData(GL_ARRAY_BUFFER, gVerticesPerDimension * gVerticesPerDimension * 5 * sizeof (struct Vertex), gVertices, GL_DYNAMIC_DRAW);
     gShouldUpdateVertexByffer = 1;

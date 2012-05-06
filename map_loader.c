@@ -26,6 +26,8 @@ static void onMapSizeChange(void) {
     m.strength = 0;
 
     DK_AddBlockMeta(&m);
+
+    DK_GL_GenerateTextures();
 }
 
 void DK_LoadMap(const char* filename) {

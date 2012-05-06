@@ -89,6 +89,12 @@ void DK_Init(void) {
     fprintf(DK_log_target, "INFO: Done initializing OpenGL.\n");
 
     // Set up event bindings.
+    DK_InitBlockMeta();
+    DK_InitRoomMeta();
+    DK_InitUnitMeta();
+
+    DK_InitMapLoader();
+
     DK_InitAStar();
     DK_InitCamera();
     DK_InitCursor();
@@ -96,12 +102,6 @@ void DK_Init(void) {
     DK_InitUnits();
     DK_InitMap();
     DK_InitJobs();
-
-    DK_InitBlockMeta();
-    DK_InitRoomMeta();
-    DK_InitUnitMeta();
-
-    DK_InitMapLoader();
 
     fprintf(DK_log_target, "INFO: Done initializing internal hooks.\n");
 
