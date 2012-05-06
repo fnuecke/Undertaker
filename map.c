@@ -923,7 +923,7 @@ static void onRender(void) {
 
             // Set up material.
             DK_InitMaterial(&gMaterial);
-            pushTexture(x, y, meta->level, meta->textures[meta->level][DK_BLOCK_TEXTURE_TOP]);
+            pushTexture(x, y, meta->level, meta->texturesTop[DK_BLOCK_TEXTURE_TOP]);
             if (owner != DK_PLAYER_NONE) {
                 // Check surroundings for blocks of the same type, to know which
                 // overlay to show. We first check the four direct neighbors
@@ -976,7 +976,7 @@ static void onRender(void) {
                 }
 
                 // Finally, the marker of the player's color on top of it all.
-                pushTexture(x, y, meta->level, meta->textures[meta->level][DK_BLOCK_TEXTURE_TOP_OWNED_OVERLAY]);
+                pushTexture(x, y, meta->level, meta->texturesTop[DK_BLOCK_TEXTURE_TOP_OWNED_OVERLAY]);
             }
 
             // Render top element.
@@ -995,7 +995,7 @@ static void onRender(void) {
                 if (meta->level > level) {
                     // Set up material.
                     DK_InitMaterial(&gMaterial);
-                    pushTexture(x, y + 1, level, meta->textures[level][DK_BLOCK_TEXTURE_SIDE]);
+                    pushTexture(x, y + 1, level, meta->texturesSide[level][DK_BLOCK_TEXTURE_SIDE]);
 
                     // Render.
                     drawSouth(x, y + 1, (level - 1) * 2);
@@ -1012,7 +1012,7 @@ static void onRender(void) {
                 if (meta->level > level) {
                     // Set up material.
                     DK_InitMaterial(&gMaterial);
-                    pushTexture(x, y - 1, level, meta->textures[level][DK_BLOCK_TEXTURE_SIDE]);
+                    pushTexture(x, y - 1, level, meta->texturesSide[level][DK_BLOCK_TEXTURE_SIDE]);
 
                     // Render.
                     drawNorth(x, y, (level - 1) * 2);
@@ -1029,7 +1029,7 @@ static void onRender(void) {
                 if (meta->level > level) {
                     // Set up material.
                     DK_InitMaterial(&gMaterial);
-                    pushTexture(x - 1, y, level, meta->textures[level][DK_BLOCK_TEXTURE_SIDE]);
+                    pushTexture(x - 1, y, level, meta->texturesSide[level][DK_BLOCK_TEXTURE_SIDE]);
 
                     // Render.
                     drawEast(x, y, (level - 1) * 2);
@@ -1046,7 +1046,7 @@ static void onRender(void) {
                 if (meta->level > level) {
                     // Set up material.
                     DK_InitMaterial(&gMaterial);
-                    pushTexture(x + 1, y, level, meta->textures[level][DK_BLOCK_TEXTURE_SIDE]);
+                    pushTexture(x + 1, y, level, meta->texturesSide[level][DK_BLOCK_TEXTURE_SIDE]);
 
                     // Render.
                     drawWest(x + 1, y, (level - 1) * 2);
@@ -1068,9 +1068,9 @@ static void onPreRender(void) {
 
     SDL_GetMouseState(&mouse_x, &mouse_y);
 
-    gIsPicking = 1;
+    gIsPicking = true;
     selected_name = DK_Pick(mouse_x, DK_resolution_y - mouse_y, &onRender);
-    gIsPicking = 0;
+    gIsPicking = false;
 
     gCursorX = (short) (selected_name & 0xFFFF);
     gCursorY = (short) (selected_name >> 16);

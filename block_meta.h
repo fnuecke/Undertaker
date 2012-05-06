@@ -41,7 +41,8 @@ extern "C" {
         DK_BlockLevel level;
 
         /** IDs of textures to use for rendering at different levels */
-        DK_TextureID textures[DK_BLOCK_LEVEL_COUNT][DK_BLOCK_TEXTURE_COUNT];
+        DK_TextureID texturesTop[DK_BLOCK_TEXTURE_TOP_COUNT];
+        DK_TextureID texturesSide[DK_BLOCK_LEVEL_COUNT][DK_BLOCK_TEXTURE_SIDE_COUNT];
     };
 
     META_header(DK_BlockMeta, Block)

@@ -119,7 +119,9 @@ DK_TextureID DK_LoadTexture(const char* basename) {
         ++texture.count;
     }
 
-    fprintf(DK_log_target, "Found %d variations of texture '%s'.\n", texture.count, basename);
+    if (texture.count == 0) {
+        fprintf(DK_log_target, "WARNING: Found no variations of texture '%s'.\n", basename);
+    }
 
     if (texture.count > 0) {
         // If we have any entries at all, save this texture type.

@@ -66,9 +66,7 @@ extern "C" {
         DK_BLOCK_LEVEL_COUNT
     } DK_BlockLevel;
 
-    typedef enum DK_BlockTexture {
-        DK_BLOCK_TEXTURE_SIDE,
-        DK_BLOCK_TEXTURE_SIDE_OWNED_OVERLAY,
+    typedef enum DK_BlockTextureTop {
         DK_BLOCK_TEXTURE_TOP,
         DK_BLOCK_TEXTURE_TOP_N,
         DK_BLOCK_TEXTURE_TOP_NE,
@@ -80,9 +78,14 @@ extern "C" {
         DK_BLOCK_TEXTURE_TOP_NESW_CORNER,
         DK_BLOCK_TEXTURE_TOP_NESWN_CORNER,
         DK_BLOCK_TEXTURE_TOP_OWNED_OVERLAY,
+        DK_BLOCK_TEXTURE_TOP_COUNT
+    } DK_BlockTextureTop;
 
-        DK_BLOCK_TEXTURE_COUNT
-    } DK_BlockTexture;
+    typedef enum DK_BlockTextureSide {
+        DK_BLOCK_TEXTURE_SIDE,
+        DK_BLOCK_TEXTURE_SIDE_OWNED_OVERLAY,
+        DK_BLOCK_TEXTURE_SIDE_COUNT
+    } DK_BlockTextureSide;
 
     /** Possible jobs */
     typedef enum DK_JobType {
