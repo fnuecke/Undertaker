@@ -1,7 +1,7 @@
 #include "bitset.h"
+#include "block.h"
 #include "jobs.h"
 #include "map.h"
-#include "players.h"
 #include "selection.h"
 #include "update.h"
 
@@ -96,10 +96,7 @@ DK_Selection DK_GetSelection(void) {
 
 int DK_IsBlockSelectable(DK_Player player, int x, int y) {
     const DK_Block* block = DK_GetBlockAt(x, y);
-    return block &&
-            (block->type == DK_BLOCK_DIRT ||
-            block->type == DK_BLOCK_GOLD ||
-            block->type == DK_BLOCK_GEM) &&
+    return DK_IsBlockDestructible(block) &&
             (block->owner == DK_PLAYER_NONE || block->owner == player);
 }
 
@@ -169,7 +166,7 @@ int DK_SelectBlock(DK_Player player, int x, int y) {
         // Only update if something changed.
         if (!BS_Test(gPlayerSelection[player], idx)) {
             BS_Set(gPlayerSelection[player], idx);
-            DK_FindJobs(player, x, y);
+            DK_UpdateJobsForBlock(player, x, y);
             return 1;
         }
     }
@@ -183,7 +180,7 @@ int DK_DeselectBlock(DK_Player player, int x, int y) {
         // Only update if something changed.
         if (BS_Test(gPlayerSelection[player], idx)) {
             BS_Unset(gPlayerSelection[player], idx);
-            DK_FindJobs(player, x, y);
+            DK_UpdateJobsForBlock(player, x, y);
             return 1;
         }
     }
@@ -196,5 +193,5 @@ int DK_DeselectBlock(DK_Player player, int x, int y) {
 
 void DK_InitSelection(void) {
     DK_OnUpdate(onUpdate);
-    DK_OnMapChange(onMapChange);
+    DK_OnMapSizeChange(onMapChange);
 }

@@ -8,7 +8,7 @@
 #ifndef UNITS_H
 #define	UNITS_H
 
-#include "players.h"
+#include "units_meta.h"
 #include "vmath.h"
 
 #ifdef	__cplusplus
@@ -19,51 +19,67 @@ extern "C" {
     // Types
     ///////////////////////////////////////////////////////////////////////////
 
-    /**
-     * Possible unit types.
-     */
-    typedef enum {
-        DK_UNIT_IMP,
-        DK_UNIT_WIZARD
-    } DK_UnitType;
+    /** Holds information on unit satisfaction */
+    struct DK_UnitSatisfaction {
+        /** How satisfied the unit is with each job */
+        float jobSatisfaction[DK_JOB_TYPE_COUNT];
 
-    typedef struct DK_Unit DK_Unit;
+        /** How satisfied the unit is from (not) being slapped */
+        float slapDelta;
+
+        /** How satisfied the unit is from (not) being held in the hand */
+        float inHandDelta;
+    };
+
+    /** Contains data on a single unit instance */
+    struct DK_Unit {
+        /** Info on the unit type */
+        const DK_UnitMeta* meta;
+
+        /** The player this unit belongs to */
+        DK_Player owner;
+
+        /** Current position of the unit */
+        vec2 position;
+
+        /** Unit satisfaction information */
+        DK_UnitSatisfaction satisfaction;
+
+        /** Internal AI state of the unit */
+        DK_AI_Info* ai;
+    };
 
     ///////////////////////////////////////////////////////////////////////////
     // Accessors
     ///////////////////////////////////////////////////////////////////////////
-
+    
     /**
-     * Get the current position of the specified unit, in map space.
-     * @param unit the unit to get the position for.
+     * Tells if a unit is currently moving.
+     * @param unit the unit to check for.
+     * @return whether the unit is currently moving (1) or not (0).
      */
-    const vec2* DK_GetUnitPosition(const DK_Unit* unit);
-
-    /**
-     * Get the owner of the specified unit.
-     * @param unit the unit to get the owner of.
-     * @return the owner of that unit.
-     */
-    DK_Player DK_GetUnitOwner(const DK_Unit* unit);
-
-    /**
-     * Test whether the specified unit is immune to lava.
-     */
-    int DK_IsUnitImmuneToLava(const DK_Unit* unit);
-
+    bool DK_IsUnitMoving(const DK_Unit* unit);
+    
     ///////////////////////////////////////////////////////////////////////////
     // Modifiers
     ///////////////////////////////////////////////////////////////////////////
+    
+    /**
+     * Add a unit for a player at the specified coordinates.
+     * @param player the player for whom to create the unit.
+     * @param type the unit-type to create.
+     * @param position the position at which to spawn the unit, in map space.
+     * @return whether adding was successful (1) or not(0).
+     */
+    int DK_AddUnit(DK_Player player, const DK_UnitMeta* type, const vec2* position);
 
     /**
-     * Add a unit for a player at the specified block coordinates.
+     * Make a unit cancel any job of the specified type. This will delete all
+     * entries of that job type from the unit's AI stack.
+     * @param unit the unit that should stop the job.
+     * @param jobType the type of job to stop.
      */
-    int DK_AddUnit(DK_Player player, DK_UnitType type, unsigned short x, unsigned short y);
-
-    /**
-     * Make a unit (imp) cancel it's current job.
-     */
-    void DK_CancelJob(DK_Unit* unit);
+    void DK_StopJob(DK_Unit* unit, DK_JobType jobType);
 
     ///////////////////////////////////////////////////////////////////////////
     // Initialization

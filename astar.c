@@ -6,6 +6,7 @@
 
 #include "astar.h"
 #include "bitset.h"
+#include "block.h"
 #include "config.h"
 #include "map.h"
 
@@ -29,7 +30,7 @@ typedef struct {
 
     /** The node that came before this one in the path it is part of */
     unsigned int came_from;
-} AStar_Node;
+} PathNode;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
@@ -39,38 +40,38 @@ typedef struct {
 static const float M_SQRT2 = 1.41421356237309504880f;
 
 /** Number of cells in the grid used for our A* algorithm */
-static int a_star_grid_size = 0;
+static int gGridSize = 0;
 
 /** Bitset for quick lookup of closed set in A* */
-static char* a_star_closed_set = 0;
+static char* gClosedSetLookup = 0;
 
 /** Re-used waypoint sets for A* search */
-static AStar_Node* open = 0;
-static AStar_Node* closed = 0;
+static PathNode* gOpenSet = 0;
+static PathNode* gClosedSet = 0;
 
 /** Capacity of A* node sets */
-static unsigned int open_capacity = 0;
-static unsigned int closed_capacity = 0;
+static unsigned int gOpenSetCapacity = 0;
+static unsigned int gClosedSetCapacity = 0;
 
 /** Number of entries used in the open and closed set */
-static unsigned int open_count = 0;
-static unsigned int closed_count = 0;
+static unsigned int gOpenSetCount = 0;
+static unsigned int gClosedSetCount = 0;
 
 /** The unit we're currently checking for */
-static const DK_Unit* current_unit;
+static const DK_Unit* gUnit;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Allocation
 ///////////////////////////////////////////////////////////////////////////////
 
 /** Get a new node for the open queue, at the specified sort key */
-static AStar_Node* get_open(float key) {
-    unsigned int low = 0, high = open_count;
+static PathNode* newOpenNode(float key) {
+    unsigned int low = 0, high = gOpenSetCount;
 
     // Ensure we have the capacity to add the node.
-    if (open_count + 1 >= open_capacity) {
-        open_capacity = DK_ASTAR_CAPACITY_GROWTH(open_capacity);
-        if (!(open = realloc(open, open_capacity * sizeof (AStar_Node)))) {
+    if (gOpenSetCount + 1 >= gOpenSetCapacity) {
+        gOpenSetCapacity = DK_ASTAR_CAPACITY_GROWTH(gOpenSetCapacity);
+        if (!(gOpenSet = realloc(gOpenSet, gOpenSetCapacity * sizeof (PathNode)))) {
             fprintf(stderr, "Out of memory while resizing A* open queue.\n");
             exit(EXIT_FAILURE);
         }
@@ -80,7 +81,7 @@ static AStar_Node* get_open(float key) {
     // with the lowest score is first.
     while (high > low) {
         unsigned mid = (low + high) / 2;
-        if (open[mid].fscore < key) {
+        if (gOpenSet[mid].fscore < key) {
             low = mid + 1;
         } else {
             high = mid;
@@ -88,40 +89,40 @@ static AStar_Node* get_open(float key) {
     }
 
     // Move everything above one up, if necessary.
-    if (low < open_count) {
-        memmove(&open[low + 1], &open[low], (open_count - low) * sizeof (AStar_Node));
+    if (low < gOpenSetCount) {
+        memmove(&gOpenSet[low + 1], &gOpenSet[low], (gOpenSetCount - low) * sizeof (PathNode));
     }
 
     // Remember there's one more now.
-    ++open_count;
+    ++gOpenSetCount;
 
     // Return it.
-    return &open[low];
+    return &gOpenSet[low];
 }
 
 /** Move the first entry in the open queue to the closed set and return it */
-static AStar_Node* pop_to_closed(void) {
+static PathNode* popOpenNodeToClosedSet(void) {
     // Ensure we have the capacity to add the node.
-    if (closed_count + 1 >= closed_capacity) {
-        closed_capacity = DK_ASTAR_CAPACITY_GROWTH(closed_capacity);
-        if (!(closed = realloc(closed, closed_capacity * sizeof (AStar_Node)))) {
+    if (gClosedSetCount + 1 >= gClosedSetCapacity) {
+        gClosedSetCapacity = DK_ASTAR_CAPACITY_GROWTH(gClosedSetCapacity);
+        if (!(gClosedSet = realloc(gClosedSet, gClosedSetCapacity * sizeof (PathNode)))) {
             fprintf(stderr, "Out of memory while resizing A* closed set.\n");
             exit(EXIT_FAILURE);
         }
     }
 
     // Copy it over.
-    closed[closed_count] = open[0];
+    gClosedSet[gClosedSetCount] = gOpenSet[0];
 
     // Mark as closed in our bitset.
-    BS_Set(a_star_closed_set, open[0].y * a_star_grid_size + open[0].x);
+    BS_Set(gClosedSetLookup, gOpenSet[0].y * gGridSize + gOpenSet[0].x);
 
     // Shift open list to the left to remove first entry.
-    --open_count;
-    memmove(&open[0], &open[1], open_count * sizeof (AStar_Node));
+    --gOpenSetCount;
+    memmove(&gOpenSet[0], &gOpenSet[1], gOpenSetCount * sizeof (PathNode));
 
     // Return the copied node.
-    return &closed[closed_count++];
+    return &gClosedSet[gClosedSetCount++];
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -133,51 +134,50 @@ inline static unsigned int clamp(int coordinate) {
     if (coordinate < 0) {
         return 0;
     }
-    if (coordinate >= a_star_grid_size) {
-        return a_star_grid_size - 1;
+    if (coordinate >= gGridSize) {
+        return gGridSize - 1;
     }
     return coordinate;
 }
 
 /** Computes actual path costs */
-inline static float h(unsigned int from_x, unsigned int from_y, unsigned int to_x, unsigned int to_y) {
-    const int dx = to_x - from_x;
-    const int dy = to_y - from_y;
+inline static float h(unsigned int fromX, unsigned int fromY, unsigned int toX, unsigned int toY) {
+    const int dx = toX - fromX;
+    const int dy = toY - fromY;
     return sqrtf(dx * dx + dy * dy);
 }
 
 /** Computes the heuristic */
-inline static float f(unsigned int node_x, unsigned int node_y, unsigned int goal_x, unsigned int goal_y) {
-    const unsigned int dx = abs(node_x - goal_x);
-    const unsigned int dy = abs(node_y - goal_y);
+inline static float f(unsigned int x, unsigned int y, unsigned int goalX, unsigned int goalY) {
+    const unsigned int dx = abs(x - goalX);
+    const unsigned int dy = abs(y - goalY);
     return M_SQRT2 * (dx > dy ? dx : dy);
 }
 
 /** Converts local coordinates to map ones */
-inline static float to_map_space(unsigned int node_coordinate) {
-    return (node_coordinate / (float) DK_ASTAR_GRANULARITY + (0.5f / DK_ASTAR_GRANULARITY));
+inline static float toMapSpace(unsigned int coordinate) {
+    return (coordinate / (float) DK_ASTAR_GRANULARITY + (0.5f / DK_ASTAR_GRANULARITY));
 }
 
 /** Checks if a block is passable, using local coordinates */
-inline static int is_passable(unsigned int node_x, unsigned int node_y) {
-    return DK_IsBlockPassable(DK_GetBlockAt(node_x / DK_ASTAR_GRANULARITY, node_y / DK_ASTAR_GRANULARITY), current_unit);
+inline static int isPassable(unsigned int x, unsigned int y) {
+    return DK_IsBlockPassableBy(DK_GetBlockAt(x / DK_ASTAR_GRANULARITY, y / DK_ASTAR_GRANULARITY), gUnit);
 }
 
 /** Tests if a neighbor should be skipped due to it already having a better score */
-static int should_skip(unsigned int x, unsigned int y, float gscore) {
+static int shouldSkip(unsigned int x, unsigned int y, float gscore) {
     // Try to find the neighbor.
-    unsigned int i;
-    for (i = 0; i < open_count; ++i) {
-        if (open[i].x == x && open[i].y == y) {
+    for (unsigned int i = 0; i < gOpenSetCount; ++i) {
+        if (gOpenSet[i].x == x && gOpenSet[i].y == y) {
             // Neighbor is already in open list.
-            if (open[i].gscore <= gscore) {
+            if (gOpenSet[i].gscore <= gscore) {
                 // Skip it, it has a better score.
                 return 1;
             }
             // Otherwise we remove it from the list so that it may be
             // re-inserted.
-            --open_count;
-            memmove(&open[i], &open[i + 1], (open_count - i) * sizeof (AStar_Node));
+            --gOpenSetCount;
+            memmove(&gOpenSet[i], &gOpenSet[i + 1], (gOpenSetCount - i) * sizeof (PathNode));
             return 0;
         }
     }
@@ -197,22 +197,22 @@ static int should_skip(unsigned int x, unsigned int y, float gscore) {
  * @param gy goal y coordinate (so we don't jump past it).
  * @return whether the jump was successful or not.
  */
-static int jps(int* jx, int* jy, int dx, int dy, int sx, int sy, unsigned int gx, unsigned int gy) {
+static int jumpPointSearch(int* jx, int* jy, int dx, int dy, int sx, int sy, unsigned int gx, unsigned int gy) {
     // Don't go out of bounds.
-    if (sx < 0 || sx >= a_star_grid_size ||
-            sy < 0 || sy >= a_star_grid_size) {
+    if (sx < 0 || sx >= gGridSize ||
+            sy < 0 || sy >= gGridSize) {
         return 0;
     }
 
     // If we already handled this one, skip it.
-    if (BS_Test(a_star_closed_set, sy * a_star_grid_size + sx)) {
+    if (BS_Test(gClosedSetLookup, sy * gGridSize + sx)) {
         return 0;
     }
 
     // Only continue if this block is passable and the two diagonal ones are.
     // Otherwise we hit an obstacle and thus failed.
-    if (!is_passable(sx, sy) ||
-            (!is_passable(sx, sy - dy) && !is_passable(sx - dx, sy))) {
+    if (!isPassable(sx, sy) ||
+            (!isPassable(sx, sy - dy) && !isPassable(sx - dx, sy))) {
         return 0;
     }
 
@@ -234,15 +234,15 @@ static int jps(int* jx, int* jy, int dx, int dy, int sx, int sy, unsigned int gx
             // If we move along the x axis...
             ((dx &&
             // ... and there's an obstacle above, blocking a passable tile...
-            ((!is_passable(sx, sy - 1) && is_passable(sx + dx, sy - 1)) ||
+            ((!isPassable(sx, sy - 1) && isPassable(sx + dx, sy - 1)) ||
             // ... or below us, blocking a passable tile...
-            (!is_passable(sx, sy + 1) && is_passable(sx + dx, sy + 1)))) ||
+            (!isPassable(sx, sy + 1) && isPassable(sx + dx, sy + 1)))) ||
             // ... or we're moving along the y axis...
             (dy &&
             // ... and there's an obstacle to the left, blocking a passable tile...
-            ((!is_passable(sx - 1, sy) && is_passable(sx - 1, sy + dy)) ||
+            ((!isPassable(sx - 1, sy) && isPassable(sx - 1, sy + dy)) ||
             // ... or to the right of us, blocking a passable tile...
-            (!is_passable(sx + 1, sy) && is_passable(sx + 1, sy + dy)))))) {
+            (!isPassable(sx + 1, sy) && isPassable(sx + 1, sy + dy)))))) {
         // ... then we have to inspect this tile, so we end our jump.
         return 1;
     }
@@ -250,20 +250,20 @@ static int jps(int* jx, int* jy, int dx, int dy, int sx, int sy, unsigned int gx
     // Moving diagonally?
     if (dx && dy) {
         // Yes, then try the straight ones first.
-        if (jps(NULL, NULL, dx, 0, sx + dx, sy, gx, gy)) {
+        if (jumpPointSearch(NULL, NULL, dx, 0, sx + dx, sy, gx, gy)) {
             return 1;
         }
-        if (jps(NULL, NULL, 0, dy, sx, sy + dy, gx, gy)) {
+        if (jumpPointSearch(NULL, NULL, 0, dy, sx, sy + dy, gx, gy)) {
             return 1;
         }
     }
 
     // Not invalidated yet, remember this position and move on ahead.
-    return jps(jx, jy, dx, dy, sx + dx, sy + dy, gx, gy);
+    return jumpPointSearch(jx, jy, dx, dy, sx + dx, sy + dy, gx, gy);
 }
 
 /** Tests whether two nodes are visible to each other */
-static int line_of_sight(const AStar_Node* a, const AStar_Node* b) {
+static int isInLineOfSight(const PathNode* a, const PathNode* b) {
     // We essentially draw a line from a to b and check if all the pixels we'd
     // set would be on passable tiles. Algorithm from wikipedia:
     // https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm#Simplification
@@ -275,7 +275,7 @@ static int line_of_sight(const AStar_Node* a, const AStar_Node* b) {
     int err = dx - dy;
     unsigned int x = a->x, y = a->y;
     while (1) {
-        if (!is_passable(x, y)) {
+        if (!isPassable(x, y)) {
             return 0;
         }
         if (x == b->x && y == b->y) {
@@ -297,112 +297,160 @@ static int line_of_sight(const AStar_Node* a, const AStar_Node* b) {
 }
 
 /**
+ * Cleans up a path ending in the specified node, removing all in-between nodes
+ * that make the path unnecessarily long -- i.e. links nodes if they're within
+ * each other's line of sight; where line of sight is determined by passability
+ * of in-between blocks.
+ */
+static unsigned int prunePath(PathNode* tail) {
+    // The capacity to what we actually need if we use the full path.
+    unsigned int depth = tail->steps;
+
+    // Done, follow the path back to the beginning to return the best
+    // neighboring node.
+    PathNode *n0, *n1, *n2;
+    // Do some path cleaning: throw out nodes that are between two other
+    // nodes that can "see" each other.
+    n1 = tail;
+    if (n1->came_from) {
+        n0 = &gClosedSet[n1->came_from - 1];
+        while (n0->came_from) {
+            n2 = n1;
+            n1 = n0;
+            n0 = &gClosedSet[n0->came_from - 1]; // = n(-1)
+
+            // See if we can skip the middle one.
+            if (isInLineOfSight(n0, n2)) {
+                // Yes, take out the middle-man.
+                n2->came_from = n1->came_from;
+                n1 = n2;
+                --depth;
+            }
+        }
+    }
+
+    // Force minimum length of the path for start and end node (can be one
+    // if goal is in same cell as start otherwise).
+    if (depth < 2) {
+        return 2;
+    }
+    return depth;
+}
+
+/**
+ * Computes the actual length (in map space) of a path ending in the specified
+ * tail node, with the specified start and goal positions.
+ */
+static float computeLength(const PathNode* tail, const vec2* start, const vec2* goal) {
+    // Accumulate length of the path.
+    float length = 0;
+
+    // Position of last waypoint (init with goal coordinates to get the actual
+    // distance to the goal position, not the last node).
+    float lx = goal->d.x;
+    float ly = goal->d.y;
+
+    // Skip last node, as it'll be replaced with the goal coordinates.
+    const PathNode* n = &gClosedSet[tail->came_from - 1];
+
+    // Run until we get to the start node (which we'll replace with the
+    // start coordinates).
+    while (n->came_from) {
+        // Compute distance.
+        const float nx = toMapSpace(n->x);
+        const float ny = toMapSpace(n->y);
+        const float dx = nx - lx;
+        const float dy = ny - ly;
+        length += sqrtf(dx * dx + dy * dy);
+
+        // Store this position as the last one and move on to the next node.
+        lx = nx;
+        ly = ny;
+        n = &gClosedSet[n->came_from - 1];
+    }
+    // For the last node, use the start coordinates.
+    {
+        const float dx = start->d.x - lx;
+        const float dy = start->d.y - ly;
+        length += sqrtf(dx * dx + dy * dy);
+    }
+
+    return length;
+}
+
+/**
+ * Converts the path ending in the specified tail node to a buffer of the
+ * specified length.
+ */
+static unsigned int writePath(DK_AStarWaypoint* path, unsigned int depth,
+        const PathNode* tail, unsigned int realDepth,
+        const vec2* start, const vec2* goal) {
+    // Follow the path until only as many nodes as we can fit into the
+    // specified buffer remain.
+    while (realDepth >= depth) {
+        tail = &gClosedSet[tail->came_from - 1];
+        --realDepth;
+    }
+
+    // Set the start node to the actual start coordinates, instead of the
+    // ones of the waypoint.
+    path[0].x = start->d.x;
+    path[0].y = start->d.y;
+    // Same for the last one.
+    path[realDepth - 1].x = goal->d.x;
+    path[realDepth - 1].y = goal->d.y;
+    // And skip it, too.
+    tail = &gClosedSet[tail->came_from - 1];
+
+    // Push the remaining nodes' coordinates (in reverse walk order to
+    // make it forward work order).
+    for (int i = realDepth - 2; i > 0; --i, tail = &gClosedSet[tail->came_from - 1]) {
+        DK_AStarWaypoint* waypoint = &path[i];
+        waypoint->x = toMapSpace(tail->x);
+        waypoint->y = toMapSpace(tail->y);
+    }
+
+    return realDepth;
+}
+
+/**
  * Tests if we have reached our goal and writes out result data if yes.
  * @param path the buffer to write the path to.
  * @param depth the length of the buffer, set to the used length.
  * @param length the actual length of the found path, in map space.
  * @param node the current node.
- * @param local_goal_x the goal x coordinate in A* space.
- * @param local_goal_y the goal y coordinate in A* space.
- * @param start_x the start x coordinate in map space.
- * @param start_y the start y coordinate in map space.
- * @param goal_x the goal x coordinate in map space.
- * @param goal_y the goal y coordinate in map space.
+ * @param gx the goal x coordinate in A* space.
+ * @param gy the goal y coordinate in A* space.
+ * @param start the start coordinates in map space.
+ * @param goal the goal coordinates in map space.
  * @return whether the goal was reached or not.
  */
-static int is_goal(DK_AStarWaypoint* path, unsigned int* depth, float* length,
-        AStar_Node* node,
-        unsigned int local_goal_x, unsigned int local_goal_y,
+static int isGoal(DK_AStarWaypoint* path, unsigned int* depth, float* length,
+        PathNode* node, unsigned int gx, unsigned int gy,
         const vec2* start, const vec2* goal) {
     // Test whether node coordinates are goal coordinates.
-    if (node->x == local_goal_x && node->y == local_goal_y) {
-        // Done, follow the path back to the beginning to return the best
-        // neighboring node.
-        AStar_Node *n0, *n1, *n2;
-
-        // The capacity to what we actually need if we use the full path.
-        unsigned int real_depth = node->steps;
-
-        // Make sure we can write something back.
-        if (*depth < 2) {
-            // Well that sucks :P
-            return 1;
-        }
-
-        // Do some path cleaning: throw out nodes that are between two other
-        // nodes that can "see" each other.
-        n1 = node;
-        if (n1->came_from) {
-            n0 = &closed[n1->came_from - 1];
-            while (n0->came_from) {
-                n2 = n1;
-                n1 = n0;
-                n0 = &closed[n0->came_from - 1]; // = n(-1)
-
-                // See if we can skip the middle one.
-                if (line_of_sight(n0, n2)) {
-                    // Yes, take out the middle-man.
-                    n2->came_from = n1->came_from;
-                    n1 = n2;
-                    --real_depth;
-                }
-            }
-        }
-
-        // Force minimum length of the path for start and end node (can be one
-        // if goal is in same cell as start otherwise).
-        if (real_depth < 2) {
-            real_depth = 2;
-        }
-
-        // Follow the path until only as many nodes as we can fit into the
-        // specified buffer remain.
-        while (real_depth >= *depth) {
-            node = &closed[node->came_from - 1];
-            --real_depth;
-        }
-
-        // Set the depth we actually use.
-        *depth = real_depth;
-
-        // Set the start node to the actual start coordinates, instead of the
-        // ones of the waypoint.
-        path[0].x = start->v[0];
-        path[0].y = start->v[1];
-        // Same for the last one.
-        path[real_depth - 1].x = goal->v[0];
-        path[real_depth - 1].y = goal->v[1];
-        // And skip it, too.
-        node = &closed[node->came_from - 1];
-
-        // Push the remaining nodes' coordinates (in reverse walk order to
-        // make it forward work order).
-        for (int i = real_depth - 2; i > 0; --i) {
-            DK_AStarWaypoint* waypoint = &path[i];
-            if (node->x == local_goal_x &&
-                    node->y == local_goal_y) {
-                // Use the actual goal coordinates instead of those of the
-                // actual waypoint for the goal.
-                waypoint->x = goal->v[0];
-                waypoint->y = goal->v[1];
-            } else {
-                // Normal waypoint, convert it to map space coordinates.
-                waypoint->x = to_map_space(node->x);
-                waypoint->y = to_map_space(node->y);
-            }
-
-            // Continue on with the next node.
-            node = &closed[node->came_from - 1];
-        }
+    if (node->x == gx && node->y == gy) {
+        // Prune the path based on line of sight (i.e. skip nodes that are only
+        // making the path longer than necessary).
+        unsigned int realDepth = prunePath(node);
 
         // Compute actual length of the path. We can't use the gscore because
         // we might have pruned some of the path, which might alter the distance
         // quite a bit.
-        *length = 0;
-        for (unsigned int i = 1; i < *depth; ++i) {
-            const float dx = path[i].x - path[i - 1].x;
-            const float dy = path[i].y - path[i - 1].y;
-            *length += sqrtf(dx * dx + dy * dy);
+        if (length) {
+            *length = computeLength(node, start, goal);
+        }
+
+        // Make sure we can write something back.
+        if (depth) {
+            if (*depth > 1) {
+                // Long enough for something path-y, write as much as we need or
+                // can, whichever is less.
+                *depth = writePath(path, *depth, node, realDepth, start, goal);
+            } else {
+                // Not enough space for a path.
+                *depth = 0;
+            }
         }
 
         // Return success.
@@ -421,31 +469,31 @@ int DK_AStar(const DK_Unit* unit, const vec2* goal, DK_AStarWaypoint* path, unsi
     unsigned int gx, gy, begin_x, begin_y, end_x, end_y, neighbor_x, neighbor_y;
     int x, y;
     float gscore, fscore;
-    AStar_Node *current, *node;
-    const vec2* start = DK_GetUnitPosition(unit);
-
-    // Remember we're working on this unit (passable checks).
-    current_unit = unit;
+    PathNode *current, *node;
+    const vec2* start = &unit->position;
 
     // Check if the start and target position are valid (passable).
-    if (!DK_IsBlockPassable(DK_GetBlockAt((int) start->v[0], (int) start->v[1]), unit) ||
-            !DK_IsBlockPassable(DK_GetBlockAt((int) goal->v[0], (int) goal->v[1]), unit)) {
+    if (!DK_IsBlockPassableBy(DK_GetBlockAt((int) start->v[0], (int) start->v[1]), unit) ||
+            !DK_IsBlockPassableBy(DK_GetBlockAt((int) goal->v[0], (int) goal->v[1]), unit)) {
         return 0;
     }
 
+    // Remember we're working on this unit (passable checks).
+    gUnit = unit;
+
     // Reset number of entries used in the open and closed set.
-    open_count = 0;
-    closed_count = 0;
+    gOpenSetCount = 0;
+    gClosedSetCount = 0;
 
     // Clear closed set bitset representation.
-    BS_Reset(a_star_closed_set, a_star_grid_size * a_star_grid_size);
+    BS_Reset(gClosedSetLookup, gGridSize * gGridSize);
 
     // Get goal in local coordinates.
     gx = (unsigned int) (goal->v[0] * DK_ASTAR_GRANULARITY);
     gy = (unsigned int) (goal->v[1] * DK_ASTAR_GRANULARITY);
 
     // Initialize the first open node to the one we're starting from.
-    current = get_open(0);
+    current = newOpenNode(0);
     current->x = (unsigned int) (start->v[0] * DK_ASTAR_GRANULARITY);
     current->y = (unsigned int) (start->v[1] * DK_ASTAR_GRANULARITY);
     current->gscore = 0.0f;
@@ -454,12 +502,12 @@ int DK_AStar(const DK_Unit* unit, const vec2* goal, DK_AStarWaypoint* path, unsi
     current->steps = 1;
 
     // Do the actual search.
-    while (open_count > 0) {
+    while (gOpenSetCount > 0) {
         // Copy first (best) open entry to closed list.
-        current = pop_to_closed();
+        current = popOpenNodeToClosedSet();
 
         // Check if we're there yet.
-        if (is_goal(path, depth, length, current, gx, gy, start, goal)) {
+        if (isGoal(path, depth, length, current, gx, gy, start, goal)) {
             return 1;
         }
 
@@ -474,24 +522,24 @@ int DK_AStar(const DK_Unit* unit, const vec2* goal, DK_AStarWaypoint* path, unsi
         // exception is the start node, where we'll have to check all neighbors.
         if (current->came_from) {
             // Compute the direction as an integer of {-1, 0, 1} for both axii.
-            const int dx = current->x - closed[current->came_from - 1].x,
-                    dy = current->y - closed[current->came_from - 1].y;
+            const int dx = current->x - gClosedSet[current->came_from - 1].x,
+                    dy = current->y - gClosedSet[current->came_from - 1].y;
 
             // If we're only moving to the right we don't have to check left. If
             // we're also moving vertically, though, we need to check for an
             // obstacle (forced neighbors), which we do via the passable check.
             // This works analogous for all other movement directions.
-            if (dx >= 0 && is_passable(current->x - 1, current->y)) {
+            if (dx >= 0 && isPassable(current->x - 1, current->y)) {
                 // Don't have to check to the left.
                 begin_x = current->x;
-            } else if (dx <= 0 && is_passable(current->x + 1, current->y)) {
+            } else if (dx <= 0 && isPassable(current->x + 1, current->y)) {
                 // Don't have to check to the right.
                 end_x = current->x;
             }
-            if (dy >= 0 && is_passable(current->x, current->y - 1)) {
+            if (dy >= 0 && isPassable(current->x, current->y - 1)) {
                 // Don't have to check up.
                 begin_y = current->y;
-            } else if (dy <= 0 && is_passable(current->x, current->y + 1)) {
+            } else if (dy <= 0 && isPassable(current->x, current->y + 1)) {
                 // Don't have to check down.
                 end_y = current->y;
             }
@@ -510,24 +558,24 @@ int DK_AStar(const DK_Unit* unit, const vec2* goal, DK_AStarWaypoint* path, unsi
 
 #if DK_ASTAR_JPS
                 // Try this direction using jump point search.
-                if (!jps(&x, &y, x - current->x, y - current->y, x, y, gx, gy)) {
+                if (!jumpPointSearch(&x, &y, x - current->x, y - current->y, x, y, gx, gy)) {
                     // Failed, try next neighbor.
                     continue;
                 }
 
                 // We might have jumped to the goal, check for that.
-                if (is_goal(path, depth, length, current, gx, gy, start, goal)) {
+                if (isGoal(path, depth, length, current, gx, gy, start, goal)) {
                     return 1;
                 }
 #else
                 // If we already handled this one, skip it.
-                if (BS_Test(a_star_closed_set, y * a_star_grid_size + x)) {
+                if (BS_Test(gClosedSetLookup, y * gGridSize + x)) {
                     continue;
                 }
 
                 // Only if this block is passable and the two diagonal ones are.
-                if (!is_passable(x, y) ||
-                        (!is_passable(x, current->y) && !is_passable(current->x, y))) {
+                if (!isPassable(x, y) ||
+                        (!isPassable(x, current->y) && !isPassable(current->x, y))) {
                     continue;
                 }
 #endif
@@ -541,7 +589,7 @@ int DK_AStar(const DK_Unit* unit, const vec2* goal, DK_AStarWaypoint* path, unsi
 
                 // See if we can find that neighbor in the open set and should
                 // skip it, because there already exists a better path to it.
-                if (should_skip(x, y, gscore)) {
+                if (shouldSkip(x, y, gscore)) {
                     continue;
                 }
 
@@ -550,14 +598,14 @@ int DK_AStar(const DK_Unit* unit, const vec2* goal, DK_AStarWaypoint* path, unsi
                 fscore = (gscore + f(x, y, gx, gy)) * 1.001f;
 
                 // Create new entry.
-                node = get_open(fscore);
+                node = newOpenNode(fscore);
 
                 // Store position of that node. Used for "contains" checks.
                 node->x = x;
                 node->y = y;
 
                 // Remember where we came from and how deep the path is.
-                node->came_from = closed_count;
+                node->came_from = gClosedSetCount;
                 node->steps = current->steps + 1;
 
                 // Also keep the scores, g for continuous computation, f for
@@ -572,11 +620,11 @@ int DK_AStar(const DK_Unit* unit, const vec2* goal, DK_AStarWaypoint* path, unsi
 }
 
 static void onMapChange(void) {
-    BS_Delete(a_star_closed_set);
-    a_star_grid_size = DK_GetMapSize() * DK_ASTAR_GRANULARITY;
-    a_star_closed_set = BS_New(a_star_grid_size * a_star_grid_size);
+    gGridSize = DK_GetMapSize() * DK_ASTAR_GRANULARITY;
+    BS_Delete(gClosedSetLookup);
+    gClosedSetLookup = BS_New(gGridSize * gGridSize);
 }
 
 void DK_InitAStar(void) {
-    DK_OnMapChange(onMapChange);
+    DK_OnMapSizeChange(onMapChange);
 }

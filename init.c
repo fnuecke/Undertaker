@@ -4,10 +4,12 @@
 #include <GL/glew.h>
 
 #include "astar.h"
+#include "block.h"
 #include "camera.h"
 #include "config.h"
 #include "init.h"
 #include "map.h"
+#include "map_loader.h"
 #include "render.h"
 #include "selection.h"
 #include "textures.h"
@@ -15,6 +17,7 @@
 #include "camera.h"
 #include "cursor.h"
 #include "jobs.h"
+#include "room_meta.h"
 
 static void shutdown(void) {
     fprintf(DK_log_target, "INFO: Game shutting down...\n");
@@ -80,16 +83,8 @@ void DK_Init(void) {
     }
     fprintf(DK_log_target, "INFO: OpenGL 3.3 supported.\n");
 
-    // Load all textures we may need.
-    DK_LoadTextures();
-
-    fprintf(DK_log_target, "INFO: Done loading textures.\n");
-
     // Initialize openGL.
     DK_InitRender();
-
-    // Load all textures into the GPU.
-    DK_InitTextures();
 
     fprintf(DK_log_target, "INFO: Done initializing OpenGL.\n");
 
@@ -101,6 +96,12 @@ void DK_Init(void) {
     DK_InitUnits();
     DK_InitMap();
     DK_InitJobs();
+
+    DK_InitBlockMeta();
+    DK_InitRoomMeta();
+    DK_InitUnitMeta();
+
+    DK_InitMapLoader();
 
     fprintf(DK_log_target, "INFO: Done initializing internal hooks.\n");
 

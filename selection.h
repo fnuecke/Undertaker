@@ -8,7 +8,7 @@
 #ifndef SELECTION_H
 #define	SELECTION_H
 
-#include "players.h"
+#include "types.h"
 
 #ifdef	__cplusplus
 extern "C" {

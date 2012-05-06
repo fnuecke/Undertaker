@@ -14,7 +14,9 @@
 extern "C" {
 #endif
 
-    /** Update logic */
+    /**
+     * Drives update logic by calling registered callbacks.
+     */
     void DK_Update(void);
 
     /**

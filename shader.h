@@ -14,8 +14,16 @@
 extern "C" {
 #endif
 
-    /** Create a shader program from the specified vertex and fragment shaders */
-    GLuint DK_LoadProgram(const char* vsPath, const char* fsPath, const char** out_names, unsigned int out_count);
+    /**
+     * Create a shader program from the vertex and fragment shaders that will be
+     * loaded from the specified files.
+     * @param vsPath the path to the vertex shader.
+     * @param fsPath the path to the fragment shader.
+     * @param outNames a list of names of out attributes of the fragment shader.
+     * @param outCount the number of out attributes names given in outNames.
+     * @return the loaded shader, or 0 if loading failed.
+     */
+    GLuint DK_LoadProgram(const char* vsPath, const char* fsPath, const char** outNames, unsigned int outCount);
 
 #ifdef	__cplusplus
 }

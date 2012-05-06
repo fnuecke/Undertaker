@@ -78,6 +78,50 @@ extern "C" {
     };
 
     ///////////////////////////////////////////////////////////////////////////////
+    // Vector math (2d)
+    ///////////////////////////////////////////////////////////////////////////////
+
+    void v2copy(vec2* into, const vec2* v);
+
+    void v2add(vec2* sum, const vec2* va, const vec2* vb);
+
+    void v2iadd(vec2* va, const vec2* vb);
+
+    void v2sub(vec2* difference, const vec2* va, const vec2* vb);
+
+    void v2isub(vec2* va, const vec2* vb);
+
+    void v2mul(vec2* product, const vec2* va, const vec2* vb);
+
+    void v2imul(vec2* va, const vec2* vb);
+
+    void v2muls(vec2* product, const vec2* v, float s);
+
+    void v2imuls(vec2* v, float s);
+
+    void v2div(vec2* quotient, const vec2* va, const vec2* vb);
+
+    void v2idiv(vec2* va, const vec2* vb);
+
+    void v2divs(vec2* quotient, const vec2* v, float s);
+
+    void v2idivs(vec2* v, float s);
+
+    float v2dot(const vec2* va, const vec2* vb);
+
+    void v2cross(vec2* cross, const vec2* va, const vec2* vb);
+
+    float v2norm(const vec2* v);
+
+    float v2len(const vec2* v);
+
+    float v2distance(const vec2* va, const vec2* vb);
+
+    void v2normalize(vec2* normalized, const vec2* v);
+
+    void v2inormalize(vec2* v);
+
+    ///////////////////////////////////////////////////////////////////////////////
     // Vector math (3d)
     ///////////////////////////////////////////////////////////////////////////////
 

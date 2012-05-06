@@ -29,6 +29,110 @@
 #include "vmath.h"
 
 ///////////////////////////////////////////////////////////////////////////////
+// Vector math (2d)
+///////////////////////////////////////////////////////////////////////////////
+
+void v2copy(vec2* into, const vec2* v) {
+    into->d.x = v->d.x;
+    into->d.y = v->d.y;
+}
+
+void v2add(vec2* sum, const vec2* va, const vec2* vb) {
+    sum->d.x = va->d.x + vb->d.x;
+    sum->d.y = va->d.y + vb->d.y;
+}
+
+void v2iadd(vec2* va, const vec2* vb) {
+    va->d.x += vb->d.x;
+    va->d.y += vb->d.y;
+}
+
+void v2sub(vec2* difference, const vec2* va, const vec2* vb) {
+    difference->d.x = va->d.x - vb->d.x;
+    difference->d.y = va->d.y - vb->d.y;
+}
+
+void v2isub(vec2* va, const vec2* vb) {
+    va->d.x -= vb->d.x;
+    va->d.y -= vb->d.y;
+}
+
+void v2mul(vec2* product, const vec2* va, const vec2* vb) {
+    product->d.x = va->d.x * vb->d.x;
+    product->d.y = va->d.y * vb->d.y;
+}
+
+void v2imul(vec2* va, const vec2* vb) {
+    va->d.x *= vb->d.x;
+    va->d.y *= vb->d.y;
+}
+
+void v2muls(vec2* product, const vec2* v, float s) {
+    product->d.x = v->d.x * s;
+    product->d.y = v->d.y * s;
+}
+
+void v2imuls(vec2* v, float s) {
+    v->d.x *= s;
+    v->d.y *= s;
+}
+
+void v2div(vec2* quotient, const vec2* va, const vec2* vb) {
+    quotient->d.x = va->d.x / vb->d.x;
+    quotient->d.y = va->d.y / vb->d.y;
+}
+
+void v2idiv(vec2* va, const vec2* vb) {
+    va->d.x /= vb->d.x;
+    va->d.y /= vb->d.y;
+}
+
+void v2divs(vec2* quotient, const vec2* v, float s) {
+    quotient->d.x = v->d.x / s;
+    quotient->d.y = v->d.y / s;
+}
+
+void v2idivs(vec2* v, float s) {
+    v->d.x /= s;
+    v->d.y /= s;
+}
+
+float v2dot(const vec2* va, const vec2* vb) {
+    return va->d.x * vb->d.x + va->d.y * vb->d.y;
+}
+
+void v2cross(vec2* cross, const vec2* va, const vec2* vb) {
+    cross->d.x = va->d.y * vb->d.x - va->d.x * vb->d.y;
+    cross->d.y = va->d.x * vb->d.y - va->d.y * vb->d.x;
+}
+
+float v2norm(const vec2* v) {
+    return v->d.x * v->d.x + v->d.y * v->d.y;
+}
+
+float v2len(const vec2* v) {
+    return sqrtf(v2norm(v));
+}
+
+float v2distance(const vec2* va, const vec2* vb) {
+    vec2 tmp;
+    v2sub(&tmp, va, vb);
+    return v2len(&tmp);
+}
+
+void v2normalize(vec2* normalized, const vec2* v) {
+    const float len = v2len(v);
+    normalized->d.x = v->d.x / len;
+    normalized->d.y = v->d.y / len;
+}
+
+void v2inormalize(vec2* v) {
+    const float len = v2len(v);
+    v->d.x /= len;
+    v->d.y /= len;
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Vector math (3d)
 ///////////////////////////////////////////////////////////////////////////////
 

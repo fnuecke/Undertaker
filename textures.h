@@ -10,48 +10,44 @@
 
 #include <GL/glew.h>
 
+#include "types.h"
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-    /** Textures used for rendering the map */
-    typedef enum {
-        DK_TEX_DIRT_FLOOR,
-        DK_TEX_DIRT_SIDE,
-        DK_TEX_DIRT_TOP,
-        DK_TEX_FLOOR,
-        DK_TEX_FLUID_LAVA,
-        DK_TEX_FLUID_SIDE,
-        DK_TEX_FLUID_WATER,
-        DK_TEX_GEM_SIDE,
-        DK_TEX_GEM_TOP,
-        DK_TEX_GOLD_SIDE,
-        DK_TEX_GOLD_TOP,
-        DK_TEX_OWNER_BLUE,
-        DK_TEX_OWNER_GREEN,
-        DK_TEX_OWNER_RED,
-        DK_TEX_OWNER_WHITE,
-        DK_TEX_OWNER_YELLOW,
-        DK_TEX_ROCK_SIDE,
-        DK_TEX_ROCK_TOP,
-        DK_TEX_WALL_TOP_N,
-        DK_TEX_WALL_TOP_NE,
-        DK_TEX_WALL_TOP_NE_CORNER,
-        DK_TEX_WALL_TOP_NES,
-        DK_TEX_WALL_TOP_NESW,
-        DK_TEX_WALL_TOP_NS,
+    /**
+     * Get a specific texture. There may be a number of variations per texture,
+     * where the actual returned variation is determined by the given hash.
+     * @param textureId the id of the texture to get.
+     * @param hash a value that will determine the variation of the texture.
+     */
+    GLuint DK_GetTexture(DK_TextureID textureId, unsigned int hash);
 
-        DK_TEX_COUNT /**< Number of textures, used internally */
-    } DK_Texture;
+    /**
+     * Tries to load a texture into memory. The specified base name will be
+     * suffixed with a variation counter (starting at zero) to allow for varying
+     * textures per texture type.
+     * @param basename the base texture name.
+     * @return the id of the loaded texture (for GetTexture), or 0 on failure.
+     */
+    DK_TextureID DK_LoadTexture(const char* basename);
 
-    /** Loads textures into the textures array */
-    void DK_LoadTextures(void);
+    /**
+     * Unloads all textures from memory. This will also delete them from the GPU
+     * (i.e. calls DK_DeleteTextures).
+     */
+    void DK_UnloadTextures(void);
 
-    /** Initializes textures for openGL after video reset */
-    void DK_InitTextures(void);
+    /**
+     * Generate textures for OpenGL, i.e. sends the textures to the GPU.
+     */
+    void DK_GL_GenerateTextures(void);
 
-    /** Get a specific texture; the variant is determined by the given hash */
-    GLuint DK_opengl_texture(DK_Texture texture, unsigned int hash);
+    /**
+     * Deletes textures in OpenGL, i.e. frees the memory on the GPU.
+     */
+    void DK_GL_DeleteTextures(void);
 
 #ifdef	__cplusplus
 }

@@ -13,7 +13,9 @@
 #include "callbacks.h"
 #include "vmath.h"
 
-/** Maximum number of textures on one material */
+/**
+ * Maximum number of textures on one material.
+ */
 #define DK_MAX_MATERIAL_TEXTURES 4
 
 #ifdef	__cplusplus
@@ -24,7 +26,9 @@ extern "C" {
     // Types
     ///////////////////////////////////////////////////////////////////////////
 
-    /** Describes a light in the world */
+    /**
+     * Describes a light in the world.
+     */
     typedef struct {
         /** The position of the light, in world space */
         vec3 position;
@@ -42,7 +46,9 @@ extern "C" {
         float specularPower;
     } DK_Light;
 
-    /** Used to configure material used for rendering */
+    /**
+     * Used to configure material used for geometry pass of deferred shading.
+     */
     typedef struct {
         /** Textures used for multi-texturing */
         GLuint textures[DK_MAX_MATERIAL_TEXTURES];

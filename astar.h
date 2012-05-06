@@ -17,7 +17,7 @@ extern "C" {
     /**
      * Represents a single waypoint along a path found using A* search.
      */
-    typedef struct {
+    typedef struct DK_AStarWaypoint {
         /**
          * The coordinates of the waypoint in map space.
          */

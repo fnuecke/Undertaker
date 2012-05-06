@@ -9,78 +9,22 @@
 #define	MAP_H
 
 #include "callbacks.h"
-#include "players.h"
-#include "units.h"
+#include "types.h"
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
     ///////////////////////////////////////////////////////////////////////////
-    // Types
-    ///////////////////////////////////////////////////////////////////////////
-
-    /** Possible block types */
-    typedef enum {
-        DK_BLOCK_NONE,
-        DK_BLOCK_WATER,
-        DK_BLOCK_LAVA,
-        DK_BLOCK_DIRT,
-        DK_BLOCK_GOLD,
-        DK_BLOCK_GEM,
-        DK_BLOCK_ROCK
-    } DK_BlockType;
-
-    /** Possible rooms */
-    typedef enum {
-        DK_ROOM_NONE,
-        DK_ROOM_HEART,
-        DK_ROOM_ENTRANCE,
-        DK_ROOM_DORMITORY,
-        DK_ROOM_FARM,
-        DK_ROOM_LIBRARY,
-        DK_ROOM_TRAINING,
-        DK_ROOM_DOOR
-    } DK_RoomType;
-
-    /** A single block (cell) of a map */
-    typedef struct {
-        /** The type of the block */
-        DK_BlockType type;
-
-        /** The player that owns the block */
-        DK_Player owner;
-
-        /** The room type, if any */
-        DK_RoomType room;
-
-        /** Health of the block (damage until break down) */
-        unsigned int health;
-
-        /** Strength of the block (damage until converted, per player) */
-        unsigned int strength;
-
-        /** Whether this block is 'closed', i.e. the owner own units cannot pass */
-        int closed;
-    } DK_Block;
-
-    ///////////////////////////////////////////////////////////////////////////
-    // Save / Load
-    ///////////////////////////////////////////////////////////////////////////
-
-    /**
-     * Load the current map from a file with the specified name.
-     */
-    void DK_LoadMap(const char* filename);
-
-    /**
-     * Save the current map to a file with the specified name.
-     */
-    void DK_SaveMap(const char* filename);
-
-    ///////////////////////////////////////////////////////////////////////////
     // Accessors
     ///////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Change the size of the map data structures. This will trigger a resize
+     * event, which should invalidate all other map size dependent data (and
+     * generally means that the old map has been unloaded -> cleanup).
+     */
+    void DK_SetMapSize(unsigned short size);
 
     /**
      * Size (width and height, maps are always squared) of the current map.
@@ -102,26 +46,6 @@ extern "C" {
      */
     DK_Block* DK_GetBlockUnderCursor(int* block_x, int* block_y);
 
-    /**
-     * Test whether the specified block is open, i.e. air.
-     */
-    int DK_IsBlockOpen(const DK_Block* block);
-
-    /**
-     * Test whether the specified block contains a fluid.
-     */
-    int DK_IsBlockFluid(const DK_Block* block);
-
-    /**
-     * Test whether the specified block is passable by the specified unit.
-     */
-    int DK_IsBlockPassable(const DK_Block* block, const DK_Unit* unit);
-
-    /**
-     * Test whether the specified block is a wall owned by the specified player.
-     */
-    int DK_IsBlockWall(const DK_Block* block, DK_Player player);
-
     ///////////////////////////////////////////////////////////////////////////
     // Modifiers
     ///////////////////////////////////////////////////////////////////////////
@@ -129,7 +53,7 @@ extern "C" {
     /**
      * Change the type of a block.
      */
-    void DK_SetBlockType(DK_Block* block, DK_BlockType type);
+    void DK_SetBlockMeta(DK_Block* block, const DK_BlockMeta* meta);
 
     /**
      * Change the owner of a block.
@@ -151,6 +75,16 @@ extern "C" {
     ///////////////////////////////////////////////////////////////////////////
 
     /**
+     * Generates OpenGL resources used by the map.
+     */
+    void DK_GL_GenerateMap(void);
+
+    /**
+     * Delete OpenGL resources used by the map.
+     */
+    void DK_GL_DeleteMap(void);
+
+    /**
      * Initialize map related event logic.
      */
     void DK_InitMap(void);
@@ -158,9 +92,10 @@ extern "C" {
     /**
      * Register a method that should be called when the map size changes.
      * Methods are called in the order in which they are registered.
+     * This should be used for disposing old data and register new meta data.
      * @param callback the method to call.
      */
-    void DK_OnMapChange(callback method);
+    void DK_OnMapSizeChange(callback method);
 
 #ifdef	__cplusplus
 }
