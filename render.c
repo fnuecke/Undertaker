@@ -162,7 +162,7 @@ static struct {
 } gLightShader;
 
 /** Flag if we're currently in the geometry rendering stage */
-static int gIsGeometryPass = 0;
+static bool gIsGeometryPass = false;
 
 /** Represents a single light in a scene */
 static const DK_Light** gLights = 0;
@@ -490,8 +490,15 @@ static void initGBuffer(void) {
 // Helper methods
 ///////////////////////////////////////////////////////////////////////////////
 
+static bool isDeferredShadingPossible(void) {
+    return DK_d_draw_deferred_shader &&
+            gGeometryShader.program &&
+            gAmbientShader.program &&
+            gLightShader.program;
+}
+
 static void onModelMatrixChanged(void) {
-    if (gIsGeometryPass) {
+    if (gIsGeometryPass && isDeferredShadingPossible()) {
         // Set uniforms for geometry shader.
         glUniformMatrix4fv(gGeometryShader.vs_uniforms.ModelMatrix, 1, GL_FALSE, DK_GetModelMatrix()->m);
         glUniformMatrix4fv(gGeometryShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
@@ -862,9 +869,10 @@ void DK_Render(void) {
     // Trigger pre render hooks.
     CB_Call(gPreRenderCallbacks);
 
-    if (DK_d_draw_deferred_shader && gGeometryShader.program && gLightShader.program) {
+    gIsGeometryPass = true;
+
+    if (isDeferredShadingPossible()) {
         geometryPass();
-        gIsGeometryPass = 1;
         // Push current matrix state to shader.
         onModelMatrixChanged();
     }
@@ -872,8 +880,9 @@ void DK_Render(void) {
     // Render game components.
     CB_Call(gRenderCallbacks);
 
-    if (DK_d_draw_deferred_shader && gGeometryShader.program && gLightShader.program) {
-        gIsGeometryPass = 0;
+    gIsGeometryPass = false;
+
+    if (isDeferredShadingPossible()) {
         lightPass();
     }
 
@@ -947,41 +956,45 @@ GLint DK_GetTextureCoordinateAttributeLocation(void) {
 }
 
 void DK_SetMaterial(const DK_Material* material) {
-    for (unsigned int i = 0; i < DK_MAX_MATERIAL_TEXTURES; ++i) {
-        glActiveTexture(GL_TEXTURE0 + i);
-        glDisable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
-    EXIT_ON_OPENGL_ERROR();
-
     if (gIsGeometryPass) {
-        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-
-        for (unsigned int i = 0; i < material->textureCount; ++i) {
+        for (unsigned int i = 0; i < DK_MAX_MATERIAL_TEXTURES; ++i) {
             glActiveTexture(GL_TEXTURE0 + i);
-            glBindTexture(GL_TEXTURE_2D, material->textures[i]);
-            glUniform1i(gGeometryShader.fs_uniforms.Textures[i], i);
+            glDisable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, 0);
         }
-        glUniform1i(gGeometryShader.fs_uniforms.TextureCount, material->textureCount);
 
-        glUniform3fv(gGeometryShader.fs_uniforms.ColorDiffuse, 1, material->diffuseColor.v);
-        glUniform1f(gGeometryShader.fs_uniforms.SpecularIntensity, material->specularIntensity);
-        glUniform1f(gGeometryShader.fs_uniforms.SpecularExponent, material->specularExponent);
-        glUniform1f(gGeometryShader.fs_uniforms.Emissivity, material->emissivity);
+        if (isDeferredShadingPossible()) {
+            glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+
+            for (unsigned int i = 0; i < material->textureCount; ++i) {
+                glActiveTexture(GL_TEXTURE0 + i);
+                glBindTexture(GL_TEXTURE_2D, material->textures[i]);
+                glUniform1i(gGeometryShader.fs_uniforms.Textures[i], i);
+            }
+            glUniform1i(gGeometryShader.fs_uniforms.TextureCount, material->textureCount);
+
+            glUniform3fv(gGeometryShader.fs_uniforms.ColorDiffuse, 1, material->diffuseColor.v);
+            glUniform1f(gGeometryShader.fs_uniforms.SpecularIntensity, material->specularIntensity);
+            glUniform1f(gGeometryShader.fs_uniforms.SpecularExponent, material->specularExponent);
+            glUniform1f(gGeometryShader.fs_uniforms.Emissivity, material->emissivity);
+
+            EXIT_ON_OPENGL_ERROR();
+        } else {
+            glColor4f(material->diffuseColor.c.r,
+                    material->diffuseColor.c.g,
+                    material->diffuseColor.c.b,
+                    material->diffuseColor.c.a);
+
+            if (material->textureCount > 0) {
+                glActiveTexture(GL_TEXTURE0);
+                glEnable(GL_TEXTURE_2D);
+                glBindTexture(GL_TEXTURE_2D, material->textures[0]);
+            }
+        }
 
         EXIT_ON_OPENGL_ERROR();
-    } else {
-        glColor4f(material->diffuseColor.c.r,
-                material->diffuseColor.c.g,
-                material->diffuseColor.c.b,
-                material->diffuseColor.c.a);
-
-        if (material->textureCount > 0) {
-            glActiveTexture(GL_TEXTURE0);
-            glEnable(GL_TEXTURE_2D);
-            glBindTexture(GL_TEXTURE_2D, material->textures[0]);
-        }
     }
+    // Otherwise we're not really interested in shading stuff properly.
 }
 
 void DK_InitMaterial(DK_Material* material) {
@@ -989,9 +1002,9 @@ void DK_InitMaterial(DK_Material* material) {
         material->textures[i] = 0;
     }
     material->textureCount = 0;
-    material->diffuseColor.c.r = 0.0f;
-    material->diffuseColor.c.g = 0.0f;
-    material->diffuseColor.c.b = 0.0f;
+    material->diffuseColor.c.r = 1.0f;
+    material->diffuseColor.c.g = 1.0f;
+    material->diffuseColor.c.b = 1.0f;
     material->diffuseColor.c.a = 1.0f;
     material->specularIntensity = 0.0f;
     material->specularExponent = 1.0f;
