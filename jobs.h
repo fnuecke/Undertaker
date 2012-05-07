@@ -62,16 +62,6 @@ extern "C" {
     };
 
     /**
-     * Find and make available jobs at and surrounding the block at the
-     * specified coordinate. This will also free old jobs related to the block
-     * at that location.
-     * @param player the player for whom to check.
-     * @param the x coordinate of the block in map space.
-     * @param the y coordinate of the block in map space.
-     */
-    void DK_UpdateJobsForBlock(DK_Player player, unsigned short x, unsigned short y);
-
-    /**
      * Find the job of the specified type closest to the specified unit.
      * @param unit the unit to find the job for.
      * @param type the type of job we're looking for.
@@ -83,8 +73,13 @@ extern "C" {
     /**
      * Run a job's script for the specified unit.
      */
-    void DK_RunJob(DK_Unit* unit, DK_JobMeta* job);
-    
+    void DK_RunJob(DK_Unit* unit, const DK_JobMeta* job);
+
+    /**
+     * Clear all job lists and free all additional memory.
+     */
+    void DK_ClearJobs(void);
+
     /**
      * Initialize job system.
      */

@@ -64,13 +64,17 @@ static void onRender(void) {
 
     for (unsigned int i = 0; i < gTotalUnitCount; ++i) {
         const DK_Unit* unit = &units[i];
-        const AI_State* state = unit->ai->current;
+        //const AI_State* state = unit->ai->current;
 
         DK_InitMaterial(&material);
         material.specularIntensity = 0.9f;
         material.specularExponent = 25.0f;
 
         // Set color based on current job.
+                material.diffuseColor.c.r = 0.6f;
+                material.diffuseColor.c.g = 0.6f;
+                material.diffuseColor.c.b = 0.6f;
+/*
         switch (state->jobType) {
             case DK_JOB_DIG:
                 material.diffuseColor.c.r = 0.6f;
@@ -89,6 +93,7 @@ static void onRender(void) {
                 material.diffuseColor.c.b = 0.6f;
                 break;
         }
+*/
         // Highlight, if the unit is moving.
         if (DK_IsUnitMoving(unit)) {
             material.diffuseColor.c.r += 0.2f;

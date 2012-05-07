@@ -1,5 +1,6 @@
 #include "jobs.h"
 
+#include <assert.h>
 #include <float.h>
 #include <malloc.h>
 #include <stdio.h>
@@ -19,51 +20,95 @@
 // Globals
 ///////////////////////////////////////////////////////////////////////////////
 
-/** List of all current jobs, per player */
-static DK_Job** gJobs[DK_PLAYER_COUNT][DK_JOB_TYPE_COUNT];
+/** List of all current jobs, per player, per type */
+static DK_Job*** gJobs[DK_PLAYER_COUNT];
 
-/** Number of used entries in the lists */
-static unsigned int gJobsCount[DK_PLAYER_COUNT][DK_JOB_TYPE_COUNT];
+/** Number of used entries in the job list */
+static unsigned int* gJobsCount[DK_PLAYER_COUNT];
 
 /** Capacity of the workplace lists */
-static unsigned int gJobsCapacity[DK_PLAYER_COUNT][DK_JOB_TYPE_COUNT];
+static unsigned int* gJobsCapacity[DK_PLAYER_COUNT];
+
+/** Capacity for job types, per player; this is also the count */
+static unsigned int gJobTypeCapacity[DK_PLAYER_COUNT];
 
 ///////////////////////////////////////////////////////////////////////////////
 // Allocation
 ///////////////////////////////////////////////////////////////////////////////
 
-/** Allocate a job and track it in our list */
-static DK_Job* newJob(DK_Player player, DK_JobType type) {
-    DK_Job* job;
+static void ensureJobListSize(DK_Player player, unsigned int metaId) {
+    if (metaId >= gJobTypeCapacity[player]) {
+        unsigned int newCapacity = metaId + 1;
 
-    // Ensure we have the capacity to add the job.
-    if (gJobsCount[player][type] + 1 > gJobsCapacity[player][type]) {
-        gJobsCapacity[player][type] = DK_AI_JOB_CAPACITY_GROWTH(gJobsCapacity[player][type]);
-        if (!(gJobs[player][type] = realloc(gJobs[player][type], gJobsCapacity[player][type] * sizeof (DK_Job*)))) {
+        if (!(gJobs[player] = realloc(gJobs[player], newCapacity * sizeof (DK_Job***)))) {
+            fprintf(stderr, "Out of memory while resizing job list.\n");
+            exit(EXIT_FAILURE);
+        }
+
+        if (!(gJobsCount[player] = realloc(gJobsCount[player], newCapacity * sizeof (unsigned int)))) {
+            fprintf(stderr, "Out of memory while resizing job count list.\n");
+            exit(EXIT_FAILURE);
+        }
+
+        if (!(gJobsCapacity[player] = realloc(gJobsCapacity[player], newCapacity * sizeof (unsigned int)))) {
+            fprintf(stderr, "Out of memory while resizing job capacity list.\n");
+            exit(EXIT_FAILURE);
+        }
+
+        // Clear the new slots.
+        for (unsigned int i = gJobTypeCapacity[player]; i < newCapacity; ++i) {
+            gJobs[player][i] = NULL;
+            gJobsCount[player][i] = 0;
+            gJobsCapacity[player][i] = 0;
+        }
+
+        gJobTypeCapacity[player] = newCapacity;
+    }
+}
+
+static void ensureJobTypeListSize(DK_Player player, unsigned int metaId) {
+    ensureJobListSize(player, metaId);
+
+    if (gJobsCount[player][metaId] + 1 > gJobsCapacity[player][metaId]) {
+        gJobsCapacity[player][metaId] = gJobsCapacity[player][metaId] * 2 + 1;
+        if (!(gJobs[player][metaId] = realloc(gJobs[player][metaId], gJobsCapacity[player][metaId] * sizeof (DK_Job**)))) {
             fprintf(stderr, "Out of memory while resizing job list.\n");
             exit(EXIT_FAILURE);
         }
     }
+}
+
+/** Allocate a job and track it in our list */
+static DK_Job* newJob(DK_Player player, const DK_JobMeta* meta) {
+    DK_Job* job;
+
+    assert(meta);
+
+    // Ensure we have the capacity to add the job.
+    ensureJobTypeListSize(player, meta->id);
 
     // Allocate the actual job.
-    job = calloc(1, sizeof (DK_Job));
-    if (!job) {
+    if (!(job = calloc(1, sizeof (DK_Job)))) {
         fprintf(stderr, "Out of memory while allocating a job.\n");
         exit(EXIT_FAILURE);
     }
+    job->meta = meta;
 
     // Store it in our list and return it.
-    return gJobs[player][type][gJobsCount[player][type]++] = job;
+    return gJobs[player][meta->id][gJobsCount[player][meta->id]++] = job;
 }
 
 /** Delete a job that is no longer used */
-static void deleteJob(DK_Player player, DK_JobType type, unsigned int id) {
+static void deleteJob(DK_Player player, unsigned int metaId, unsigned int number) {
+    assert(gJobsCount[player][metaId] > number);
+    assert(gJobs[player][metaId][number]);
+
     // Free the actual memory.
-    free(gJobs[player][type][id]);
+    free(gJobs[player][metaId][number]);
 
     // Move up the list entries to close the gap.
-    --gJobsCount[player][type];
-    memmove(&gJobs[player][type][id], &gJobs[player][type][id + 1], (gJobsCount[player][type] - id) * sizeof (DK_Job*));
+    --gJobsCount[player][metaId];
+    memmove(&gJobs[player][metaId][number], &gJobs[player][metaId][number + 1], (gJobsCount[player][metaId] - number) * sizeof (DK_Job*));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -90,164 +135,6 @@ static void getJobPosition(vec2* position, const DK_Job* job) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Creation
-///////////////////////////////////////////////////////////////////////////////
-
-/** Sides of a block (for job openings) */
-typedef enum Side {
-    SIDE_NONE = 0,
-    SIDE_SAME = 1,
-    SIDE_NORTH = 2,
-    SIDE_EAST = 4,
-    SIDE_SOUTH = 8,
-    SIDE_WEST = 16
-} Side;
-
-/** Check for block related jobs of a specified type for a specified block */
-static Side getExistingJobs(const DK_Block* block, unsigned short x, unsigned short y, DK_Player player, DK_JobType type) {
-    Side existingJobs = SIDE_NONE;
-    for (unsigned int jobId = 0; jobId < gJobsCount[player][type]; ++jobId) {
-        const DK_Job* job = gJobs[player][type][jobId];
-        if (job->block != block) {
-            continue;
-        }
-        if (job->offset.d.y > 0) {
-            // Top.
-            existingJobs |= SIDE_NORTH;
-        } else if (job->offset.d.y < 0) {
-            // Bottom.
-            existingJobs |= SIDE_SOUTH;
-        } else if (job->offset.d.x < 0) {
-            // Left.
-            existingJobs |= SIDE_WEST;
-        } else if (job->offset.d.x > 0) {
-            // Right.
-            existingJobs |= SIDE_EAST;
-        } else {
-            // Same block.
-            existingJobs |= SIDE_SAME;
-        }
-    }
-    return existingJobs;
-}
-
-static void addJobOpenings(DK_Player player, unsigned short x, unsigned short y) {
-    DK_Block* block = DK_GetBlockAt(x, y);
-
-    // Check which jobs are already taken care of. There are 5 slots: the block
-    // itself (converting) and the four non-diagonal neighbors (dig/convert).
-    if (DK_IsBlockSelected(player, x, y)) {
-        // It's selected, start digging if a neighboring tile is passable.
-        Side existingJobs = getExistingJobs(block, x, y, player, DK_JOB_DIG);
-        if (!(existingJobs & SIDE_NORTH) &&
-                DK_IsBlockPassable(DK_GetBlockAt(x, y - 1))) {
-            // Top is valid.
-            DK_Job* job = newJob(player, DK_JOB_DIG);
-            job->block = block;
-            job->offset.d.y = 0.75f;
-        }
-        if (!(existingJobs & SIDE_SOUTH) &&
-                DK_IsBlockPassable(DK_GetBlockAt(x, y + 1))) {
-            // Bottom is valid.
-            DK_Job* job = newJob(player, DK_JOB_DIG);
-            job->block = block;
-            job->offset.d.y = -0.75f;
-        }
-        if (!(existingJobs & SIDE_EAST) &&
-                DK_IsBlockPassable(DK_GetBlockAt(x + 1, y))) {
-            // Right is valid.
-            DK_Job* job = newJob(player, DK_JOB_DIG);
-            job->block = block;
-            job->offset.d.x = 0.75f;
-        }
-        if (!(existingJobs & SIDE_WEST) &&
-                DK_IsBlockPassable(DK_GetBlockAt(x - 1, y))) {
-            // Left is valid.
-            DK_Job* job = newJob(player, DK_JOB_DIG);
-            job->block = block;
-            job->offset.d.x = -0.75f;
-        }
-    } else if (DK_IsBlockConvertible(block) &&
-            (block->owner != player ||
-            block->strength < block->meta->strength)) {
-        // Not selected, and either not owned by the player, so we want to start
-        // conquering, or owned but below max strength (i.e. an attempt to
-        // conquer it was made by another player), so we want to repair it.
-        DK_Block* b;
-        if (DK_IsBlockPassable(block)) {
-            // Convert by standing in the middle of the tile.
-            Side existingJobs = getExistingJobs(block, x, y, player, DK_JOB_CONVERT_TILE);
-            if (!(existingJobs & SIDE_SAME) && (
-                    // Check if a neighboring tile is owned by the player.
-                    // North?
-                    ((b = DK_GetBlockAt(x, y + 1)) &&
-                    DK_IsBlockPassable(b) &&
-                    b->owner == player) ||
-                    // South?
-                    ((b = DK_GetBlockAt(x, y - 1)) &&
-                    DK_IsBlockPassable(b) &&
-                    b->owner == player) ||
-                    // East?
-                    ((b = DK_GetBlockAt(x + 1, y)) &&
-                    DK_IsBlockPassable(b) &&
-                    b->owner == player) ||
-                    // West?
-                    ((b = DK_GetBlockAt(x - 1, y)) &&
-                    DK_IsBlockPassable(b) &&
-                    b->owner == player))) {
-                // Valid for conversion.
-                DK_Job* job = newJob(player, DK_JOB_CONVERT_TILE);
-                job->block = block;
-            }
-        } else {
-            // Check if a neighboring tile is owned by the same player.
-            Side existingJobs = getExistingJobs(block, x, y, player, DK_JOB_CONVERT_WALL);
-            if (!(existingJobs & SIDE_NORTH) &&
-                    (b = DK_GetBlockAt(x, y - 1)) &&
-                    DK_IsBlockPassable(b) &&
-                    b->owner == player) {
-                // Top is valid.
-                DK_Job* job = newJob(player, DK_JOB_CONVERT_WALL);
-                job->block = block;
-                job->offset.d.x = (x + 0.5f);
-                job->offset.d.y = (y - 0.25f);
-            }
-            if (!(existingJobs & SIDE_SOUTH) &&
-                    (b = DK_GetBlockAt(x, y + 1)) &&
-                    DK_IsBlockPassable(b) &&
-                    b->owner == player) {
-                // Bottom is valid.
-                DK_Job* job = newJob(player, DK_JOB_CONVERT_WALL);
-                job->block = block;
-                job->offset.d.x = (x + 0.5f);
-                job->offset.d.y = (y + 1.25f);
-            }
-            if (!(existingJobs & SIDE_EAST) &&
-                    (b = DK_GetBlockAt(x + 1, y)) &&
-                    DK_IsBlockPassable(b) &&
-                    b->owner == player) {
-                // Right is valid.
-                DK_Job* job = newJob(player, DK_JOB_CONVERT_WALL);
-                job->block = block;
-                job->offset.d.x = (x + 1.25f);
-                job->offset.d.y = (y + 0.5f);
-            }
-            if (!(existingJobs & SIDE_WEST) &&
-                    (b = DK_GetBlockAt(x - 1, y)) &&
-                    DK_IsBlockPassable(b) &&
-                    b->owner == player) {
-                // Left is valid.
-                DK_Job* job = newJob(player, DK_JOB_CONVERT_WALL);
-                job->block = block;
-                job->offset.d.x = (x - 0.25f);
-                job->offset.d.y = (y + 0.5f);
-            }
-        }
-    }
-    // TODO check for room, and if it offers a job
-}
-
-///////////////////////////////////////////////////////////////////////////////
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -258,30 +145,35 @@ static void onRender(void) {
         DK_InitMaterial(&material);
         material.emissivity = 1.0f;
 
-        for (unsigned int type = 0; type < DK_JOB_TYPE_COUNT; ++type) {
-            for (unsigned int i = 0; i < gJobsCount[DK_PLAYER_ONE][type]; ++i) {
-                const DK_Job* job = gJobs[DK_PLAYER_ONE][type][i];
+        for (unsigned int metaId = 0; metaId < gJobTypeCapacity[DK_PLAYER_ONE]; ++metaId) {
+            for (unsigned int number = 0; number < gJobsCount[DK_PLAYER_ONE][metaId]; ++number) {
+                const DK_Job* job = gJobs[DK_PLAYER_ONE][metaId][number];
 
                 // Pick a color for the job.
-                switch (type) {
-                    case DK_JOB_DIG:
-                        material.diffuseColor.c.r = 0.4f;
-                        material.diffuseColor.c.g = 0.8f;
-                        material.diffuseColor.c.b = 0.4f;
-                        break;
-                    case DK_JOB_CONVERT_TILE:
-                    case DK_JOB_CONVERT_WALL:
-                        material.diffuseColor.c.r = 0.4f;
-                        material.diffuseColor.c.g = 0.4f;
-                        material.diffuseColor.c.b = 0.8f;
-                        break;
+                material.diffuseColor.c.r = 0.4f;
+                material.diffuseColor.c.g = 0.4f;
+                material.diffuseColor.c.b = 0.4f;
+                /*
+                                switch (type) {
+                                    case DK_JOB_DIG:
+                                        material.diffuseColor.c.r = 0.4f;
+                                        material.diffuseColor.c.g = 0.8f;
+                                        material.diffuseColor.c.b = 0.4f;
+                                        break;
+                                    case DK_JOB_CONVERT_TILE:
+                                    case DK_JOB_CONVERT_WALL:
+                                        material.diffuseColor.c.r = 0.4f;
+                                        material.diffuseColor.c.g = 0.4f;
+                                        material.diffuseColor.c.b = 0.8f;
+                                        break;
 
-                    default:
-                        material.diffuseColor.c.r = 0.4f;
-                        material.diffuseColor.c.g = 0.4f;
-                        material.diffuseColor.c.b = 0.4f;
-                        break;
-                }
+                                    default:
+                                        material.diffuseColor.c.r = 0.4f;
+                                        material.diffuseColor.c.g = 0.4f;
+                                        material.diffuseColor.c.b = 0.4f;
+                                        break;
+                                }
+                 */
 
                 // Highlight if it's being worked on.
                 if (job->worker) {
@@ -307,61 +199,56 @@ static void onRender(void) {
     }
 }
 
-/** Reset upon map change */
-static void onMapChange(void) {
-    for (unsigned int player = 0; player < DK_PLAYER_COUNT; ++player) {
-        for (unsigned int jobType = 0; jobType < DK_JOB_TYPE_COUNT; ++jobType) {
-            for (unsigned int jobIndex = gJobsCount[player][jobType]; jobIndex > 0; --jobIndex) {
-                free(gJobs[player][jobType][jobIndex - 1]);
-                gJobs[player][jobType][jobIndex - 1] = 0;
-            }
-            gJobsCount[player][jobType] = 0;
-        }
-    }
-}
-
-void DK_UpdateJobsForBlock(DK_Player player, unsigned short x, unsigned short y) {
+static void DK_UpdateJobsForBlock(DK_Player player, unsigned short x, unsigned short y) {
     DK_Block* block = DK_GetBlockAt(x, y);
-    for (unsigned int jobType = 0; jobType < DK_JOB_TYPE_COUNT; ++jobType) {
-        for (unsigned int jobIndex = gJobsCount[player][jobType]; jobIndex > 0; --jobIndex) {
-            const DK_Job* job = gJobs[player][jobType][jobIndex - 1];
+
+    // Remove all old jobs that had to do with this block.
+    for (unsigned int metaId = 0; metaId < gJobTypeCapacity[DK_PLAYER_ONE]; ++metaId) {
+        for (unsigned int number = gJobsCount[player][metaId]; number > 0; --number) {
+            DK_Job* job = gJobs[player][metaId][number - 1];
             if (job->block == block) {
                 // Remove this one. Notify worker that it's no longer needed.
-                if (job->worker) {
-                    DK_StopJob(job->worker, jobType);
-                }
+                DK_StopJob(job);
 
                 // Free memory.
-                deleteJob(player, jobType, jobIndex - 1);
+                deleteJob(player, metaId, number - 1);
             }
         }
     }
 
     // Update / recreate jobs.
-    addJobOpenings(player, x, y);
-    if (x > 0) {
-        addJobOpenings(player, x - 1, y);
-    }
-    if (x < DK_GetMapSize() - 1) {
-        addJobOpenings(player, x + 1, y);
-    }
-    if (y > 0) {
-        addJobOpenings(player, x, y - 1);
-    }
-    if (y < DK_GetMapSize() - 1) {
-        addJobOpenings(player, x, y + 1);
-    }
+    /*
+        addJobOpenings(player, x, y);
+        if (x > 0) {
+            addJobOpenings(player, x - 1, y);
+        }
+        if (x < DK_GetMapSize() - 1) {
+            addJobOpenings(player, x + 1, y);
+        }
+        if (y > 0) {
+            addJobOpenings(player, x, y - 1);
+        }
+        if (y < DK_GetMapSize() - 1) {
+            addJobOpenings(player, x, y + 1);
+        }
+     */
 }
 
 DK_Job* DK_FindJob(const DK_Unit* unit, const DK_JobMeta* type, float* distance) {
-    DK_Job* closestJob = 0;
+    DK_Job* closestJob = NULL;
     float closestDistance = FLT_MAX;
 
+    if (!unit || !type) {
+        return NULL;
+    }
+
+    ensureJobTypeListSize(unit->owner, type->id);
+
     // Loop through all jobs of the specified type for the owner of the unit.
-    for (unsigned int jobId = gJobsCount[unit->owner][type->id]; jobId > 0; --jobId) {
+    for (unsigned int number = 0; number < gJobsCount[unit->owner][type->id]; ++number) {
         float currentDistance;
         vec2 position;
-        DK_Job* job = gJobs[unit->owner][type->id][jobId];
+        DK_Job* job = gJobs[unit->owner][type->id][number];
 
         // Based on the job type we use the target's position.
         getJobPosition(&position, job);
@@ -400,6 +287,7 @@ DK_Job* DK_FindJob(const DK_Unit* unit, const DK_JobMeta* type, float* distance)
         }
     }
 
+    // Return distance if desired.
     if (distance && closestJob) {
         *distance = closestDistance;
     }
@@ -407,15 +295,36 @@ DK_Job* DK_FindJob(const DK_Unit* unit, const DK_JobMeta* type, float* distance)
     return closestJob;
 }
 
-void DK_RunJob(DK_Unit* unit, DK_JobMeta* job) {
-    
+void DK_RunJob(DK_Unit* unit, const DK_JobMeta* job) {
+
+}
+
+void DK_ClearJobs(void) {
+    for (unsigned int player = 0; player < DK_PLAYER_COUNT; ++player) {
+        for (unsigned int metaId = 0; metaId < gJobTypeCapacity[player]; ++metaId) {
+            for (unsigned int number = 0; number < gJobsCount[player][metaId]; ++number) {
+                free(gJobs[player][metaId][number]);
+                gJobs[player][metaId][number] = NULL;
+            }
+            free(gJobs[player][metaId]);
+            gJobs[player][metaId] = NULL;
+        }
+        free(gJobs[player]);
+        gJobs[player] = NULL;
+        free(gJobsCount[player]);
+        gJobsCount[player] = NULL;
+        free(gJobsCapacity[player]);
+        gJobsCapacity[player] = NULL;
+
+        gJobTypeCapacity[player] = 0;
+    }
 }
 
 void DK_InitJobs(void) {
-    DK_OnMapSizeChange(onMapChange);
     DK_OnRender(onRender);
 
-    memset(gJobs, 0, DK_PLAYER_COUNT * DK_JOB_TYPE_COUNT * sizeof (DK_Job**));
-    memset(gJobsCount, 0, DK_PLAYER_COUNT * DK_JOB_TYPE_COUNT * sizeof (unsigned int));
-    memset(gJobsCapacity, 0, DK_PLAYER_COUNT * DK_JOB_TYPE_COUNT * sizeof (unsigned int));
+    memset(gJobs, 0, DK_PLAYER_COUNT * sizeof (DK_Job***));
+    memset(gJobsCount, 0, DK_PLAYER_COUNT * sizeof (unsigned int*));
+    memset(gJobsCapacity, 0, DK_PLAYER_COUNT * sizeof (unsigned int*));
+    memset(gJobTypeCapacity, 0, DK_PLAYER_COUNT * sizeof (unsigned int));
 }

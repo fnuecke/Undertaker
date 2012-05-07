@@ -469,7 +469,8 @@ static void updateBlock(DK_Block* block) {
     // Update jobs for this block by deselecting it.
     for (int i = 0; i < DK_PLAYER_COUNT; ++i) {
         if (!DK_DeselectBlock(DK_PLAYER_NONE + i, x, y)) {
-            DK_UpdateJobsForBlock(DK_PLAYER_NONE + i, x, y);
+            //DK_UpdateJobsForBlock(DK_PLAYER_NONE + i, x, y);
+            // TODO event
         }
     }
 }
@@ -1147,7 +1148,7 @@ DK_Block * DK_GetBlockUnderCursor(int* x, int* y) {
 // Modifiers
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_SetMapSize(unsigned short size) {
+void DK_SetMapSize(unsigned short size, const DK_BlockMeta* fillWith) {
     // Reallocate data only if the size changed.
     if (size != gMapSize) {
         // Free old map data.
@@ -1184,12 +1185,12 @@ void DK_SetMapSize(unsigned short size) {
     for (unsigned int x = 0; x < gMapSize; ++x) {
         for (unsigned int y = 0; y < gMapSize; ++y) {
             DK_Block* block = DK_GetBlockAt(x, y);
-            block->meta = NULL;
+            block->meta = fillWith;
             block->room = NULL;
             block->owner = DK_PLAYER_NONE;
-            block->durability = 0;
-            block->strength = 0;
-            block->gold = 0;
+            block->durability = fillWith->durability;
+            block->strength = fillWith->strength;
+            block->gold = fillWith->gold;
         }
     }
 
@@ -1246,30 +1247,6 @@ void DK_SetMapSize(unsigned short size) {
     }
 
     DK_GL_GenerateMap();
-}
-
-void DK_FillMap(const DK_BlockMeta* blockType) {
-    for (unsigned int x = 0; x < gMapSize; ++x) {
-        for (unsigned int y = 0; y < gMapSize; ++y) {
-            DK_Block* block = DK_GetBlockAt(x, y);
-            block->meta = blockType;
-            block->durability = block->meta->durability;
-            block->strength = block->meta->strength;
-            block->gold = block->meta->gold;
-        }
-    }
-
-    for (unsigned int x = 0; x < gVerticesPerDimension; ++x) {
-        for (unsigned int y = 0; y < gVerticesPerDimension; ++y) {
-            updateVerticesAt(x, y);
-        }
-    }
-
-    for (unsigned int x = 1; x < gVerticesPerDimension - 1; ++x) {
-        for (unsigned int y = 1; y < gVerticesPerDimension - 1; ++y) {
-            updateNormalsAt(x, y);
-        }
-    }
 }
 
 void DK_GL_GenerateMap(void) {
@@ -1432,7 +1409,8 @@ int DK_ConvertBlock(DK_Block* block, unsigned int strength, DK_Player player) {
         block->strength = max_strength;
 
         // Update jobs nearby.
-        DK_UpdateJobsForBlock(player, x, y);
+        //DK_UpdateJobsForBlock(player, x, y);
+        // TODO event
     }
     return 1;
 }

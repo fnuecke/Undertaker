@@ -4,6 +4,11 @@ META_globals(DK_RoomMeta)
 
 /** Reset defaults on map change */
 static void resetDefaults(void) {
+    gMetaDefaults.canBuildOn = 0;
+    gMetaDefaults.passability = 0;
+    gMetaDefaults.level = DK_BLOCK_LEVEL_NORMAL;
+    gMetaDefaults.isDoor = false;
+    gMetaDefaults.health = 0;
 }
 
 /** New type registered */
@@ -16,10 +21,10 @@ static bool initMeta(DK_RoomMeta* m, const DK_RoomMeta* meta) {
 /** Type override */
 static bool updateMeta(DK_RoomMeta* m, const DK_RoomMeta* meta) {
     m->canBuildOn = meta->canBuildOn;
-    m->health = meta->health;
-    m->isDoor = meta->isDoor;
-    m->level = meta->level;
     m->passability = meta->passability;
+    m->level = meta->level;
+    m->isDoor = meta->isDoor;
+    m->health = meta->health;
 
     return true;
 }

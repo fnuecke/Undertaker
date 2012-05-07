@@ -167,7 +167,8 @@ int DK_SelectBlock(DK_Player player, int x, int y) {
         // Only update if something changed.
         if (!BS_Test(gPlayerSelection[player], idx)) {
             BS_Set(gPlayerSelection[player], idx);
-            DK_UpdateJobsForBlock(player, x, y);
+            //DK_UpdateJobsForBlock(player, x, y);
+            // TODO event
             return 1;
         }
     }
@@ -181,7 +182,8 @@ int DK_DeselectBlock(DK_Player player, int x, int y) {
         // Only update if something changed.
         if (BS_Test(gPlayerSelection[player], idx)) {
             BS_Unset(gPlayerSelection[player], idx);
-            DK_UpdateJobsForBlock(player, x, y);
+            //DK_UpdateJobsForBlock(player, x, y);
+            // TODO event
             return 1;
         }
     }

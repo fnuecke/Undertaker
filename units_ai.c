@@ -122,7 +122,7 @@ static void updateSatisfaction(DK_Unit* unit) {
     // unsatisfied with.
     if (someUnsatisfied && state->jobSatisfaction[ai->jobNumber] >= meta->jobSatisfaction[ai->jobNumber].unsatisfiedThreshold) {
         // Indeed, so pop the current job.
-        DK_StopJob(unit, unit->meta->jobs[ai->jobNumber]);
+        DK_StopJob(ai->job);
     }
 }
 

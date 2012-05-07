@@ -46,7 +46,10 @@ static void loadTestTexture(void) {
 static Texture* getNextFreeEntry(void) {
     if (gTextureCount >= gTextureCapacity) {
         gTextureCapacity = gTextureCapacity * 2 + 1;
-        gTextures = realloc(gTextures, gTextureCapacity * sizeof (Texture));
+        if (!(gTextures = realloc(gTextures, gTextureCapacity * sizeof (Texture)))) {
+            fprintf(stderr, "Out of memory while resizing texture list.\n");
+            exit(EXIT_FAILURE);
+        }
     }
     return &gTextures[gTextureCount++];
 }

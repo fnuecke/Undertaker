@@ -5,6 +5,7 @@
 #include "block_meta.h"
 #include "config.h"
 #include "events.h"
+#include "jobs.h"
 #include "jobs_meta.h"
 #include "map.h"
 #include "meta.h"
@@ -23,6 +24,9 @@ void DK_LoadMap(const char* mapname) {
 
     fprintf(DK_log_target, "INFO: Loading map '%s'.\n", mapname);
 
+    // Kill remaining jobs.
+    DK_ClearJobs();
+
     // Unload resources.
     DK_UnloadTextures();
 
@@ -36,8 +40,7 @@ void DK_LoadMap(const char* mapname) {
     DK_LoadMeta(mapname);
 
     // Adjust map size and set default block type.
-    DK_SetMapSize(128);
-    DK_FillMap(DK_GetBlockMeta(1));
+    DK_SetMapSize(128, DK_GetBlockMeta(1));
 
     // Load new resources onto GPU.
     DK_GL_GenerateTextures();
