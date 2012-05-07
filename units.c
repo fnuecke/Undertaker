@@ -200,22 +200,26 @@ int DK_AddUnit(DK_Player player, const DK_UnitMeta* type, const vec2* position) 
     return 1;
 }
 
-void DK_StopJob(DK_Unit* unit, DK_JobType jobType) {
-    // Traverse the AI stack, starting at the current node.
-    AI_State* state = unit->ai->current;
-    while (state < &unit->ai->stack[DK_AI_STACK_DEPTH]) {
-        // If we have a match, make it the current one and tell it to go pop.
-        if (state->jobType == jobType) {
-            unit->ai->current = state;
-            if (state->jobInfo) {
-                state->jobInfo->worker = NULL;
-                state->jobInfo = NULL;
-            }
-            state->shouldCancel = true;
-        }
+void DK_StopJob(DK_Job* job) {
+    if (job && job->worker) {
+        // Traverse the AI stack, starting at the current node.
+        AI_State* state = job->worker->ai->current;
+        while (state < &job->worker->ai->stack[DK_AI_STACK_DEPTH]) {
+            // If we have a match, make it the current one and tell it to stop.
+            if (state->job == job) {
+                job->worker->ai->current = state;
+                job->worker = NULL;
+                state->job = NULL;
+                state->jobNumber = 0;
+                state->shouldCancel = true;
 
-        // And move on to the next (could be more than one occurrence).
-        ++state;
+                // And we're done.
+                return;
+            }
+
+            // And move on to the next (could be more than one occurrence).
+            ++state;
+        }
     }
 }
 

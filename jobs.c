@@ -13,22 +13,20 @@
 #include "selection.h"
 #include "units.h"
 #include "vmath.h"
+#include "jobs_meta.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
 ///////////////////////////////////////////////////////////////////////////////
 
 /** List of all current jobs, per player */
-static DK_Job** gJobs[DK_PLAYER_COUNT][DK_JOB_TYPE_COUNT] = {
-    {0}};
+static DK_Job** gJobs[DK_PLAYER_COUNT][DK_JOB_TYPE_COUNT];
 
 /** Number of used entries in the lists */
-static unsigned int gJobsCount[DK_PLAYER_COUNT][DK_JOB_TYPE_COUNT] = {
-    {0}};
+static unsigned int gJobsCount[DK_PLAYER_COUNT][DK_JOB_TYPE_COUNT];
 
 /** Capacity of the workplace lists */
-static unsigned int jJobsCapacity[DK_PLAYER_COUNT][DK_JOB_TYPE_COUNT] = {
-    {0}};
+static unsigned int gJobsCapacity[DK_PLAYER_COUNT][DK_JOB_TYPE_COUNT];
 
 ///////////////////////////////////////////////////////////////////////////////
 // Allocation
@@ -39,9 +37,9 @@ static DK_Job* newJob(DK_Player player, DK_JobType type) {
     DK_Job* job;
 
     // Ensure we have the capacity to add the job.
-    if (gJobsCount[player][type] + 1 > jJobsCapacity[player][type]) {
-        jJobsCapacity[player][type] = DK_AI_JOB_CAPACITY_GROWTH(jJobsCapacity[player][type]);
-        if (!(gJobs[player][type] = realloc(gJobs[player][type], jJobsCapacity[player][type] * sizeof (DK_Job*)))) {
+    if (gJobsCount[player][type] + 1 > gJobsCapacity[player][type]) {
+        gJobsCapacity[player][type] = DK_AI_JOB_CAPACITY_GROWTH(gJobsCapacity[player][type]);
+        if (!(gJobs[player][type] = realloc(gJobs[player][type], gJobsCapacity[player][type] * sizeof (DK_Job*)))) {
             fprintf(stderr, "Out of memory while resizing job list.\n");
             exit(EXIT_FAILURE);
         }
@@ -69,6 +67,29 @@ static void deleteJob(DK_Player player, DK_JobType type, unsigned int id) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// Utility
+///////////////////////////////////////////////////////////////////////////////
+
+static void getJobPosition(vec2* position, const DK_Job* job) {
+    if (job->block) {
+        unsigned short x, y;
+        DK_GetBlockCoordinates(&x, &y, job->block);
+        position->d.x = x + 0.5f;
+        position->d.y = y + 0.5f;
+    } else if (job->room) {
+        // TODO
+    } else if (job->unit) {
+        *position = job->unit->position;
+    } else {
+        position->d.x = 0;
+        position->d.y = 0;
+    }
+
+    // Add offset declared in job.
+    v2iadd(position, &job->offset);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Creation
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -90,16 +111,16 @@ static Side getExistingJobs(const DK_Block* block, unsigned short x, unsigned sh
         if (job->block != block) {
             continue;
         }
-        if (job->position.d.y < y) {
+        if (job->offset.d.y > 0) {
             // Top.
             existingJobs |= SIDE_NORTH;
-        } else if (job->position.d.y > y + 1) {
+        } else if (job->offset.d.y < 0) {
             // Bottom.
             existingJobs |= SIDE_SOUTH;
-        } else if (job->position.d.x < x) {
+        } else if (job->offset.d.x < 0) {
             // Left.
             existingJobs |= SIDE_WEST;
-        } else if (job->position.d.x > x + 1) {
+        } else if (job->offset.d.x > 0) {
             // Right.
             existingJobs |= SIDE_EAST;
         } else {
@@ -123,32 +144,28 @@ static void addJobOpenings(DK_Player player, unsigned short x, unsigned short y)
             // Top is valid.
             DK_Job* job = newJob(player, DK_JOB_DIG);
             job->block = block;
-            job->position.d.x = (x + 0.5f);
-            job->position.d.y = (y - 0.25f);
+            job->offset.d.y = 0.75f;
         }
         if (!(existingJobs & SIDE_SOUTH) &&
                 DK_IsBlockPassable(DK_GetBlockAt(x, y + 1))) {
             // Bottom is valid.
             DK_Job* job = newJob(player, DK_JOB_DIG);
             job->block = block;
-            job->position.d.x = (x + 0.5f);
-            job->position.d.y = (y + 1.25f);
+            job->offset.d.y = -0.75f;
         }
         if (!(existingJobs & SIDE_EAST) &&
                 DK_IsBlockPassable(DK_GetBlockAt(x + 1, y))) {
             // Right is valid.
             DK_Job* job = newJob(player, DK_JOB_DIG);
             job->block = block;
-            job->position.d.x = (x + 1.25f);
-            job->position.d.y = (y + 0.5f);
+            job->offset.d.x = 0.75f;
         }
         if (!(existingJobs & SIDE_WEST) &&
                 DK_IsBlockPassable(DK_GetBlockAt(x - 1, y))) {
             // Left is valid.
             DK_Job* job = newJob(player, DK_JOB_DIG);
             job->block = block;
-            job->position.d.x = (x - 0.25f);
-            job->position.d.y = (y + 0.5f);
+            job->offset.d.x = -0.75f;
         }
     } else if (DK_IsBlockConvertible(block) &&
             (block->owner != player ||
@@ -181,8 +198,6 @@ static void addJobOpenings(DK_Player player, unsigned short x, unsigned short y)
                 // Valid for conversion.
                 DK_Job* job = newJob(player, DK_JOB_CONVERT_TILE);
                 job->block = block;
-                job->position.d.x = (x + 0.5f);
-                job->position.d.y = (y + 0.5f);
             }
         } else {
             // Check if a neighboring tile is owned by the same player.
@@ -194,8 +209,8 @@ static void addJobOpenings(DK_Player player, unsigned short x, unsigned short y)
                 // Top is valid.
                 DK_Job* job = newJob(player, DK_JOB_CONVERT_WALL);
                 job->block = block;
-                job->position.d.x = (x + 0.5f);
-                job->position.d.y = (y - 0.25f);
+                job->offset.d.x = (x + 0.5f);
+                job->offset.d.y = (y - 0.25f);
             }
             if (!(existingJobs & SIDE_SOUTH) &&
                     (b = DK_GetBlockAt(x, y + 1)) &&
@@ -204,8 +219,8 @@ static void addJobOpenings(DK_Player player, unsigned short x, unsigned short y)
                 // Bottom is valid.
                 DK_Job* job = newJob(player, DK_JOB_CONVERT_WALL);
                 job->block = block;
-                job->position.d.x = (x + 0.5f);
-                job->position.d.y = (y + 1.25f);
+                job->offset.d.x = (x + 0.5f);
+                job->offset.d.y = (y + 1.25f);
             }
             if (!(existingJobs & SIDE_EAST) &&
                     (b = DK_GetBlockAt(x + 1, y)) &&
@@ -214,8 +229,8 @@ static void addJobOpenings(DK_Player player, unsigned short x, unsigned short y)
                 // Right is valid.
                 DK_Job* job = newJob(player, DK_JOB_CONVERT_WALL);
                 job->block = block;
-                job->position.d.x = (x + 1.25f);
-                job->position.d.y = (y + 0.5f);
+                job->offset.d.x = (x + 1.25f);
+                job->offset.d.y = (y + 0.5f);
             }
             if (!(existingJobs & SIDE_WEST) &&
                     (b = DK_GetBlockAt(x - 1, y)) &&
@@ -224,8 +239,8 @@ static void addJobOpenings(DK_Player player, unsigned short x, unsigned short y)
                 // Left is valid.
                 DK_Job* job = newJob(player, DK_JOB_CONVERT_WALL);
                 job->block = block;
-                job->position.d.x = (x - 0.25f);
-                job->position.d.y = (y + 0.5f);
+                job->offset.d.x = (x - 0.25f);
+                job->offset.d.y = (y + 0.5f);
             }
         }
     }
@@ -279,10 +294,12 @@ static void onRender(void) {
                 DK_SetMaterial(&material);
                 glBegin(GL_QUADS);
                 {
-                    glVertex3f((job->position.d.x - 0.1f) * DK_BLOCK_SIZE, (job->position.d.y - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-                    glVertex3f((job->position.d.x + 0.1f) * DK_BLOCK_SIZE, (job->position.d.y - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-                    glVertex3f((job->position.d.x + 0.1f) * DK_BLOCK_SIZE, (job->position.d.y + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-                    glVertex3f((job->position.d.x - 0.1f) * DK_BLOCK_SIZE, (job->position.d.y + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+                    vec2 position;
+                    getJobPosition(&position, job);
+                    glVertex3f((position.d.x - 0.1f) * DK_BLOCK_SIZE, (position.d.y - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+                    glVertex3f((position.d.x + 0.1f) * DK_BLOCK_SIZE, (position.d.y - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+                    glVertex3f((position.d.x + 0.1f) * DK_BLOCK_SIZE, (position.d.y + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+                    glVertex3f((position.d.x - 0.1f) * DK_BLOCK_SIZE, (position.d.y + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
                 }
                 glEnd();
             }
@@ -301,11 +318,6 @@ static void onMapChange(void) {
             gJobsCount[player][jobType] = 0;
         }
     }
-}
-
-void DK_InitJobs(void) {
-    DK_OnMapSizeChange(onMapChange);
-    DK_OnRender(onRender);
 }
 
 void DK_UpdateJobsForBlock(DK_Player player, unsigned short x, unsigned short y) {
@@ -341,24 +353,29 @@ void DK_UpdateJobsForBlock(DK_Player player, unsigned short x, unsigned short y)
     }
 }
 
-DK_Job* DK_FindJob(const DK_Unit* unit, DK_JobType type, float* distance) {
+DK_Job* DK_FindJob(const DK_Unit* unit, const DK_JobMeta* type, float* distance) {
     DK_Job* closestJob = 0;
     float closestDistance = FLT_MAX;
 
     // Loop through all jobs of the specified type for the owner of the unit.
-    for (unsigned int jobId = gJobsCount[unit->owner][type]; jobId > 0; --jobId) {
-        DK_Job* job = gJobs[unit->owner][type][jobId];
+    for (unsigned int jobId = gJobsCount[unit->owner][type->id]; jobId > 0; --jobId) {
+        float currentDistance;
+        vec2 position;
+        DK_Job* job = gJobs[unit->owner][type->id][jobId];
+
+        // Based on the job type we use the target's position.
+        getJobPosition(&position, job);
 
         // Test direct distance; if that's longer than our best we
         // can safely skip this one.
-        float currentDistance = v2distance(&unit->position, &job->position);
+        currentDistance = v2distance(&unit->position, &position);
         if (currentDistance >= closestDistance) {
             continue;
         }
 
         // Find a path to it. We're not really interested in the actual path,
         // though, so pass null for that.
-        if (DK_AStar(unit, &job->position, NULL, NULL, &currentDistance)) {
+        if (DK_AStar(unit, &position, NULL, NULL, &currentDistance)) {
             // Got a path, check its length.
             if (currentDistance < closestDistance) {
                 // Got a new best. Check if it's occupied, and if so
@@ -369,7 +386,7 @@ DK_Job* DK_FindJob(const DK_Unit* unit, DK_JobType type, float* distance) {
                     // of a very long wall, but it should be good enough in most
                     // cases, and at least guarantees that *when* we steal the
                     // job, we're really closer.
-                    const float workerDistance = v2distance(&job->worker->position, &job->position);
+                    const float workerDistance = v2distance(&job->worker->position, &position);
                     if (workerDistance <= currentDistance + DK_AI_ALREADY_WORKING_BONUS) {
                         // The one that's on it is better suited, ignore job.
                         continue;
@@ -388,4 +405,17 @@ DK_Job* DK_FindJob(const DK_Unit* unit, DK_JobType type, float* distance) {
     }
 
     return closestJob;
+}
+
+void DK_RunJob(DK_Unit* unit, DK_JobMeta* job) {
+    
+}
+
+void DK_InitJobs(void) {
+    DK_OnMapSizeChange(onMapChange);
+    DK_OnRender(onRender);
+
+    memset(gJobs, 0, DK_PLAYER_COUNT * DK_JOB_TYPE_COUNT * sizeof (DK_Job**));
+    memset(gJobsCount, 0, DK_PLAYER_COUNT * DK_JOB_TYPE_COUNT * sizeof (unsigned int));
+    memset(gJobsCapacity, 0, DK_PLAYER_COUNT * DK_JOB_TYPE_COUNT * sizeof (unsigned int));
 }

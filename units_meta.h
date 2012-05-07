@@ -88,7 +88,7 @@ extern "C" {
      */
     struct DK_UnitSatisfactionMeta {
         /** Job related satisfaction data */
-        DK_UnitJobSatisfactionMeta jobs[DK_JOB_TYPE_COUNT];
+        DK_UnitJobSatisfactionMeta* jobSatisfaction;
 
         /** How satisfaction changes when being slapped */
         float slapDelta;
@@ -100,7 +100,7 @@ extern "C" {
         float angerThreshold;
 
         /** What the unit does when it gets angry */
-        DK_JobType angerJob;
+        const DK_JobMeta* angerJob;
     };
 
     /** Description of a single unit type */
@@ -118,13 +118,13 @@ extern "C" {
         float moveSpeed;
 
         /** Jobs the unit can perform */
-        bool jobs[DK_JOB_TYPE_COUNT];
+        const DK_JobMeta** jobs;
+
+        /** Number of jobs for this unit */
+        unsigned int jobCount;
 
         /** Information on unit satisfaction */
         DK_UnitSatisfactionMeta satisfaction;
-
-        /** Abilities of the unit */
-        //DK_Ability* abilities;
     };
 
     META_header(DK_UnitMeta, Unit)

@@ -9,21 +9,56 @@
 #define	META_H
 
 #include <malloc.h>
+#include <stdio.h>
 #include <string.h>
 
+#include "lua/lua.h"
+#include "lua/lauxlib.h"
+
+#include "config.h"
 #include "events.h"
+#include "types.h"
+
+#ifdef	__cplusplus
+extern "C" {
+#endif
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Parsing
+    ///////////////////////////////////////////////////////////////////////////
+
+    /**
+     * Load meta descriptors from a file. This will also trigger loading any AI
+     * jobs described in the meta file, as well as other related resources, such
+     * as textures.
+     * @param name the name of the meta file to load (without path / extension).
+     * @return whether the file was loaded successfully.
+     */
+    bool DK_LoadMeta(const char* name);
+
+#ifdef	__cplusplus
+}
+#endif
+
+///////////////////////////////////////////////////////////////////////////////
+// Macros
+///////////////////////////////////////////////////////////////////////////////
 
 #define META_header(TYPE, NAME) \
 const TYPE* DK_Get##NAME##Meta(unsigned int id); \
 const TYPE* DK_Get##NAME##MetaByName(const char* name); \
-void DK_Add##NAME##Meta(const TYPE* meta); \
-void DK_Init##NAME##Meta(void);
+unsigned int DK_Get##NAME##MetaCount(void); \
+bool DK_Add##NAME##Meta(const TYPE* meta); \
+int DK_Lua_##NAME##MetaDefaults(lua_State* L); \
+int DK_Lua_Add##NAME##Meta(lua_State* L); \
+void DK_Clear##NAME##Meta(void);
 
 #define META_globals(TYPE) \
 static TYPE* gMetas = 0; \
 static char** gMetaNames = 0; \
 static unsigned int gMetaCount = 0; \
 static unsigned int gMetaCapacity = 0; \
+static TYPE gMetaDefaults;
 
 #define META_getNextFreeEntry(TYPE) \
 static TYPE* getNextFreeEntry(void) { \
@@ -55,17 +90,7 @@ static TYPE* findByName(const char* name) { \
     return NULL; \
 }
 
-#define META_onMapSizeChange \
-static void onMapSizeChange(void) { \
-    for (unsigned int i = 0; i < gMetaCount; ++i) { \
-        free(gMetaNames[i]); \
-        gMetaNames[i] = NULL; \
-        gMetas[i].name = NULL; \
-    } \
-    gMetaCount = 0; \
-}
-
-#define META_getMeta(TYPE, NAME) \
+#define META_getById(TYPE, NAME) \
 const TYPE* DK_Get##NAME##Meta(unsigned int id) { \
     if (id > 0 && id - 1 < gMetaCount) { \
         return &gMetas[id - 1]; \
@@ -73,41 +98,60 @@ const TYPE* DK_Get##NAME##Meta(unsigned int id) { \
     return NULL; \
 }
 
-#define META_getMetaByName(TYPE, NAME) \
+#define META_getByName(TYPE, NAME) \
 const TYPE* DK_Get##NAME##MetaByName(const char* name) { \
     return findByName(name); \
 }
 
-#define META_addMeta(TYPE, NAME) \
-void DK_Add##NAME##Meta(const TYPE* meta) { \
-    TYPE* m; \
-    if (!meta) { \
-        return; \
-    } \
-    if ((m = findByName(meta->name))) { \
-        updateMeta(m, meta); \
-    } else { \
-        m = getNextFreeEntry(); \
-        initMeta(m, meta); \
-        m->id = gMetaCount; \
-        m->name = storeName(meta->name); \
-    } \
+#define META_getCount(TYPE, NAME) \
+unsigned int DK_Get##NAME##MetaCount(void) { \
+    return gMetaCount; \
 }
 
-#define META_initMeta(NAME) \
-void DK_Init##NAME##Meta(void) { \
-    DK_OnMapSizeChange(onMapSizeChange); \
+#define META_add(TYPE, NAME) \
+bool DK_Add##NAME##Meta(const TYPE* meta) { \
+    TYPE* m; \
+    if (meta && meta->name) { \
+        if ((m = findByName(meta->name))) { \
+            if (updateMeta(m, meta)) { \
+                fprintf(DK_log_target, "INFO: Successfully updated %s type '%s'.\n", "##NAME##", meta->name); \
+                return true; \
+            } else { \
+                fprintf(DK_log_target, "ERROR: Failed updating %s type '%s'.\n", "##NAME##", meta->name); \
+            } \
+        } else { \
+            m = getNextFreeEntry(); \
+            if (initMeta(m, meta)) { \
+                m->id = gMetaCount; \
+                m->name = storeName(meta->name); \
+                fprintf(DK_log_target, "INFO: Successfully registered %s type '%s'.\n", "##NAME##", meta->name); \
+                return true; \
+            } else { \
+                fprintf(DK_log_target, "ERROR: Failed registering %s type '%s'.\n", "##NAME##", m->name); \
+            } \
+        } \
+    } \
+    return false; \
+}
+
+#define META_clear(NAME) \
+void DK_Clear##NAME##Meta(void) { \
+    for (unsigned int i = 0; i < gMetaCount; ++i) { \
+        free(gMetaNames[i]); \
+        gMetaNames[i] = NULL; \
+        gMetas[i].name = NULL; \
+    } \
+    gMetaCount = 0; \
+    resetDefaults(); \
 }
 
 #define META_impl(TYPE, NAME) \
-META_globals(TYPE) \
 META_getNextFreeEntry(TYPE) \
 META_storeName \
 META_findByName(TYPE) \
-META_onMapSizeChange \
-META_getMeta(TYPE, NAME) \
-META_getMetaByName(TYPE, NAME) \
-META_addMeta(TYPE, NAME) \
-META_initMeta(NAME)
+META_getById(TYPE, NAME) \
+META_getByName(TYPE, NAME) \
+META_add(TYPE, NAME) \
+META_clear(NAME)
 
 #endif	/* META_H */

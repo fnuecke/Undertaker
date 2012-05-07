@@ -139,7 +139,7 @@ inline static int DK_NLT(unsigned int a, unsigned int b) {
 }
 
 inline static int isBlockOpen(const DK_Block * block) {
-    return block && (block->meta->level < DK_BLOCK_LEVEL_HIGH);
+    return block && block->meta && (block->meta->level < DK_BLOCK_LEVEL_HIGH);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1108,7 +1108,43 @@ static void onPreRender(void) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Header implementation
+// Accessors
+///////////////////////////////////////////////////////////////////////////////
+
+unsigned short DK_GetMapSize(void) {
+    return gMapSize;
+}
+
+DK_Block * DK_GetBlockAt(int x, int y) {
+    if (x >= 0 && y >= 0 && x < gMapSize && y < gMapSize) {
+        return &gMap[y * gMapSize + x];
+    }
+    return NULL;
+}
+
+int DK_GetBlockCoordinates(unsigned short* x, unsigned short* y, const DK_Block * block) {
+    if (block) {
+        unsigned int idx = block - gMap;
+        *x = idx % gMapSize;
+        *y = idx / gMapSize;
+
+        return 1;
+    }
+    return 0;
+}
+
+DK_Block * DK_GetBlockUnderCursor(int* x, int* y) {
+    if (x) {
+        *x = gCursorX;
+    }
+    if (y) {
+        *y = gCursorY;
+    }
+    return DK_GetBlockAt(gCursorX, gCursorY);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Modifiers
 ///////////////////////////////////////////////////////////////////////////////
 
 void DK_SetMapSize(unsigned short size) {
@@ -1145,14 +1181,15 @@ void DK_SetMapSize(unsigned short size) {
     CB_Call(gMapSizeChangeCallbacks);
 
     // Initialize map data.
-    for (unsigned int x = 0; x < size; ++x) {
-        for (unsigned int y = 0; y < size; ++y) {
+    for (unsigned int x = 0; x < gMapSize; ++x) {
+        for (unsigned int y = 0; y < gMapSize; ++y) {
             DK_Block* block = DK_GetBlockAt(x, y);
-            block->meta = DK_GetBlockMeta(1);
-            block->durability = block->meta->durability;
-            block->strength = block->meta->strength;
-            block->gold = block->meta->gold;
+            block->meta = NULL;
             block->room = NULL;
+            block->owner = DK_PLAYER_NONE;
+            block->durability = 0;
+            block->strength = 0;
+            block->gold = 0;
         }
     }
 
@@ -1211,8 +1248,28 @@ void DK_SetMapSize(unsigned short size) {
     DK_GL_GenerateMap();
 }
 
-unsigned short DK_GetMapSize(void) {
-    return gMapSize;
+void DK_FillMap(const DK_BlockMeta* blockType) {
+    for (unsigned int x = 0; x < gMapSize; ++x) {
+        for (unsigned int y = 0; y < gMapSize; ++y) {
+            DK_Block* block = DK_GetBlockAt(x, y);
+            block->meta = blockType;
+            block->durability = block->meta->durability;
+            block->strength = block->meta->strength;
+            block->gold = block->meta->gold;
+        }
+    }
+
+    for (unsigned int x = 0; x < gVerticesPerDimension; ++x) {
+        for (unsigned int y = 0; y < gVerticesPerDimension; ++y) {
+            updateVerticesAt(x, y);
+        }
+    }
+
+    for (unsigned int x = 1; x < gVerticesPerDimension - 1; ++x) {
+        for (unsigned int y = 1; y < gVerticesPerDimension - 1; ++y) {
+            updateNormalsAt(x, y);
+        }
+    }
 }
 
 void DK_GL_GenerateMap(void) {
@@ -1254,38 +1311,6 @@ void DK_InitMap(void) {
     DK_OnPostRender(renderSelectionOutline);
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// Accessors
-///////////////////////////////////////////////////////////////////////////////
-
-DK_Block * DK_GetBlockAt(int x, int y) {
-    if (x >= 0 && y >= 0 && x < gMapSize && y < gMapSize) {
-        return &gMap[y * gMapSize + x];
-    }
-    return NULL;
-}
-
-int DK_GetBlockCoordinates(unsigned short* x, unsigned short* y, const DK_Block * block) {
-    if (block) {
-        unsigned int idx = block - gMap;
-        *x = idx % gMapSize;
-        *y = idx / gMapSize;
-
-        return 1;
-    }
-    return 0;
-}
-
-DK_Block * DK_GetBlockUnderCursor(int* x, int* y) {
-    if (x) {
-        *x = gCursorX;
-    }
-    if (y) {
-        *y = gCursorY;
-    }
-    return DK_GetBlockAt(gCursorX, gCursorY);
-}
-
 int DK_DamageBlock(DK_Block* block, unsigned int damage) {
     // Already destroyed (nothing to do)?
     if (block->durability <= 0) {
@@ -1299,10 +1324,7 @@ int DK_DamageBlock(DK_Block* block, unsigned int damage) {
     }
 
     // Block is destroyed.
-    block->meta = block->meta->becomes;
-    block->durability = block->meta->durability;
-    block->strength = block->meta->strength;
-    block->gold = block->meta->gold;
+    DK_SetBlockMeta(block, block->meta->becomes);
     block->owner = DK_PLAYER_NONE;
 
     // Update visual representation of the surroundings.

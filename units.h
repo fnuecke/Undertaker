@@ -22,7 +22,7 @@ extern "C" {
     /** Holds information on unit satisfaction */
     struct DK_UnitSatisfaction {
         /** How satisfied the unit is with each job */
-        float jobSatisfaction[DK_JOB_TYPE_COUNT];
+        float* jobSatisfaction;
 
         /** How satisfied the unit is from (not) being slapped */
         float slapDelta;
@@ -52,18 +52,18 @@ extern "C" {
     ///////////////////////////////////////////////////////////////////////////
     // Accessors
     ///////////////////////////////////////////////////////////////////////////
-    
+
     /**
      * Tells if a unit is currently moving.
      * @param unit the unit to check for.
      * @return whether the unit is currently moving (1) or not (0).
      */
     bool DK_IsUnitMoving(const DK_Unit* unit);
-    
+
     ///////////////////////////////////////////////////////////////////////////
     // Modifiers
     ///////////////////////////////////////////////////////////////////////////
-    
+
     /**
      * Add a unit for a player at the specified coordinates.
      * @param player the player for whom to create the unit.
@@ -74,12 +74,12 @@ extern "C" {
     int DK_AddUnit(DK_Player player, const DK_UnitMeta* type, const vec2* position);
 
     /**
-     * Make a unit cancel any job of the specified type. This will delete all
-     * entries of that job type from the unit's AI stack.
-     * @param unit the unit that should stop the job.
-     * @param jobType the type of job to stop.
+     * Make a unit working on the specified job cancel it (if one is working on
+     * it at all). This will unwind the unit's AI stack to the entry associated
+     * with the job and mark it for cancellation.
+     * @param job the job to stop.
      */
-    void DK_StopJob(DK_Unit* unit, DK_JobType jobType);
+    void DK_StopJob(DK_Job* job);
 
     ///////////////////////////////////////////////////////////////////////////
     // Initialization

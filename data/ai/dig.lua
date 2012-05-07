@@ -1,3 +1,7 @@
+--[[
+AI describing logic for the 'dig' job.
+]]
+
 -- Sides of a block (for job openings)
 local Side = {
     NONE = 0,

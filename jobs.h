@@ -18,7 +18,6 @@ extern "C" {
     /**
      * Jobs are possible ways for a unit to spend its time, and generally is
      * directly related to a single AI state. Jobs come in various basic types:
-     * - Jobs related to movement (exploration, guarding, moving to another job)
      * - Jobs related to blocks (digging, converting)
      * - Jobs related to units (attack, guard, ...)
      * - Jobs related to rooms (train, research, craft, torture, pray, ...)
@@ -43,6 +42,9 @@ extern "C" {
 
     /** Data for a single job */
     struct DK_Job {
+        /** Job type information */
+        const DK_JobMeta* meta;
+
         /** The unit that is currently assigned to that job */
         DK_Unit* worker;
 
@@ -55,8 +57,8 @@ extern "C" {
         /** The targeted unit, if any */
         DK_Unit* unit;
 
-        /** Coordinates of the workplace in map space, if relevant */
-        vec2 position;
+        /** Offset to the target position; absolute, if there is no target */
+        vec2 offset;
     };
 
     /**
@@ -76,8 +78,13 @@ extern "C" {
      * @param the distance to the found job, if any.
      * @return the closest job of that type to the unit. May be null.
      */
-    DK_Job* DK_FindJob(const DK_Unit* unit, DK_JobType type, float* distance);
+    DK_Job* DK_FindJob(const DK_Unit* unit, const DK_JobMeta* type, float* distance);
 
+    /**
+     * Run a job's script for the specified unit.
+     */
+    void DK_RunJob(DK_Unit* unit, DK_JobMeta* job);
+    
     /**
      * Initialize job system.
      */

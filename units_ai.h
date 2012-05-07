@@ -18,11 +18,11 @@ extern "C" {
 
     /** A single entry in a unit's AI stack */
     typedef struct {
-        /** The job the unit currently performs */
-        DK_JobType jobType;
+        /** The job this state performs */
+        DK_Job* job;
 
-        /** The job information on the job the unit currently performs */
-        DK_Job* jobInfo;
+        /** The number of the job the state performs (in the unit's job list) */
+        unsigned int jobNumber;
 
         /** Delay before re-evaluating the job's logic */
         unsigned int delay;

@@ -7,13 +7,13 @@ In general, types have to be declared before they can be referenced. For
 example, passability type must be declared before a block uses it, and a block
 type must be declared before another uses it in the 'becomes' field, e.g.
 
-]]
+--]]
 
 --[[
 Passability types.
 
 These are just names that can be used to reference a single passability type.
-]]
+--]]
 passability "land"
 passability "air"
 passability "water"
@@ -44,7 +44,7 @@ becomes			= nil			obligatory if durability > 0
 They can be changed using the 'blockdefaults' directive. All fields except the
 name can be set to default to another value. Be careful to not set the 'becomes'
 field to something that isn't declared, yet.
-]]
+--]]
 blockdefaults {level="high"}
 block {name="rock"}
 block {name="open", level="normal", passability="land", strength=100}
@@ -62,11 +62,12 @@ These represent single AI states. For each state declared here, there must be a
 script file containing the actual logic for the state with the name of the job.
 This logic includes two parts: a 'query' function that is used to find jobs of
 that type, and an 'run' function, that actually performs the job.
-]]
+--]]
+--[[
 job "dig"
 job "convert"
 job "wander"
---[[
+
 job "deliver"
 job "explore"
 job "eat"
@@ -81,13 +82,13 @@ job "pray"
 job "guard"
 job "fight"
 job "flee"
-]]
+--]]
 
 --[[
 Ability types.
 
 TODO
-]]
+--]]
 
 --[[
 Unit types.
@@ -147,14 +148,15 @@ performing		= 0			the delta per minute when performing the job
 notperforming	= 0			the delta per minute when not performing the job
 
 Not all these fields have to be set.
-]]
+--]]
+--[[
 unit {name="imp", canpass={"land", "water"}, movespeed=1.8,
 		jobs={
 			{name="wander", preference=0},
 			{name="dig", preference=16},
 			{name="convert"}
 		}}
-
+--]]
 --[[
 Room types.
 
@@ -176,11 +178,11 @@ room {name="barrack", buildon="open",		normal		land		350		125		none
 room {name="guardpost", buildon="open",		normal		land		5000	50		guard
 room {name="bridge", buildon="water",		normal		land		100		30		none
 room {name="stonebridge", buildon={"water","lava"},	normal		land		150		50		none
-]]
+--]]
 
 --[[
 Door types.
-]]
+--]]
 
 --[[
 doordefaults {buildon="open", visible=true}
@@ -189,4 +191,4 @@ door {name="brace", health=750, cost=1000}
 door {name="steel", health=1500, cost=1500}
 door {name="magic", health=3000, cost=3000}
 door {name="hidden", visible=false, health=1000, cost=6000}
-]]
+--]]

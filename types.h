@@ -23,6 +23,7 @@ extern "C" {
     typedef struct DK_BlockMeta DK_BlockMeta;
 
     typedef struct DK_Job DK_Job;
+    typedef struct DK_JobMeta DK_JobMeta;
 
     typedef struct DK_Room DK_Room;
     typedef struct DK_RoomMeta DK_RoomMeta;
@@ -49,6 +50,7 @@ extern "C" {
 
     /** Boolean type for readability */
     typedef unsigned char bool;
+
 #define true ((bool)1)
 #define false ((bool)0)
 
@@ -87,64 +89,24 @@ extern "C" {
         DK_BLOCK_TEXTURE_SIDE_COUNT
     } DK_BlockTextureSide;
 
-    /** Possible jobs */
-    typedef enum DK_JobType {
-        DK_JOB_NONE,
+    /** Possible events to which a job may react */
+    typedef enum DK_JobEvents {
+        DK_JOB_EVENT_UNIT_ADDED,
+        DK_JOB_EVENT_BLOCK_SELECTION_CHANGED,
+        DK_JOB_EVENT_BLOCK_DESTROYED,
+        DK_JOB_EVENT_BLOCK_CONVERTED,
 
-        /** Movement related jobs */
-        DK_JOB_WANDER,
-        DK_JOB_EXPLORE,
-        DK_JOB_GUARD,
-
-        /** Block related jobs */
-        DK_JOB_DIG,
-        DK_JOB_CONVERT_TILE,
-        DK_JOB_CONVERT_WALL,
-
-        /** Unit related jobs */
-        DK_JOB_ATTACK,
-
-        /** Room related jobs */
-        /** Needs */
-        DK_JOB_SLEEP,
-        DK_JOB_EAT,
-        DK_JOB_GET_PAID,
-
-        /** Desires */
-        DK_JOB_TRAIN,
-        DK_JOB_RESEARCH,
-        DK_JOB_CRAFT,
-        DK_JOB_TORTURE,
-        DK_JOB_PRAY,
-
-        /** Anger jobs */
-        DK_JOB_LEAVE,
-
-        /** Number of job types, for array initialization */
-        DK_JOB_TYPE_COUNT
-    } DK_JobType;
+        DK_JOB_EVENT_COUNT
+    } DK_JobEvents;
 
     /** Player IDs for possible players in a game */
     typedef enum {
-        /** No player / invalid player */
         DK_PLAYER_NONE,
-
-        /** First player */
         DK_PLAYER_ONE,
-
-        /** Second player */
         DK_PLAYER_TWO,
-
-        /** Third player */
         DK_PLAYER_THREE,
-
-        /** Fourth player */
         DK_PLAYER_FOUR,
-
-        /** Fifth player */
         DK_PLAYER_FIVE,
-
-        /** Number of possible values, used for array initialization */
         DK_PLAYER_COUNT
     } DK_Player;
 

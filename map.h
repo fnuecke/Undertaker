@@ -50,6 +50,13 @@ extern "C" {
     void DK_SetMapSize(unsigned short size);
 
     /**
+     * Set the block type for all blocks in the map to the specified type. This
+     * is intended to be called after map size changes.
+     * @param blockType the block type to apply to all blocks.
+     */
+    void DK_FillMap(const DK_BlockMeta* blockType);
+    
+    /**
      * Change the type of a block.
      */
     void DK_SetBlockMeta(DK_Block* block, const DK_BlockMeta* meta);

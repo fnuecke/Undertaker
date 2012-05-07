@@ -9,13 +9,7 @@
 #include "jobs.h"
 #include "map.h"
 #include "units.h"
-
-///////////////////////////////////////////////////////////////////////////////
-// Globals
-///////////////////////////////////////////////////////////////////////////////
-
-/** Lookup table for update methods */
-static void(*update[DK_JOB_TYPE_COUNT])(DK_Unit*);
+#include "jobs_meta.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Utility methods
@@ -98,32 +92,26 @@ static void updateSatisfaction(DK_Unit* unit) {
     // Update job satisfaction values. Remember if there are any jobs we're not
     // satisfied with (except the one we're currently doing).
     bool someUnsatisfied = false;
-    for (unsigned int jobType; jobType < DK_JOB_TYPE_COUNT; ++jobType) {
-        // Check if the unit even does this job.
-        if (!unit->meta->jobs[jobType]) {
-            continue;
-        }
-
+    for (unsigned int jobNumber; jobNumber < unit->meta->jobCount; ++jobNumber) {
         // Yes, check it's currently performing it.
-        if (ai->jobType == jobType) {
+        if (ai->jobNumber == jobNumber) {
             // Yes, update for the respective delta.
-            state->jobSatisfaction[jobType] += meta->jobs[jobType].performingDelta;
+            state->jobSatisfaction[jobNumber] += meta->jobSatisfaction[jobNumber].performingDelta;
         } else {
             // No, update for the respective delta.
-            state->jobSatisfaction[jobType] += meta->jobs[jobType].notPerformingDelta;
+            state->jobSatisfaction[jobNumber] += meta->jobSatisfaction[jobNumber].notPerformingDelta;
+
+            // Are we unsatisfied with this job?
+            if (state->jobSatisfaction[jobNumber] < meta->jobSatisfaction[jobNumber].unsatisfiedThreshold) {
+                someUnsatisfied = true;
+            }
         }
 
         // Make sure it's in bounds.
-        if (state->jobSatisfaction[jobType] < 0) {
-            state->jobSatisfaction[jobType] = 0;
-        } else if (state->jobSatisfaction[jobType] > 1.0f) {
-            state->jobSatisfaction[jobType] = 1.0f;
-        }
-
-        // Are we unsatisfied with this job (and it's not the current one)?
-        if (ai->jobType != jobType &&
-                state->jobSatisfaction[jobType] < meta->jobs[jobType].unsatisfiedThreshold) {
-            someUnsatisfied = true;
+        if (state->jobSatisfaction[jobNumber] < 0) {
+            state->jobSatisfaction[jobNumber] = 0;
+        } else if (state->jobSatisfaction[jobNumber] > 1.0f) {
+            state->jobSatisfaction[jobNumber] = 1.0f;
         }
     }
 
@@ -132,10 +120,9 @@ static void updateSatisfaction(DK_Unit* unit) {
     // Check if we are not unsatisfied with our current job and there's another
     // one we are. If so, cancel the current job to allow starting the one we're
     // unsatisfied with.
-    if (someUnsatisfied &&
-            state->jobSatisfaction[ai->jobType] >= meta->jobs[ai->jobType].unsatisfiedThreshold) {
+    if (someUnsatisfied && state->jobSatisfaction[ai->jobNumber] >= meta->jobSatisfaction[ai->jobNumber].unsatisfiedThreshold) {
         // Indeed, so pop the current job.
-        DK_StopJob(unit, ai->jobType);
+        DK_StopJob(unit, unit->meta->jobs[ai->jobNumber]);
     }
 }
 
@@ -158,55 +145,44 @@ static void findJob(DK_Unit* unit) {
     const DK_UnitSatisfaction* state = &unit->satisfaction;
 
     // For closest job search.
-    DK_JobType bestJobType = DK_JOB_NONE;
     DK_Job* bestJob = 0;
+    unsigned int bestNumber = 0;
     float bestWeightedDistance = FLT_MAX;
 
     // Do a quick scan to see if the unit has any unsatisfied job desires.
     bool someUnsatisfied = false;
-    for (unsigned int jobType = 0; jobType < DK_JOB_TYPE_COUNT; ++jobType) {
-        // Check if the unit can handle this job type.
-        if (!unit->meta->jobs[jobType]) {
-            continue;
-        }
-
+    for (unsigned int jobNumber = 0; jobNumber < unit->meta->jobCount; ++jobNumber) {
         // Check if the unit is unsatisfied.
-        if (state->jobSatisfaction[jobType] < meta->jobs[jobType].unsatisfiedThreshold) {
+        if (state->jobSatisfaction[jobNumber] < meta->jobSatisfaction[jobNumber].unsatisfiedThreshold) {
             someUnsatisfied = true;
         }
     }
 
     // Find the closest job, weighted based on the unit's preferences.
-    for (unsigned int jobType = 0; jobType < DK_JOB_TYPE_COUNT; ++jobType) {
+    for (unsigned int jobNumber = 0; jobNumber < unit->meta->jobCount; ++jobNumber) {
         float distance;
         DK_Job* job;
 
-        // Check if the unit can handle this job type.
-        if (!unit->meta->jobs[jobType]) {
-            continue;
-        }
-
         // Check if the unit is unsatisfied or doesn't have others unsatisfied.
         if (someUnsatisfied &&
-                state->jobSatisfaction[jobType] >= meta->jobs[jobType].unsatisfiedThreshold) {
-            // Unit isn't unsatisfied with this job, but some other, so skip
-            // this one.
+                state->jobSatisfaction[jobNumber] >= meta->jobSatisfaction[jobNumber].unsatisfiedThreshold) {
+            // Unit isn't unsatisfied with this job, but some other, so skip it.
             continue;
         }
 
         // Find closest job opening.
-        if (!(job = DK_FindJob(unit, jobType, &distance))) {
+        if (!(job = DK_FindJob(unit, unit->meta->jobs[jobNumber], &distance))) {
             // Didn't find a job of this type.
             continue;
         }
 
         // Weigh the distance based on the satisfaction and preference.
-        distance -= satisfactionWeight(state->jobSatisfaction[jobType], &meta->jobs[jobType]);
+        distance -= satisfactionWeight(state->jobSatisfaction[jobNumber], &meta->jobSatisfaction[jobNumber]);
 
         // Better than other jobs we have found?
         if (distance < bestWeightedDistance) {
             bestJob = job;
-            bestJobType = jobType;
+            bestNumber = jobNumber;
             bestWeightedDistance = distance;
         }
     }
@@ -214,15 +190,13 @@ static void findJob(DK_Unit* unit) {
     // Check if we found something to do.
     if (bestJob) {
         // Fire previous workers.
-        if (bestJob->worker) {
-            DK_StopJob(bestJob->worker, bestJobType);
-        }
+        DK_StopJob(bestJob);
 
         // Push that job onto the stack.
         {
             AI_State* ai = --unit->ai->current;
-            ai->jobType = bestJobType;
-            ai->jobInfo = bestJob;
+            ai->job = bestJob;
+            ai->jobNumber = bestNumber;
             ai->delay = 0;
             ai->shouldCancel = false;
         }
@@ -280,79 +254,6 @@ static int moveTo(const DK_Unit* unit, const vec2* position) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Job implementations
-///////////////////////////////////////////////////////////////////////////////
-
-static void updateWander(DK_Unit* unit) {
-    AI_State* state = unit->ai->current;
-
-    // Just walk around dumbly.
-    vec2 position = {
-        {
-            unit->position.d.x + DK_AI_WANDER_RANGE * (rand() / (float) RAND_MAX - 0.5f),
-            unit->position.d.y + DK_AI_WANDER_RANGE * (rand() / (float) RAND_MAX - 0.5f)
-        }
-    };
-
-    // TODO Make sure the unit doesn't wander too close to a wall.
-    /*
-        if (position.d.x < 0.2f) {
-            position.d.x = 0.2f;
-        }
-        if (position.d.x > DK_GetMapSize() - 0.2f) {
-            position.d.x = DK_GetMapSize() - 0.2f;
-        }
-        if (position.d.y < 0.2f) {
-            position.d.y = 0.2f;
-        }
-        if (position.d.y > DK_GetMapSize() - 0.2f) {
-            position.d.y = DK_GetMapSize() - 0.2f;
-        }
-     */
-
-    // Check if the block is valid for the unit.
-    if (DK_IsBlockPassableBy(DK_GetBlockAt((int) floorf(position.d.x), (int) floorf(position.d.y)), unit)) {
-        // OK go.
-        moveTo(unit, &position);
-
-        // Update delay. Wait some before wandering again.
-        state->delay = (DK_AI_WANDER_DELAY / 2) + (rand() * (DK_AI_WANDER_DELAY / 2) / RAND_MAX);
-    }
-}
-
-static void updateDig(DK_Unit* unit) {
-    AI_State* state = unit->ai->current;
-
-    assert(state->jobInfo);
-
-    // Else attack the dirt! Update cooldown and apply damage.
-    /*
-        unit->cooldowns[DK_ABILITY_IMP_ATTACK] =
-                cooldowns[DK_UNIT_IMP][DK_ABILITY_IMP_ATTACK];
-        if (DK_DamageBlock(state->job->block, damage[DK_UNIT_IMP][DK_ABILITY_IMP_ATTACK])) {
-            // Block was destroyed! Job done.
-            --unit->ai_count;
-        }
-     */
-}
-
-static void updateConvert(DK_Unit* unit) {
-    AI_State* state = unit->ai->current;
-
-    assert(state->jobInfo);
-
-    // Else hoyoyo! Update cooldown and apply conversion.
-    /*
-        unit->cooldowns[DK_ABILITY_IMP_CONVERT] =
-                cooldowns[DK_UNIT_IMP][DK_ABILITY_IMP_CONVERT];
-        if (DK_ConvertBlock(state->job->block, damage[DK_UNIT_IMP][DK_ABILITY_IMP_CONVERT], unit->owner)) {
-            // Block was destroyed! Job done.
-            --unit->ai_count;
-        }
-     */
-}
-
-///////////////////////////////////////////////////////////////////////////////
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -383,7 +284,7 @@ void DK_UpdateAI(DK_Unit* unit) {
 
     // See if we have an update method for it or have to wait before running the
     // job logic again.
-    if (!update[state->jobType]) {
+    if (!unit->meta->jobs[state->jobNumber]->hasRunMethod) {
         // Pop it.
         ++unit->ai->current;
     } else if (state->delay) {
@@ -391,21 +292,6 @@ void DK_UpdateAI(DK_Unit* unit) {
         --state->delay;
     } else {
         // Otherwise update the unit based on its current job.
-        switch (state->jobType) {
-            case DK_JOB_WANDER:
-                updateWander(unit);
-                break;
-            case DK_JOB_DIG:
-                updateDig(unit);
-                break;
-            case DK_JOB_CONVERT_TILE:
-                updateConvert(unit);
-                break;
-            case DK_JOB_CONVERT_WALL:
-                updateConvert(unit);
-                break;
-            default:
-                break;
-        }
+        DK_RunJob(unit, unit->meta->jobs[state->jobNumber]);
     }
 }
