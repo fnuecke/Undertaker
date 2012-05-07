@@ -16,7 +16,7 @@ bool DK_IsBlockPassable(const DK_Block* block) {
 }
 
 bool DK_IsBlockPassableBy(const DK_Block* block, const DK_Unit* unit) {
-    return unit && (DK_GetBlockPassability(block) & unit->meta->passability) != 0;
+    return unit && (DK_GetBlockPassability(block) & unit->meta->canPass) != 0;
 }
 
 bool DK_IsBlockDestructible(const DK_Block* block) {

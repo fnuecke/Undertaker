@@ -6,7 +6,7 @@ static void initMeta(DK_UnitMeta* m, const DK_UnitMeta* meta) {
 
 static void updateMeta(DK_UnitMeta* m, const DK_UnitMeta* meta) {
     m->moveSpeed = meta->moveSpeed;
-    m->passability = meta->passability;
+    m->canPass = meta->canPass;
     m->satisfaction = meta->satisfaction;
 }
 

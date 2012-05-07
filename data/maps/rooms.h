@@ -1,6 +1,0 @@
-/**
- * Possible room types.
- */
-
-//  NAME
-	

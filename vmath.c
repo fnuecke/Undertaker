@@ -617,3 +617,13 @@ void mitranslate(mat4* mat, float tx, float ty, float tz) {
     m[14] = m[2] * tx + m[6] * ty + m[10] * tz + m[14];
     m[15] = m[3] * tx + m[7] * ty + m[11] * tz + m[15];
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// Lua
+///////////////////////////////////////////////////////////////////////////////
+
+int luaopen_vmath(lua_State* L) {
+    luaopen_vec2(L);
+    luaopen_vec3(L);
+    return 1;
+}

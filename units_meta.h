@@ -112,7 +112,7 @@ extern "C" {
         const char* name;
 
         /** Passability types this unit supports */
-        DK_Passability passability;
+        DK_Passability canPass;
 
         /** Base movement speed of the unit */
         float moveSpeed;
