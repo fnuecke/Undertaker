@@ -10,6 +10,40 @@ type must be declared before another uses it in the 'becomes' field, e.g.
 --]]
 
 --[[
+Ability types.
+
+TODO
+--]]
+
+--[[
+Job types.
+
+These represent single AI states. For each state declared here, there must be a
+script file containing the actual logic for the state with the name of the job.
+--]]
+job "wander"
+
+--[[
+job "dig"
+job "convert"
+
+job "deliver"
+job "explore"
+job "eat"
+job "sleep"
+job "collect"
+job "research"
+job "train"
+job "craft"
+job "torture"
+job "scavenge"
+job "pray"
+job "guard"
+job "fight"
+job "flee"
+--]]
+
+--[[
 Passability types.
 
 These are just names that can be used to reference a single passability type.
@@ -53,43 +87,6 @@ block {name="gold", durability=120, gold=1000, becomes="open"}
 block {name="gem", durability=4000000, gold=40000000, becomes="rock"}
 block {name="water", level="lowered", passability="water"}
 block {name="lava", level="lowered", passability="lava"}
-
-
---[[
-Job types.
-
-These represent single AI states. For each state declared here, there must be a
-script file containing the actual logic for the state with the name of the job.
-This logic includes two parts: a 'query' function that is used to find jobs of
-that type, and an 'run' function, that actually performs the job.
---]]
-job "wander"
-
---[[
-job "dig"
-job "convert"
-
-job "deliver"
-job "explore"
-job "eat"
-job "sleep"
-job "collect"
-job "research"
-job "train"
-job "craft"
-job "torture"
-job "scavenge"
-job "pray"
-job "guard"
-job "fight"
-job "flee"
---]]
-
---[[
-Ability types.
-
-TODO
---]]
 
 --[[
 Unit types.
@@ -150,14 +147,10 @@ notperforming	= 0			the delta per minute when not performing the job
 
 Not all these fields have to be set.
 --]]
---[[
 unit {name="imp", canpass={"land", "water"}, movespeed=1.8,
 		jobs={
-			{name="wander", preference=0},
-			{name="dig", preference=16},
-			{name="convert"}
+			{name="wander", preference=0}
 		}}
---]]
 --[[
 Room types.
 
