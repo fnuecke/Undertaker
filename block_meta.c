@@ -124,7 +124,8 @@ static void loadTexturesFor(DK_BlockMeta* m) {
     // Load textures.
     for (unsigned int texture = 0, max = m->strength ? DK_BLOCK_TEXTURE_TOP_COUNT : 1; texture < max; ++texture) {
         // Build file name.
-        sprintf(basename, "%s_%s", m->name, BLOCK_TEXTURE_SUFFIX_TOP[texture]);
+        snprintf(basename, sizeof (basename), "%s_%s", m->name, BLOCK_TEXTURE_SUFFIX_TOP[texture]);
+
         // Try to have it loaded.
         m->texturesTop[texture] = DK_LoadTexture(basename);
 
@@ -136,7 +137,8 @@ static void loadTexturesFor(DK_BlockMeta* m) {
     for (unsigned int level = 0; level <= m->level; ++level) {
         for (unsigned int texture = 0, max = m->strength ? DK_BLOCK_TEXTURE_SIDE_COUNT : 1; texture < max; ++texture) {
             // Build file name.
-            sprintf(basename, "%s_%s_%s", m->name, BLOCK_LEVEL_SUFFIX[level], BLOCK_TEXTURE_SUFFIX_SIDE[texture]);
+            snprintf(basename, sizeof (basename), "%s_%s_%s", m->name, BLOCK_LEVEL_SUFFIX[level], BLOCK_TEXTURE_SUFFIX_SIDE[texture]);
+
             // Try to have it loaded.
             m->texturesSide[level][texture] = DK_LoadTexture(basename);
 
@@ -224,7 +226,9 @@ int DK_Lua_AddBlockMeta(lua_State* L) {
     luaL_argcheck(L, meta.name, 1, "name is required but not set");
 
     // All green, add the type.
-    DK_AddBlockMeta(&meta);
+    if (!DK_AddBlockMeta(&meta)) {
+        return luaL_argerror(L, 1, "bad block meta");
+    }
 
     return 0;
 }

@@ -5,12 +5,12 @@ function onUnitAdded(unit, x, y, player)
 end
 
 -- This is the maximum distance how far we may wander.
-local WANDER_RANGE 2
+local WANDER_RANGE = 2
 -- This is the minimum delay in seconds before wandering again.
-local WANDER_DELAY_MIN 2
+local WANDER_DELAY_MIN = 2
 -- This is the variance for the delay, so that
 -- WANDER_DELAY_MAX = WANDER_DELAY_MIN + WANDER_DELAY_VARIANCE
-local WANDER_DELAY_VARIANCE 2
+local WANDER_DELAY_VARIANCE = 2
 
 function run(unit)
     -- Just walk around dumbly.

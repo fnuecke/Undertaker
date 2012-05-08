@@ -22,7 +22,7 @@ static void onMapSizeChange(void) {
 bool DK_AddPassability(const char* name) {
     // Is the name valid?
     if (!name || !strlen(name)) {
-        fprintf(DK_log_target, "ERROR: invalid passability type name (null or empty).");
+        fprintf(DK_log_target, "ERROR: Invalid passability type name (null or empty).");
         return false;
     }
 

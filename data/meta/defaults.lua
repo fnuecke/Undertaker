@@ -63,10 +63,11 @@ script file containing the actual logic for the state with the name of the job.
 This logic includes two parts: a 'query' function that is used to find jobs of
 that type, and an 'run' function, that actually performs the job.
 --]]
+job "wander"
+
 --[[
 job "dig"
 job "convert"
-job "wander"
 
 job "deliver"
 job "explore"

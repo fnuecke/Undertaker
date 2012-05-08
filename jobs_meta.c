@@ -1,16 +1,13 @@
 #include "jobs_meta.h"
 
-META_globals(DK_JobMeta)
+static const char* JOB_EVENT_NAME[DK_JOB_EVENT_COUNT] = {
+    [DK_JOB_EVENT_UNIT_ADDED] = "onUnitAdded",
+    [DK_JOB_EVENT_BLOCK_SELECTION_CHANGED] = "onBlockSelectionChanged",
+    [DK_JOB_EVENT_BLOCK_DESTROYED] = "onBlockDestroyed",
+    [DK_JOB_EVENT_BLOCK_CONVERTED] = "onBlockConverted"
+};
 
-static bool loadAiFile(lua_State* L, const char* jobName) {
-    char filename[128] = {0};
-    sprintf(filename, "data/ai/%s.lua", jobName);
-    if (luaL_dofile(L, filename) != LUA_OK) {
-        // Something went wrong.
-        return false;
-    }
-    return true;
-}
+META_globals(DK_JobMeta)
 
 /** Reset defaults on map change */
 static void resetDefaults(void) {
@@ -20,12 +17,6 @@ static void resetDefaults(void) {
 /** New type registered */
 static bool initMeta(DK_JobMeta* m, const DK_JobMeta* meta) {
     *m = *meta;
-    m->L = luaL_newstate();
-    if (!loadAiFile(m->L, m->name)) {
-        return false;
-    }
-    // Check script capabilities.
-
     return true;
 }
 
@@ -35,3 +26,50 @@ static bool updateMeta(DK_JobMeta* m, const DK_JobMeta* meta) {
 }
 
 META_impl(DK_JobMeta, Job)
+
+int DK_Lua_AddJobMeta(lua_State* L) {
+    char filename[128];
+
+    // New type, start with defaults.
+    DK_JobMeta meta = gMetaDefaults;
+
+    // Validate input.
+    luaL_argcheck(L, lua_gettop(L) == 1 && lua_isstring(L, 1), 0, "must specify one string");
+
+    // Get name.
+    meta.name = lua_tostring(L, 1);
+
+    // Load AI script.
+    meta.L = luaL_newstate();
+
+    // Build file name.
+    if (snprintf(filename, sizeof (filename), "data/ai/%s.lua", meta.name) > (int) sizeof (filename)) {
+        lua_close(meta.L);
+        return luaL_argerror(L, 1, "job name too long");
+    }
+
+    // Try to parse the file.
+    if (luaL_dofile(meta.L, filename) != LUA_OK) {
+        fprintf(DK_log_target, "ERROR: Failed parsing job file: %s\n", lua_tostring(meta.L, -1));
+        lua_close(meta.L);
+        return luaL_argerror(L, 1, "invalid job script");
+    }
+
+    // Check script capabilities.
+    for (unsigned int jobEvent = 0; jobEvent < DK_JOB_EVENT_COUNT; ++jobEvent) {
+        lua_getglobal(meta.L, JOB_EVENT_NAME[jobEvent]);
+        meta.handledEvents[jobEvent] = lua_isfunction(L, -1);
+        lua_pop(meta.L, 1);
+    }
+    lua_getglobal(meta.L, "run");
+    meta.hasRunMethod = lua_isfunction(meta.L, -1);
+    lua_pop(meta.L, 1);
+
+    // Try to add the job.
+    if (!DK_AddJobMeta(&meta)) {
+        lua_close(meta.L);
+        return luaL_argerror(L, 1, "bad job meta");
+    }
+
+    return 0;
+}

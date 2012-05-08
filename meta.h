@@ -114,20 +114,20 @@ bool DK_Add##NAME##Meta(const TYPE* meta) { \
     if (meta && meta->name) { \
         if ((m = findByName(meta->name))) { \
             if (updateMeta(m, meta)) { \
-                fprintf(DK_log_target, "INFO: Successfully updated %s type '%s'.\n", "##NAME##", meta->name); \
+                fprintf(DK_log_target, "INFO: Successfully updated %s type '%s'.\n", #NAME, meta->name); \
                 return true; \
             } else { \
-                fprintf(DK_log_target, "ERROR: Failed updating %s type '%s'.\n", "##NAME##", meta->name); \
+                fprintf(DK_log_target, "ERROR: Failed updating %s type '%s'.\n", #NAME, meta->name); \
             } \
         } else { \
             m = getNextFreeEntry(); \
             if (initMeta(m, meta)) { \
                 m->id = gMetaCount; \
                 m->name = storeName(meta->name); \
-                fprintf(DK_log_target, "INFO: Successfully registered %s type '%s'.\n", "##NAME##", meta->name); \
+                fprintf(DK_log_target, "INFO: Successfully registered %s type '%s'.\n", #NAME, meta->name); \
                 return true; \
             } else { \
-                fprintf(DK_log_target, "ERROR: Failed registering %s type '%s'.\n", "##NAME##", m->name); \
+                fprintf(DK_log_target, "ERROR: Failed registering %s type '%s'.\n", #NAME, m->name); \
             } \
         } \
     } \

@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
             load_accumulator += T_GetElapsedTimeInMicroSec();
             if (load_counter++ > DK_FRAMERATE) {
                 char title[32] = {0};
-                sprintf(title, "Undertaker - Load: %.2f", load_accumulator / 1000000.0f);
+                snprintf(title, sizeof (title), "Undertaker - Load: %.2f", load_accumulator / 1000000.0f);
                 SDL_WM_SetCaption(title, NULL);
                 load_counter = 0;
                 load_accumulator = 0;

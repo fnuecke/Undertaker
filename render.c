@@ -337,7 +337,7 @@ static void initShaders(void) {
 
     for (unsigned int i = 0; i < 4; ++i) {
         char name[16];
-        sprintf(name, "Textures[%d]", i);
+        snprintf(name, sizeof (name), "Textures[%d]", i);
         gGeometryShader.fs_uniforms.Textures[i] =
                 glGetUniformLocation(gGeometryShader.program, name);
     }

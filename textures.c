@@ -35,7 +35,7 @@ static void loadTestTexture(void) {
     if (gTestTextureSurface) {
         return;
     }
-    sprintf(filename, "%s%s%s", DK_TEX_DIR, "test", DK_TEX_FILETYPE);
+    snprintf(filename, sizeof (filename), "%s%s%s", DK_TEX_DIR, "test", DK_TEX_FILETYPE);
     gTestTextureSurface = IMG_Load(filename);
     if (gTestTextureSurface == NULL) {
         fprintf(DK_log_target, "ERROR: failed loading dummy texture.\n");
@@ -103,7 +103,10 @@ DK_TextureID DK_LoadTexture(const char* basename) {
     Texture texture = {0, 0, 0};
     while (1) {
         // Generate file name.
-        sprintf(filename, "%s%s_%d%s", DK_TEX_DIR, basename, texture.count, DK_TEX_FILETYPE);
+        if (snprintf(filename, sizeof (filename), "%s%s_%d%s", DK_TEX_DIR, basename, texture.count, DK_TEX_FILETYPE) > (int) sizeof (filename)) {
+            fprintf(DK_log_target, "ERROR: Texture name too long: '%s'.\n", basename);
+            break;
+        }
 
         // Try to load the texture.
         surface = IMG_Load(filename);
