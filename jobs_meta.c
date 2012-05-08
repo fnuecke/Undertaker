@@ -58,7 +58,7 @@ int DK_Lua_AddJobMeta(lua_State* L) {
     // Check script capabilities.
     for (unsigned int jobEvent = 0; jobEvent < DK_JOB_EVENT_COUNT; ++jobEvent) {
         lua_getglobal(meta.L, JOB_EVENT_NAME[jobEvent]);
-        meta.handledEvents[jobEvent] = lua_isfunction(L, -1);
+        meta.handledEvents[jobEvent] = lua_isfunction(meta.L, -1);
         lua_pop(meta.L, 1);
     }
     lua_getglobal(meta.L, "run");
