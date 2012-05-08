@@ -14,7 +14,7 @@
 extern "C" {
 #endif
 
-    struct DK_AbilityMeta {
+    struct MP_AbilityMeta {
         /** The ID of the ability type */
         unsigned int id;
 
@@ -25,9 +25,9 @@ extern "C" {
         float cooldown;
     };
 
-    struct DK_Ability {
+    struct MP_Ability {
         /** Info on the ability type */
-        const DK_AbilityMeta* meta;
+        const MP_AbilityMeta* meta;
 
         /** The remaining cooldown time before the ability can trigger again */
         unsigned int cooldown;

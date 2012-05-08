@@ -18,52 +18,52 @@ extern "C" {
     // Matrix access
     ///////////////////////////////////////////////////////////////////////////
 
-    const mat4* DK_GetModelMatrix(void);
+    const mat4* MP_GetModelMatrix(void);
 
-    const mat4* DK_GetViewMatrix(void);
+    const mat4* MP_GetViewMatrix(void);
 
-    const mat4* DK_GetProjectionMatrix(void);
+    const mat4* MP_GetProjectionMatrix(void);
 
-    const mat4* DK_GetModelViewMatrix(void);
+    const mat4* MP_GetModelViewMatrix(void);
 
-    const mat4* DK_GetModelViewProjectionMatrix(void);
+    const mat4* MP_GetModelViewProjectionMatrix(void);
 
-    int DK_PushModelMatrix(void);
+    int MP_PushModelMatrix(void);
 
-    int DK_PopModelMatrix(void);
+    int MP_PopModelMatrix(void);
 
-    void DK_SetModelMatrix(const mat4* m);
+    void MP_SetModelMatrix(const mat4* m);
 
-    void DK_ScaleModelMatrix(float sx, float sy, float sz);
+    void MP_ScaleModelMatrix(float sx, float sy, float sz);
 
-    void DK_TranslateModelMatrix(float tx, float ty, float tz);
+    void MP_TranslateModelMatrix(float tx, float ty, float tz);
 
     ///////////////////////////////////////////////////////////////////////////
     // Projection and view matrix generation
     ///////////////////////////////////////////////////////////////////////////
 
-    int DK_BeginPerspective(void);
+    int MP_BeginPerspective(void);
 
-    int DK_EndPerspective(void);
+    int MP_EndPerspective(void);
 
-    int DK_BeginOrthogonal(void);
+    int MP_BeginOrthogonal(void);
 
-    int DK_EndOrthogonal(void);
+    int MP_EndOrthogonal(void);
 
-    int DK_BeginPerspectiveForPicking(float x, float y);
+    int MP_BeginPerspectiveForPicking(float x, float y);
 
-    int DK_BeginLookAt(float eyex, float eyey, float eyez, float lookatx, float lookaty, float lookatz);
+    int MP_BeginLookAt(float eyex, float eyey, float eyez, float lookatx, float lookaty, float lookatz);
 
-    int DK_EndLookAt(void);
+    int MP_EndLookAt(void);
 
     ///////////////////////////////////////////////////////////////////////////
     // Projection
     ///////////////////////////////////////////////////////////////////////////
 
-    int DK_Project(float objx, float objy, float objz,
+    int MP_Project(float objx, float objy, float objz,
             float *winx, float *winy, float *winz);
 
-    int DK_UnProject(float winx, float winy, float winz,
+    int MP_UnProject(float winx, float winy, float winz,
             float *objx, float *objy, float *objz);
 
     ///////////////////////////////////////////////////////////////////////////
@@ -73,7 +73,7 @@ extern "C" {
     /**
      * Initializes the graphics environment.
      */
-    void DK_InitGraphics(void);
+    void MP_InitGraphics(void);
 
 #ifdef	__cplusplus
 }

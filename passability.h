@@ -26,22 +26,22 @@ extern "C" {
      * @param name the name of the passability type.
      * @return whether the type was added successfully or not.
      */
-    bool DK_AddPassability(const char* name);
+    bool MP_AddPassability(const char* name);
 
     /**
      * The the passability ID for a passability with the specified name.
      * @param name the name of the passability type.
      * @return the id for that type.
      */
-    DK_Passability DK_GetPassability(const char* name);
+    MP_Passability MP_GetPassability(const char* name);
 
     /** Lua callback for registering passability types */
-    int DK_Lua_AddPassability(lua_State* L);
+    int MP_Lua_AddPassability(lua_State* L);
 
     /**
      * Initializes event handling for passability logic.
      */
-    void DK_InitPassability(void);
+    void MP_InitPassability(void);
 
 #ifdef	__cplusplus
 }

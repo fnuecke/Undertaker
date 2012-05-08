@@ -61,7 +61,7 @@ static Callbacks* gModelMatrixChangedCallbacks = 0;
 static void updateMatrices(int modelViewChanged) {
     if (modelViewChanged) {
         // Pre-compute model-view transform, as either model or view changed.
-        mmulm(&matrix.mv, DK_GetViewMatrix(), DK_GetModelMatrix());
+        mmulm(&matrix.mv, MP_GetViewMatrix(), MP_GetModelMatrix());
 
         // And update OpenGLs model-view matrix.
         glMatrixMode(GL_MODELVIEW);
@@ -69,11 +69,11 @@ static void updateMatrices(int modelViewChanged) {
     } else {
         // Model and view didn't change, so it was the projection matrix.
         glMatrixMode(GL_PROJECTION);
-        glLoadMatrixf(DK_GetProjectionMatrix()->m);
+        glLoadMatrixf(MP_GetProjectionMatrix()->m);
     }
 
     // Pre-compute model-view-projection transform.
-    mmulm(&matrix.mvp, DK_GetProjectionMatrix(), &matrix.mv);
+    mmulm(&matrix.mvp, MP_GetProjectionMatrix(), &matrix.mv);
 
     if (modelViewChanged) {
         CB_Call(gModelMatrixChangedCallbacks);
@@ -141,45 +141,45 @@ static int popModel(void) {
 // Accessors
 ///////////////////////////////////////////////////////////////////////////////
 
-const mat4* DK_GetModelMatrix(void) {
+const mat4* MP_GetModelMatrix(void) {
     return &matrix.model[stack.model];
 }
 
-const mat4* DK_GetViewMatrix(void) {
+const mat4* MP_GetViewMatrix(void) {
     return &matrix.view[stack.view];
 }
 
-const mat4* DK_GetProjectionMatrix(void) {
+const mat4* MP_GetProjectionMatrix(void) {
     return &matrix.projection[stack.projection];
 }
 
-const mat4* DK_GetModelViewMatrix(void) {
+const mat4* MP_GetModelViewMatrix(void) {
     return &matrix.mv;
 }
 
-const mat4* DK_GetModelViewProjectionMatrix(void) {
+const mat4* MP_GetModelViewProjectionMatrix(void) {
     return &matrix.mvp;
 }
 
-int DK_PushModelMatrix(void) {
+int MP_PushModelMatrix(void) {
     return pushModel();
 }
 
-int DK_PopModelMatrix(void) {
+int MP_PopModelMatrix(void) {
     return popModel();
 }
 
-void DK_SetModelMatrix(const mat4* m) {
+void MP_SetModelMatrix(const mat4* m) {
     matrix.model[stack.model] = *m;
     updateMatrices(1);
 }
 
-void DK_ScaleModelMatrix(float sx, float sy, float sz) {
+void MP_ScaleModelMatrix(float sx, float sy, float sz) {
     miscale(&matrix.model[stack.model], sx, sy, sz);
     updateMatrices(1);
 }
 
-void DK_TranslateModelMatrix(float tx, float ty, float tz) {
+void MP_TranslateModelMatrix(float tx, float ty, float tz) {
     mitranslate(&matrix.model[stack.model], tx, ty, tz);
     updateMatrices(1);
 }
@@ -188,8 +188,8 @@ void DK_TranslateModelMatrix(float tx, float ty, float tz) {
 // Projection and view matrix generation
 ///////////////////////////////////////////////////////////////////////////////
 
-int DK_BeginPerspective(void) {
-    const float f = 1.0f / tanf(DK_field_of_view * (PI / 360.0f));
+int MP_BeginPerspective(void) {
+    const float f = 1.0f / tanf(MP_field_of_view * (PI / 360.0f));
     float* m;
 
     if (!pushProjection()) {
@@ -198,10 +198,10 @@ int DK_BeginPerspective(void) {
 
     m = matrix.projection[stack.projection].m;
 #define M(row, col) m[col * 4 + row]
-    M(0, 0) = f / DK_ASPECT_RATIO;
+    M(0, 0) = f / MP_ASPECT_RATIO;
     M(1, 1) = f;
-    M(2, 2) = (DK_CLIP_FAR + DK_CLIP_NEAR) / (DK_CLIP_NEAR - DK_CLIP_FAR);
-    M(2, 3) = (2.0f * DK_CLIP_FAR * DK_CLIP_NEAR) / (DK_CLIP_NEAR - DK_CLIP_FAR);
+    M(2, 2) = (MP_CLIP_FAR + MP_CLIP_NEAR) / (MP_CLIP_NEAR - MP_CLIP_FAR);
+    M(2, 3) = (2.0f * MP_CLIP_FAR * MP_CLIP_NEAR) / (MP_CLIP_NEAR - MP_CLIP_FAR);
     M(3, 2) = -1.0f;
     M(3, 3) = 0.0f;
 #undef M
@@ -211,11 +211,11 @@ int DK_BeginPerspective(void) {
     return 1;
 }
 
-int DK_EndPerspective(void) {
+int MP_EndPerspective(void) {
     return popProjection();
 }
 
-int DK_BeginOrthogonal(void) {
+int MP_BeginOrthogonal(void) {
     float* m;
 
     if (!pushProjection()) {
@@ -224,20 +224,20 @@ int DK_BeginOrthogonal(void) {
 
     m = matrix.projection[stack.projection].m;
 #define M(row, col) m[col * 4 + row]
-    M(0, 0) = 2.0f / DK_resolution_x;
+    M(0, 0) = 2.0f / MP_resolution_x;
     M(0, 1) = 0.0f;
     M(0, 2) = 0.0f;
     M(0, 3) = -1.0f;
 
     M(1, 0) = 0.0f;
-    M(1, 1) = 2.0f / DK_resolution_y;
+    M(1, 1) = 2.0f / MP_resolution_y;
     M(1, 2) = 0.0f;
     M(1, 3) = -1.0f;
 
     M(2, 0) = 0.0f;
     M(2, 1) = 0.0f;
-    M(2, 2) = -2.0f / (DK_CLIP_FAR - DK_CLIP_NEAR);
-    M(2, 3) = -(DK_CLIP_FAR + DK_CLIP_NEAR) / (DK_CLIP_FAR - DK_CLIP_NEAR);
+    M(2, 2) = -2.0f / (MP_CLIP_FAR - MP_CLIP_NEAR);
+    M(2, 3) = -(MP_CLIP_FAR + MP_CLIP_NEAR) / (MP_CLIP_FAR - MP_CLIP_NEAR);
 
     M(3, 0) = 0.0f;
     M(3, 1) = 0.0f;
@@ -250,17 +250,17 @@ int DK_BeginOrthogonal(void) {
     return 1;
 }
 
-int DK_EndOrthogonal(void) {
+int MP_EndOrthogonal(void) {
     return popProjection();
 }
 
-int DK_BeginPerspectiveForPicking(float x, float y) {
-    if (DK_BeginPerspective()) {
+int MP_BeginPerspectiveForPicking(float x, float y) {
+    if (MP_BeginPerspective()) {
         mat4 look = IDENTITY_MATRIX4;
-        mitranslate(&look, DK_resolution_x - 2 * x, DK_resolution_y - 2 * y, 0);
-        miscale(&look, DK_resolution_x, DK_resolution_y, 1.0);
+        mitranslate(&look, MP_resolution_x - 2 * x, MP_resolution_y - 2 * y, 0);
+        miscale(&look, MP_resolution_x, MP_resolution_y, 1.0);
 
-        mimulm(&look, DK_GetProjectionMatrix());
+        mimulm(&look, MP_GetProjectionMatrix());
         matrix.projection[stack.projection] = look;
 
         updateMatrices(0);
@@ -270,7 +270,7 @@ int DK_BeginPerspectiveForPicking(float x, float y) {
     return 0;
 }
 
-int DK_BeginLookAt(float eyex, float eyey, float eyez, float lookatx, float lookaty, float lookatz) {
+int MP_BeginLookAt(float eyex, float eyey, float eyez, float lookatx, float lookaty, float lookatz) {
     mat4* m;
     vec4 up = {
         {0.0f, 0.0f, 1.0f, 1.0f}
@@ -327,7 +327,7 @@ int DK_BeginLookAt(float eyex, float eyey, float eyez, float lookatx, float look
     return 1;
 }
 
-int DK_EndLookAt(void) {
+int MP_EndLookAt(void) {
     return popView();
 }
 
@@ -335,7 +335,7 @@ int DK_EndLookAt(void) {
 // Projection
 ///////////////////////////////////////////////////////////////////////////////
 
-int DK_Project(float objx, float objy, float objz,
+int MP_Project(float objx, float objy, float objz,
         float *winx, float *winy, float *winz) {
     vec4 in;
     vec4 out;
@@ -345,8 +345,8 @@ int DK_Project(float objx, float objy, float objz,
     in.d.z = objz;
     in.d.w = 1.0f;
 
-    mmulv(&out, &in, DK_GetModelViewMatrix());
-    mmulv(&in, &out, DK_GetProjectionMatrix());
+    mmulv(&out, &in, MP_GetModelViewMatrix());
+    mmulv(&in, &out, MP_GetProjectionMatrix());
 
     if (in.d.w * in.d.w < 1e-25) {
         return 0;
@@ -362,8 +362,8 @@ int DK_Project(float objx, float objy, float objz,
     in.d.z = in.d.z * 0.5f + 0.5f;
 
     /* Map x,y to viewport */
-    in.d.x = in.d.x * DK_resolution_x;
-    in.d.y = in.d.y * DK_resolution_y;
+    in.d.x = in.d.x * MP_resolution_x;
+    in.d.y = in.d.y * MP_resolution_y;
 
     *winx = in.d.x;
     *winy = in.d.y;
@@ -372,7 +372,7 @@ int DK_Project(float objx, float objy, float objz,
     return 1;
 }
 
-int DK_UnProject(float winx, float winy, float winz,
+int MP_UnProject(float winx, float winy, float winz,
         float *objx, float *objy, float *objz) {
     mat4 mvp = matrix.mvp;
     vec4 in;
@@ -388,8 +388,8 @@ int DK_UnProject(float winx, float winy, float winz,
     in.d.w = 1.0f;
 
     // Map x and y from window coordinates
-    in.d.x = in.d.x / DK_resolution_x;
-    in.d.y = in.d.y / DK_resolution_y;
+    in.d.x = in.d.x / MP_resolution_x;
+    in.d.y = in.d.y / MP_resolution_y;
 
     // Map to range -1 to 1
     in.d.x = in.d.x * 2.0f - 1.0f;
@@ -413,7 +413,7 @@ int DK_UnProject(float winx, float winy, float winz,
 // Init / Events
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_InitGraphics(void) {
+void MP_InitGraphics(void) {
     for (unsigned int i = 0; i < MATRIX_STACK_SIZE; ++i) {
         matrix.model[i] = IDENTITY_MATRIX4;
         matrix.view[i] = IDENTITY_MATRIX4;
@@ -429,7 +429,7 @@ void DK_InitGraphics(void) {
     stack.view = MATRIX_STACK_SIZE - 1;
 }
 
-void DK_OnModelMatrixChanged(callback method) {
+void MP_OnModelMatrixChanged(callback method) {
     if (!gModelMatrixChangedCallbacks) {
         gModelMatrixChangedCallbacks = CB_New();
     }

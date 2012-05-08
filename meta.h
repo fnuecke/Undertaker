@@ -34,7 +34,7 @@ extern "C" {
      * @param name the name of the meta file to load (without path / extension).
      * @return whether the file was loaded successfully.
      */
-    bool DK_LoadMeta(const char* name);
+    bool MP_LoadMeta(const char* name);
 
 #ifdef	__cplusplus
 }
@@ -45,13 +45,13 @@ extern "C" {
 ///////////////////////////////////////////////////////////////////////////////
 
 #define META_header(TYPE, NAME) \
-const TYPE* DK_Get##NAME##Meta(unsigned int id); \
-const TYPE* DK_Get##NAME##MetaByName(const char* name); \
-unsigned int DK_Get##NAME##MetaCount(void); \
-bool DK_Add##NAME##Meta(const TYPE* meta); \
-int DK_Lua_##NAME##MetaDefaults(lua_State* L); \
-int DK_Lua_Add##NAME##Meta(lua_State* L); \
-void DK_Clear##NAME##Meta(void)
+const TYPE* MP_Get##NAME##Meta(unsigned int id); \
+const TYPE* MP_Get##NAME##MetaByName(const char* name); \
+unsigned int MP_Get##NAME##MetaCount(void); \
+bool MP_Add##NAME##Meta(const TYPE* meta); \
+int MP_Lua_##NAME##MetaDefaults(lua_State* L); \
+int MP_Lua_Add##NAME##Meta(lua_State* L); \
+void MP_Clear##NAME##Meta(void)
 
 #define META_globals(TYPE) \
 static TYPE* gMetas = 0; \
@@ -91,7 +91,7 @@ static TYPE* findByName(const char* name) { \
 }
 
 #define META_getById(TYPE, NAME) \
-const TYPE* DK_Get##NAME##Meta(unsigned int id) { \
+const TYPE* MP_Get##NAME##Meta(unsigned int id) { \
     if (id > 0 && id - 1 < gMetaCount) { \
         return &gMetas[id - 1]; \
     } \
@@ -99,35 +99,35 @@ const TYPE* DK_Get##NAME##Meta(unsigned int id) { \
 }
 
 #define META_getByName(TYPE, NAME) \
-const TYPE* DK_Get##NAME##MetaByName(const char* name) { \
+const TYPE* MP_Get##NAME##MetaByName(const char* name) { \
     return findByName(name); \
 }
 
 #define META_getCount(TYPE, NAME) \
-unsigned int DK_Get##NAME##MetaCount(void) { \
+unsigned int MP_Get##NAME##MetaCount(void) { \
     return gMetaCount; \
 }
 
 #define META_add(TYPE, NAME) \
-bool DK_Add##NAME##Meta(const TYPE* meta) { \
+bool MP_Add##NAME##Meta(const TYPE* meta) { \
     TYPE* m; \
     if (meta && meta->name) { \
         if ((m = findByName(meta->name))) { \
             if (updateMeta(m, meta)) { \
-                fprintf(DK_log_target, "INFO: Successfully updated %s type '%s'.\n", #NAME, meta->name); \
+                fprintf(MP_log_target, "INFO: Successfully updated %s type '%s'.\n", #NAME, meta->name); \
                 return true; \
             } else { \
-                fprintf(DK_log_target, "ERROR: Failed updating %s type '%s'.\n", #NAME, meta->name); \
+                fprintf(MP_log_target, "ERROR: Failed updating %s type '%s'.\n", #NAME, meta->name); \
             } \
         } else { \
             m = getNextFreeEntry(); \
             if (initMeta(m, meta)) { \
                 m->id = gMetaCount; \
                 m->name = storeName(meta->name); \
-                fprintf(DK_log_target, "INFO: Successfully registered %s type '%s'.\n", #NAME, meta->name); \
+                fprintf(MP_log_target, "INFO: Successfully registered %s type '%s'.\n", #NAME, meta->name); \
                 return true; \
             } else { \
-                fprintf(DK_log_target, "ERROR: Failed registering %s type '%s'.\n", #NAME, m->name); \
+                fprintf(MP_log_target, "ERROR: Failed registering %s type '%s'.\n", #NAME, m->name); \
             } \
         } \
     } \
@@ -135,7 +135,7 @@ bool DK_Add##NAME##Meta(const TYPE* meta) { \
 }
 
 #define META_clear(NAME) \
-void DK_Clear##NAME##Meta(void) { \
+void MP_Clear##NAME##Meta(void) { \
     for (unsigned int i = 0; i < gMetaCount; ++i) { \
         deleteMeta(&gMetas[i]); \
         free(gMetaNames[i]); \

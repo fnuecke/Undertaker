@@ -27,7 +27,7 @@ static vec3 gCameraTarget = {
 };
 
 // Current scroll direction.
-static DK_CameraDirection gCameraDirection;
+static MP_CameraDirection gCameraDirection;
 
 // Current camera zoom level.
 static float gCameraZoom = 0;
@@ -40,17 +40,17 @@ static float gCameraZoomTarget = 0;
 ///////////////////////////////////////////////////////////////////////////////
 
 static void update(void) {
-    if (gCameraDirection & DK_CAMERA_DIRECTION_NORTH) {
-        gCameraVelocity.v[1] = DK_CAMERA_SPEED;
+    if (gCameraDirection & MP_CAMERA_DIRECTION_NORTH) {
+        gCameraVelocity.v[1] = MP_CAMERA_SPEED;
     }
-    if (gCameraDirection & DK_CAMERA_DIRECTION_SOUTH) {
-        gCameraVelocity.v[1] = -DK_CAMERA_SPEED;
+    if (gCameraDirection & MP_CAMERA_DIRECTION_SOUTH) {
+        gCameraVelocity.v[1] = -MP_CAMERA_SPEED;
     }
-    if (gCameraDirection & DK_CAMERA_DIRECTION_EAST) {
-        gCameraVelocity.v[0] = DK_CAMERA_SPEED;
+    if (gCameraDirection & MP_CAMERA_DIRECTION_EAST) {
+        gCameraVelocity.v[0] = MP_CAMERA_SPEED;
     }
-    if (gCameraDirection & DK_CAMERA_DIRECTION_WEST) {
-        gCameraVelocity.v[0] = -DK_CAMERA_SPEED;
+    if (gCameraDirection & MP_CAMERA_DIRECTION_WEST) {
+        gCameraVelocity.v[0] = -MP_CAMERA_SPEED;
     }
 
     gCameraPosition.v[0] += gCameraVelocity.v[0];
@@ -59,19 +59,19 @@ static void update(void) {
     if (gCameraPosition.v[0] < 0) {
         gCameraPosition.v[0] = 0;
     }
-    if (gCameraPosition.v[0] > DK_GetMapSize() * DK_BLOCK_SIZE) {
-        gCameraPosition.v[0] = DK_GetMapSize() * DK_BLOCK_SIZE;
+    if (gCameraPosition.v[0] > MP_GetMapSize() * MP_BLOCK_SIZE) {
+        gCameraPosition.v[0] = MP_GetMapSize() * MP_BLOCK_SIZE;
     }
 
     if (gCameraPosition.v[1] < 0) {
         gCameraPosition.v[1] = 0;
     }
-    if (gCameraPosition.v[1] > DK_GetMapSize() * DK_BLOCK_SIZE) {
-        gCameraPosition.v[1] = DK_GetMapSize() * DK_BLOCK_SIZE;
+    if (gCameraPosition.v[1] > MP_GetMapSize() * MP_BLOCK_SIZE) {
+        gCameraPosition.v[1] = MP_GetMapSize() * MP_BLOCK_SIZE;
     }
 
-    gCameraVelocity.v[0] *= DK_CAMERA_FRICTION;
-    gCameraVelocity.v[1] *= DK_CAMERA_FRICTION;
+    gCameraVelocity.v[0] *= MP_CAMERA_FRICTION;
+    gCameraVelocity.v[1] *= MP_CAMERA_FRICTION;
 
     if (fabs(gCameraVelocity.v[0]) < 0.0001f) {
         gCameraVelocity.v[0] = 0;
@@ -82,50 +82,50 @@ static void update(void) {
 
     gCameraZoom += (gCameraZoomTarget - gCameraZoom) / 2.0f;
 
-    gCameraPosition.v[2] = DK_CAMERA_HEIGHT - gCameraZoom * DK_CAMERA_MAX_ZOOM;
+    gCameraPosition.v[2] = MP_CAMERA_HEIGHT - gCameraZoom * MP_CAMERA_MAX_ZOOM;
 
     gCameraTarget.v[0] = gCameraPosition.v[0];
-    gCameraTarget.v[1] = gCameraPosition.v[1] + DK_CAMERA_TARGET_DISTANCE;
+    gCameraTarget.v[1] = gCameraPosition.v[1] + MP_CAMERA_TARGET_DISTANCE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-const vec3* DK_GetCameraPosition(void) {
+const vec3* MP_GetCameraPosition(void) {
     return &gCameraPosition;
 }
 
-const vec3* DK_GetCameraTarget(void) {
+const vec3* MP_GetCameraTarget(void) {
     return &gCameraTarget;
 }
 
-float DK_GetCameraZoom(void) {
+float MP_GetCameraZoom(void) {
     return gCameraZoom;
 }
 
-void DK_CameraStartScrolling(DK_CameraDirection direction) {
+void MP_CameraStartScrolling(MP_CameraDirection direction) {
     gCameraDirection |= direction;
 }
 
-void DK_CameraStopScrolling(DK_CameraDirection direction) {
+void MP_CameraStopScrolling(MP_CameraDirection direction) {
     gCameraDirection &= ~direction;
 }
 
-void DK_CameraZoomIn(void) {
-    gCameraZoomTarget += DK_CAMERA_ZOOM_STEP;
+void MP_CameraZoomIn(void) {
+    gCameraZoomTarget += MP_CAMERA_ZOOM_STEP;
     if (gCameraZoomTarget > 1.0f) {
         gCameraZoomTarget = 1.0f;
     }
 }
 
-void DK_CameraZoomOut(void) {
-    gCameraZoomTarget -= DK_CAMERA_ZOOM_STEP;
+void MP_CameraZoomOut(void) {
+    gCameraZoomTarget -= MP_CAMERA_ZOOM_STEP;
     if (gCameraZoomTarget < 0) {
         gCameraZoomTarget = 0;
     }
 }
 
-void DK_InitCamera(void) {
-    DK_OnUpdate(update);
+void MP_InitCamera(void) {
+    MP_OnUpdate(update);
 }

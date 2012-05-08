@@ -17,8 +17,8 @@
 
 /** Catmull-rom interpolation */
 static float cr(float p0, float p1, float p2, float p3, float t) {
-    const float m1 = DK_AI_CATMULL_ROM_T * (p2 - p0);
-    const float m2 = DK_AI_CATMULL_ROM_T * (p3 - p1);
+    const float m1 = MP_AI_CATMULL_ROM_T * (p2 - p0);
+    const float m2 = MP_AI_CATMULL_ROM_T * (p3 - p1);
     return (2 * p1 - 2 * p2 + m1 + m2) * t * t * t +
             (-3 * p1 + 3 * p2 - 2 * m1 - m2) * t * t +
             m1 * t +
@@ -26,7 +26,7 @@ static float cr(float p0, float p1, float p2, float p3, float t) {
 }
 
 /** Moves a unit along its current path */
-static void updateMove(DK_Unit* unit) {
+static void updateMove(MP_Unit* unit) {
     AI_Path* path = &unit->ai->pathing;
 
     // Are we even moving?
@@ -60,14 +60,14 @@ static void updateMove(DK_Unit* unit) {
                 path->distance = sqrtf(dx * dx + dy * dy);
             }
             // If there is a distance, estimate the actual path length.
-            if (path->distance > 0 && DK_AI_PATH_INTERPOLATE) {
+            if (path->distance > 0 && MP_AI_PATH_INTERPOLATE) {
                 int e;
                 float x, y, dx, dy;
                 float lx = path->nodes[path->index - 1].d.x;
                 float ly = path->nodes[path->index - 1].d.y;
                 path->distance = 0;
-                for (e = 1; e <= DK_AI_PATH_INTERPOLATION; ++e) {
-                    const float t = e / (float) DK_AI_PATH_INTERPOLATION;
+                for (e = 1; e <= MP_AI_PATH_INTERPOLATION; ++e) {
+                    const float t = e / (float) MP_AI_PATH_INTERPOLATION;
                     x = cr(path->nodes[path->index - 2].d.x,
                             path->nodes[path->index - 1].d.x,
                             path->nodes[path->index].d.x,
@@ -103,9 +103,9 @@ static void updateMove(DK_Unit* unit) {
 }
 
 /** Updates unit desire saturation based on currently performed job and such */
-static void updateSaturation(DK_Unit* unit) {
-    const DK_UnitSatisfactionMeta* meta = &unit->meta->satisfaction;
-    DK_UnitSaturation* state = &unit->saturation;
+static void updateSaturation(MP_Unit* unit) {
+    const MP_UnitSatisfactionMeta* meta = &unit->meta->satisfaction;
+    MP_UnitSaturation* state = &unit->saturation;
     const AI_State* ai = unit->ai->current;
 
     // Update job saturation values. Remember if there are any jobs we're not
@@ -145,11 +145,20 @@ static void updateSaturation(DK_Unit* unit) {
     if (someUnsatisfied && state->jobSaturation[ai->jobNumber] >=
             meta->jobSaturation[ai->jobNumber].unsatisfiedThreshold) {
         // Indeed, so pop the current job.
-        DK_StopJob(ai->job);
+        MP_StopJob(ai->job);
     }
 }
 
-static float getDynamicPreference(DK_Unit* unit, DK_Job* job) {
+/** Pops until the top entry is no longer marked as canceled */
+static void popCanceled(MP_Unit* unit) {
+    while (unit->ai->current < &unit->ai->stack[MP_AI_STACK_DEPTH] &&
+            unit->ai->current->shouldCancel) {
+        ++unit->ai->current;
+    }
+}
+
+/** Get preference value from AI script */
+static float getDynamicPreference(MP_Unit* unit, MP_Job* job) {
     lua_State* L = job->meta->L;
     // Try to get the preference callback.
     lua_getglobal(L, "preference");
@@ -164,27 +173,27 @@ static float getDynamicPreference(DK_Unit* unit, DK_Job* job) {
                 return preference;
             } else {
                 lua_pop(L, 1);
-                fprintf(DK_log_target, "ERROR: Dynamic preference for '%s' returned something that's not a number.\n", job->meta->name);
+                fprintf(MP_log_target, "ERROR: Dynamic preference for '%s' returned something that's not a number.\n", job->meta->name);
             }
         } else {
             // Something went wrong.
-            fprintf(DK_log_target, "ERROR: Something bad happened evaluating dynamic preference for '%s': %s\n", job->meta->name, lua_tostring(L, -1));
+            fprintf(MP_log_target, "ERROR: Something bad happened evaluating dynamic preference for '%s': %s\n", job->meta->name, lua_tostring(L, -1));
             lua_pop(L, 1);
         }
     } else {
-        fprintf(DK_log_target, "ERROR: Dynamic preference function for '%s' isn't a function anymore.\n", job->meta->name);
+        fprintf(MP_log_target, "ERROR: Dynamic preference function for '%s' isn't a function anymore.\n", job->meta->name);
     }
 
     // We get here only on failure. In that case disable the dynamic preference,
     // so we don't try this again.
-    fprintf(DK_log_target, "INFO: Disabling dynamic preference for '%s'.\n", job->meta->name);
-    DK_DisableDynamicPreference(job->meta);
+    fprintf(MP_log_target, "INFO: Disabling dynamic preference for '%s'.\n", job->meta->name);
+    MP_DisableDynamicPreference(job->meta);
 
     return 0;
 }
 
 /** Computes additional job weight based on saturation */
-static float weightedPreference(float saturation, float preference, const DK_UnitJobSaturationMeta* meta) {
+static float weightedPreference(float saturation, float preference, const MP_UnitJobSaturationMeta* meta) {
     // Map saturation to interval between unsatisfied and satisfied thresh so
     // that unsatisfiedThreshold = 1 and satisfiedThreshold = 0 and ensure it's
     // larger or equal to zero.
@@ -197,18 +206,28 @@ static float weightedPreference(float saturation, float preference, const DK_Uni
 }
 
 /** Looks for the most desirable job for the unit */
-static void findJob(DK_Unit* unit) {
-    // Shortcuts.
-    const DK_UnitSatisfactionMeta* meta = &unit->meta->satisfaction;
-    const DK_UnitSaturation* state = &unit->saturation;
+static void findJob(MP_Unit* unit) {
+    const MP_UnitSatisfactionMeta* meta;
+    const MP_UnitSaturation* state;
+    MP_Job* bestJob;
+    unsigned int bestNumber;
+    float bestWeightedDistance;
+    bool someUnsatisfied;
 
-    // For closest job search.
-    DK_Job* bestJob = 0;
-    unsigned int bestNumber = 0;
-    float bestWeightedDistance = FLT_MAX;
+    // Skip if we already have a job.
+    if (unit->ai->current < &unit->ai->stack[MP_AI_STACK_DEPTH]) {
+        return;
+    }
+
+    // Initialize.
+    meta = &unit->meta->satisfaction;
+    state = &unit->saturation;
+    bestJob = NULL;
+    bestNumber = 0;
+    bestWeightedDistance = FLT_MAX;
+    someUnsatisfied = false;
 
     // Do a quick scan to see if the unit has any unsatisfied job desires.
-    bool someUnsatisfied = false;
     for (unsigned int number = 0; number < unit->meta->jobCount; ++number) {
         // Check if the unit is unsatisfied.
         if (state->jobSaturation[number] <
@@ -220,7 +239,7 @@ static void findJob(DK_Unit* unit) {
     // Find the closest job, weighted based on the unit's preferences.
     for (unsigned int number = 0; number < unit->meta->jobCount; ++number) {
         float distance;
-        DK_Job* job;
+        MP_Job* job;
 
         // Check if the unit is unsatisfied or doesn't have others unsatisfied.
         if (someUnsatisfied && state->jobSaturation[number] >=
@@ -230,7 +249,7 @@ static void findJob(DK_Unit* unit) {
         }
 
         // Find closest job opening.
-        if (!(job = DK_FindJob(unit, unit->meta->jobs[number], &distance))) {
+        if (!(job = MP_FindJob(unit, unit->meta->jobs[number], &distance))) {
             // Didn't find a job of this type.
             continue;
         }
@@ -253,7 +272,7 @@ static void findJob(DK_Unit* unit) {
     // Check if we found something to do.
     if (bestJob) {
         // Fire previous workers.
-        DK_StopJob(bestJob);
+        MP_StopJob(bestJob);
 
         // Push that job onto the stack.
         {
@@ -269,14 +288,34 @@ static void findJob(DK_Unit* unit) {
     }
 }
 
-/** Makes a unit discard its current movement and begin moving to the specified location */
-static int moveTo(const DK_Unit* unit, const vec2* position) {
+/** Runs job logic, if possible */
+static void updateJob(MP_Unit* unit) {
+    const MP_JobMeta* job = unit->meta->jobs[unit->ai->current->jobNumber];
+    // See if we have an update method for it or have to wait before running the
+    // job logic again.
+    if (!job->hasRunMethod) {
+        // Pop the state, it cannot execute.
+        ++unit->ai->current;
+    } else if (unit->ai->current->delay) {
+        // Wait some more.
+        --unit->ai->current->delay;
+    } else {
+        // Otherwise update the unit based on its current job.
+        MP_RunJob(unit, job);
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Header implementation
+///////////////////////////////////////////////////////////////////////////////
+
+bool MP_MoveTo(const MP_Unit* unit, const vec2* position) {
     AI_Path* pathing = &unit->ai->pathing;
 
     // Find a path to it. Use temporary output data to avoid
     // overriding existing path that may be shorter.
-    unsigned int depth = DK_AI_PATH_DEPTH;
-    if (DK_AStar(unit, position, &pathing->nodes[1], &depth, NULL)) {
+    unsigned int depth = MP_AI_PATH_DEPTH;
+    if (MP_AStar(unit, position, &pathing->nodes[1], &depth, NULL)) {
         pathing->depth = depth;
         pathing->index = 0;
         pathing->distance = 0;
@@ -309,20 +348,14 @@ static int moveTo(const DK_Unit* unit, const vec2* position) {
         }
 
         // Success.
-        return 1;
+        return true;
     }
 
     // Could not find a path.
-    return 0;
+    return false;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// Header implementation
-///////////////////////////////////////////////////////////////////////////////
-
-void DK_UpdateAI(DK_Unit* unit) {
-    AI_State* state = unit->ai->current;
-
+void MP_UpdateAI(MP_Unit* unit) {
     // Make the unit move. Units move independently of their current AI state.
     // This is to allow for units attacking while moving, or training while
     // wandering, etc.
@@ -333,28 +366,17 @@ void DK_UpdateAI(DK_Unit* unit) {
     // isn't with this one, yet).
     updateSaturation(unit);
 
-    // See if we should pop the current state.
-    if (state < &unit->ai->stack[DK_AI_STACK_DEPTH] && state->shouldCancel) {
-        ++unit->ai->current;
-    }
+    // Pop until we reach a state that should not be canceled.
+    popCanceled(unit);
 
     // Get a job if we don't have one.
-    if (unit->ai->current >= &unit->ai->stack[DK_AI_STACK_DEPTH]) {
-        findJob(unit);
-        // Update state shortcut.
-        state = unit->ai->current;
-    }
+    findJob(unit);
 
-    // See if we have an update method for it or have to wait before running the
-    // job logic again.
-    if (!unit->meta->jobs[state->jobNumber]->hasRunMethod) {
-        // Pop it.
-        ++unit->ai->current;
-    } else if (state->delay) {
-        // Wait some more.
-        --state->delay;
-    } else {
-        // Otherwise update the unit based on its current job.
-        DK_RunJob(unit, unit->meta->jobs[state->jobNumber]);
-    }
+    // Run job logic.
+    updateJob(unit);
+}
+
+int MP_Lua_MoveTo(lua_State* L) {
+    // TODO implement
+    return 0;
 }

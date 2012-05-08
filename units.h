@@ -20,7 +20,7 @@ extern "C" {
     ///////////////////////////////////////////////////////////////////////////
 
     /** Holds information on unit job desire saturation */
-    struct DK_UnitSaturation {
+    struct MP_UnitSaturation {
         /** How satisfied the unit is with each job */
         float* jobSaturation;
 
@@ -32,21 +32,21 @@ extern "C" {
     };
 
     /** Contains data on a single unit instance */
-    struct DK_Unit {
+    struct MP_Unit {
         /** Info on the unit type */
-        const DK_UnitMeta* meta;
+        const MP_UnitMeta* meta;
 
         /** The player this unit belongs to */
-        DK_Player owner;
+        MP_Player owner;
 
         /** Current position of the unit */
         vec2 position;
 
         /** Unit desire saturation information */
-        DK_UnitSaturation saturation;
+        MP_UnitSaturation saturation;
 
         /** Internal AI state of the unit */
-        DK_AI_Info* ai;
+        MP_AI_Info* ai;
     };
 
     ///////////////////////////////////////////////////////////////////////////
@@ -58,7 +58,7 @@ extern "C" {
      * @param unit the unit to check for.
      * @return whether the unit is currently moving (1) or not (0).
      */
-    bool DK_IsUnitMoving(const DK_Unit* unit);
+    bool MP_IsUnitMoving(const MP_Unit* unit);
 
     ///////////////////////////////////////////////////////////////////////////
     // Modifiers
@@ -71,7 +71,7 @@ extern "C" {
      * @param position the position at which to spawn the unit, in map space.
      * @return whether adding was successful (1) or not(0).
      */
-    int DK_AddUnit(DK_Player player, const DK_UnitMeta* type, const vec2* position);
+    int MP_AddUnit(MP_Player player, const MP_UnitMeta* type, const vec2* position);
 
     /**
      * Make a unit working on the specified job cancel it (if one is working on
@@ -79,14 +79,14 @@ extern "C" {
      * with the job and mark it for cancellation.
      * @param job the job to stop.
      */
-    void DK_StopJob(DK_Job* job);
+    void MP_StopJob(MP_Job* job);
 
     ///////////////////////////////////////////////////////////////////////////
     // Initialization
     ///////////////////////////////////////////////////////////////////////////
 
     /** Initialize unit logic */
-    void DK_InitUnits(void);
+    void MP_InitUnits(void);
 
 #ifdef	__cplusplus
 }

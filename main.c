@@ -30,26 +30,26 @@ int main(int argc, char** argv) {
     int delay;
 
     // Initialize basics, such as SDL and data.
-    DK_Init();
+    MP_Init();
     T_Init();
 
     // Start the main loop.
     while (running) {
         T_Start();
 
-        DK_Events();
-        DK_Update();
-        DK_Render();
+        MP_Events();
+        MP_Update();
+        MP_Render();
 
         SDL_GL_SwapBuffers();
 
         T_Stop();
 
         // Wait to get a constant frame rate.
-        delay = 1000.0f / DK_FRAMERATE - T_GetElapsedTimeInMilliSec();
+        delay = 1000.0f / MP_FRAMERATE - T_GetElapsedTimeInMilliSec();
         if (delay > 0) {
             load_accumulator += T_GetElapsedTimeInMicroSec();
-            if (load_counter++ > DK_FRAMERATE) {
+            if (load_counter++ > MP_FRAMERATE) {
                 char title[32] = {0};
                 snprintf(title, sizeof (title), "Undertaker - Load: %.2f", load_accumulator / 1000000.0f);
                 SDL_WM_SetCaption(title, NULL);

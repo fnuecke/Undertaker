@@ -19,7 +19,7 @@ extern "C" {
     /** A single entry in a unit's AI stack */
     typedef struct {
         /** The job this state performs */
-        DK_Job* job;
+        MP_Job* job;
 
         /** The number of the job the state performs (in the unit's job list) */
         unsigned int jobNumber;
@@ -38,7 +38,7 @@ extern "C" {
     /** Pathing information for traveling along a path */
     typedef struct AI_Path {
         /** The path the unit currently follows (if moving) */
-        vec2 nodes[DK_AI_PATH_DEPTH + 2];
+        vec2 nodes[MP_AI_PATH_DEPTH + 2];
 
         /** The total depth of the path (number of nodes) */
         unsigned int depth;
@@ -58,9 +58,9 @@ extern "C" {
      * machine. The job on top of the stack is executed and may push new jobs, or
      * pop itself when complete.
      */
-    struct DK_AI_Info {
+    struct MP_AI_Info {
         /** AI info stack */
-        AI_State stack[DK_AI_STACK_DEPTH];
+        AI_State stack[MP_AI_STACK_DEPTH];
 
         /** The current AI state (pointer into stack) */
         AI_State* current;
@@ -69,7 +69,25 @@ extern "C" {
         AI_Path pathing;
     };
 
-    void DK_UpdateAI(DK_Unit* unit);
+    /**
+     * Makes a unit discard its current movement and begin moving to the
+     * specified location.
+     * @param unit the unit that should move.
+     * @param position the position it should move to.
+     * @return whether the unit now moves to the specified position.
+     */
+    bool MP_MoveTo(const MP_Unit* unit, const vec2* position);
+
+    /**
+     * Update AI logic for the specified unit.
+     * @param unit the unit for which to update the AI.
+     */
+    void MP_UpdateAI(MP_Unit* unit);
+
+    /**
+     * Lua interface for MP_MoveTo.
+     */
+    int MP_Lua_MoveTo(lua_State* L);
 
 #ifdef	__cplusplus
 }

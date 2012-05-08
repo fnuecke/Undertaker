@@ -59,7 +59,7 @@ static unsigned int gOpenSetCount = 0;
 static unsigned int gClosedSetCount = 0;
 
 /** The unit we're currently checking for */
-static const DK_Unit* gUnit;
+static const MP_Unit* gUnit;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Allocation
@@ -71,7 +71,7 @@ static PathNode* newOpenNode(float key) {
 
     // Ensure we have the capacity to add the node.
     if (gOpenSetCount + 1 >= gOpenSetCapacity) {
-        gOpenSetCapacity = DK_ASTAR_CAPACITY_GROWTH(gOpenSetCapacity);
+        gOpenSetCapacity = MP_ASTAR_CAPACITY_GROWTH(gOpenSetCapacity);
         if (!(gOpenSet = realloc(gOpenSet, gOpenSetCapacity * sizeof (PathNode)))) {
             fprintf(stderr, "Out of memory while resizing A* open queue.\n");
             exit(EXIT_FAILURE);
@@ -105,7 +105,7 @@ static PathNode* newOpenNode(float key) {
 static PathNode* popOpenNodeToClosedSet(void) {
     // Ensure we have the capacity to add the node.
     if (gClosedSetCount + 1 >= gClosedSetCapacity) {
-        gClosedSetCapacity = DK_ASTAR_CAPACITY_GROWTH(gClosedSetCapacity);
+        gClosedSetCapacity = MP_ASTAR_CAPACITY_GROWTH(gClosedSetCapacity);
         if (!(gClosedSet = realloc(gClosedSet, gClosedSetCapacity * sizeof (PathNode)))) {
             fprintf(stderr, "Out of memory while resizing A* closed set.\n");
             exit(EXIT_FAILURE);
@@ -157,12 +157,12 @@ inline static float f(unsigned int x, unsigned int y, unsigned int goalX, unsign
 
 /** Converts local coordinates to map ones */
 inline static float toMapSpace(unsigned int coordinate) {
-    return (coordinate / (float) DK_ASTAR_GRANULARITY + (0.5f / DK_ASTAR_GRANULARITY));
+    return (coordinate / (float) MP_ASTAR_GRANULARITY + (0.5f / MP_ASTAR_GRANULARITY));
 }
 
 /** Checks if a block is passable, using local coordinates */
 inline static int isPassable(unsigned int x, unsigned int y) {
-    return DK_IsBlockPassableBy(DK_GetBlockAt(x / DK_ASTAR_GRANULARITY, y / DK_ASTAR_GRANULARITY), gUnit);
+    return MP_IsBlockPassableBy(MP_GetBlockAt(x / MP_ASTAR_GRANULARITY, y / MP_ASTAR_GRANULARITY), gUnit);
 }
 
 /** Tests if a neighbor should be skipped due to it already having a better score */
@@ -466,7 +466,7 @@ static int isGoal(vec2* path, unsigned int* depth, float* length,
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-int DK_AStar(const DK_Unit* unit, const vec2* goal, vec2* path, unsigned int* depth, float* length) {
+int MP_AStar(const MP_Unit* unit, const vec2* goal, vec2* path, unsigned int* depth, float* length) {
     unsigned int gx, gy, begin_x, begin_y, end_x, end_y, neighbor_x, neighbor_y;
     int x, y;
     float gscore, fscore;
@@ -474,8 +474,8 @@ int DK_AStar(const DK_Unit* unit, const vec2* goal, vec2* path, unsigned int* de
     const vec2* start = &unit->position;
 
     // Check if the start and target position are valid (passable).
-    if (!DK_IsBlockPassableBy(DK_GetBlockAt((int) start->v[0], (int) start->v[1]), unit) ||
-            !DK_IsBlockPassableBy(DK_GetBlockAt((int) goal->v[0], (int) goal->v[1]), unit)) {
+    if (!MP_IsBlockPassableBy(MP_GetBlockAt((int) start->v[0], (int) start->v[1]), unit) ||
+            !MP_IsBlockPassableBy(MP_GetBlockAt((int) goal->v[0], (int) goal->v[1]), unit)) {
         return 0;
     }
 
@@ -490,13 +490,13 @@ int DK_AStar(const DK_Unit* unit, const vec2* goal, vec2* path, unsigned int* de
     BS_Reset(gClosedSetLookup, gGridSize * gGridSize);
 
     // Get goal in local coordinates.
-    gx = (unsigned int) (goal->v[0] * DK_ASTAR_GRANULARITY);
-    gy = (unsigned int) (goal->v[1] * DK_ASTAR_GRANULARITY);
+    gx = (unsigned int) (goal->v[0] * MP_ASTAR_GRANULARITY);
+    gy = (unsigned int) (goal->v[1] * MP_ASTAR_GRANULARITY);
 
     // Initialize the first open node to the one we're starting from.
     current = newOpenNode(0);
-    current->x = (unsigned int) (start->v[0] * DK_ASTAR_GRANULARITY);
-    current->y = (unsigned int) (start->v[1] * DK_ASTAR_GRANULARITY);
+    current->x = (unsigned int) (start->v[0] * MP_ASTAR_GRANULARITY);
+    current->y = (unsigned int) (start->v[1] * MP_ASTAR_GRANULARITY);
     current->gscore = 0.0f;
     current->fscore = 0.0f;
     current->came_from = 0;
@@ -557,7 +557,7 @@ int DK_AStar(const DK_Unit* unit, const vec2* goal, vec2* path, unsigned int* de
                 // The actual node to be inspected.
                 x = neighbor_x, y = neighbor_y;
 
-#if DK_ASTAR_JPS
+#if MP_ASTAR_JPS
                 // Try this direction using jump point search.
                 if (!jumpPointSearch(&x, &y, x - current->x, y - current->y, x, y, gx, gy)) {
                     // Failed, try next neighbor.
@@ -621,11 +621,11 @@ int DK_AStar(const DK_Unit* unit, const vec2* goal, vec2* path, unsigned int* de
 }
 
 static void onMapChange(void) {
-    gGridSize = DK_GetMapSize() * DK_ASTAR_GRANULARITY;
+    gGridSize = MP_GetMapSize() * MP_ASTAR_GRANULARITY;
     BS_Delete(gClosedSetLookup);
     gClosedSetLookup = BS_New(gGridSize * gGridSize);
 }
 
-void DK_InitAStar(void) {
-    DK_OnMapSizeChange(onMapChange);
+void MP_InitAStar(void) {
+    MP_OnMapSizeChange(onMapChange);
 }

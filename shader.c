@@ -34,9 +34,9 @@ static int verify(GLuint obj, const char* path) {
     // Print info if we have any.
     if (log_size > 0) {
         if (path) {
-            fprintf(DK_log_target, "WARNING: Failed compiling shader '%s':\n%s\n", path, log);
+            fprintf(MP_log_target, "WARNING: Failed compiling shader '%s':\n%s\n", path, log);
         } else {
-            fprintf(DK_log_target, "WARNING: Failed linking program:\n%s\n", log);
+            fprintf(MP_log_target, "WARNING: Failed linking program:\n%s\n", log);
         }
     }
 
@@ -52,7 +52,7 @@ static GLuint loadShader(const char* path, GLenum type) {
 
     // Try to open the file.
     if (!(file = fopen(path, "r"))) {
-        fprintf(DK_log_target, "WARNING: Can't open shader '%s' for reading.\n", path);
+        fprintf(MP_log_target, "WARNING: Can't open shader '%s' for reading.\n", path);
         return 0;
     }
 
@@ -63,7 +63,7 @@ static GLuint loadShader(const char* path, GLenum type) {
 
     // Allocate enough memory to read the source.
     if (!(buffer = calloc(file_length, sizeof (char)))) {
-        fprintf(DK_log_target, "ERROR: Could not allocate enough memory for shader '%s'.\n", path);
+        fprintf(MP_log_target, "ERROR: Could not allocate enough memory for shader '%s'.\n", path);
         fclose(file);
         return 0;
     }
@@ -97,7 +97,7 @@ static GLuint loadShader(const char* path, GLenum type) {
     return shader;
 }
 
-GLuint DK_LoadProgram(const char* vsPath, const char* fsPath, const char** out_names, unsigned int out_count) {
+GLuint MP_LoadProgram(const char* vsPath, const char* fsPath, const char** out_names, unsigned int out_count) {
     GLuint vs, fs, program;
     // Try to load the vertex shader.
     vs = loadShader(vsPath, GL_VERTEX_SHADER);

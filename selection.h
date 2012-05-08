@@ -33,7 +33,7 @@ extern "C" {
          * equal to the start coordinate on either axis.
          */
         int endX, endY;
-    } DK_Selection;
+    } MP_Selection;
 
     ///////////////////////////////////////////////////////////////////////////////
     // Accessors
@@ -43,19 +43,19 @@ extern "C" {
      * Get the currently selected region.
      * @return the currently selected area.
      */
-    DK_Selection DK_GetSelection(void);
+    MP_Selection MP_GetSelection(void);
 
     /**
      * Checks if the specified block is selectable by the specified player.
      * @return whether the block is selectable (1) or not (0).
      */
-    int DK_IsBlockSelectable(DK_Player player, int x, int y);
+    int MP_IsBlockSelectable(MP_Player player, int x, int y);
 
     /**
      * Checks if the specified block is selected by the specified player.
      * @return whether the block is selected (1) or not (0).
      */
-    int DK_IsBlockSelected(DK_Player player, unsigned short x, unsigned short y);
+    int MP_IsBlockSelected(MP_Player player, unsigned short x, unsigned short y);
 
     ///////////////////////////////////////////////////////////////////////////////
     // User area selection
@@ -67,20 +67,20 @@ extern "C" {
      * currently under the cursor is not selectable.
      * @return whether selection started (1) or not (0).
      */
-    int DK_BeginSelection(void);
+    int MP_BeginSelection(void);
 
     /**
      * Cancel selecting. This will discard the current selection.
      * @return whether we were in select mode (1) or not (0).
      */
-    int DK_DiscardSelection(void);
+    int MP_DiscardSelection(void);
 
     /**
      * Done selecting, uses currently hovered block as end. This will automatically
      * select all blocks in the selection for the local player. This will do nothing
      * if the selection was not successfully started before.
      */
-    void DK_ConfirmSelection(void);
+    void MP_ConfirmSelection(void);
 
     ///////////////////////////////////////////////////////////////////////////////
     // Modifiers
@@ -95,7 +95,7 @@ extern "C" {
      * @param y the y coordinate of the block, in map space.
      * @return whether the block selection changed (1) or not (0).
      */
-    int DK_SelectBlock(DK_Player player, int x, int y);
+    int MP_SelectBlock(MP_Player player, int x, int y);
 
     /**
      * Deselect the block at the specified coordinates for the specified player.
@@ -106,7 +106,7 @@ extern "C" {
      * @param y the y coordinate of the block, in map space.
      * @return whether the block selection changed (1) or not (0).
      */
-    int DK_DeselectBlock(DK_Player player, int x, int y);
+    int MP_DeselectBlock(MP_Player player, int x, int y);
 
     ///////////////////////////////////////////////////////////////////////////////
     // Initialization / Update
@@ -115,7 +115,7 @@ extern "C" {
     /**
      * Initialize selection logic.
      */
-    void DK_InitSelection(void);
+    void MP_InitSelection(void);
 
 #ifdef	__cplusplus
 }

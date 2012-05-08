@@ -16,7 +16,7 @@
 /**
  * The current cursor position.
  */
-static vec2 gCursorPosition[DK_CURSOR_LEVEL_COUNT];
+static vec2 gCursorPosition[MP_CURSOR_LEVEL_COUNT];
 
 ///////////////////////////////////////////////////////////////////////////////
 // Utility methods
@@ -29,14 +29,14 @@ static vec2 gCursorPosition[DK_CURSOR_LEVEL_COUNT];
  * @param mouseX mouse x position in window.
  * @param mouseY mouse y position in window.
  */
-static void updateLevel(DK_CursorLevel level, float z, int mouseX, int mouseY) {
+static void updateLevel(MP_CursorLevel level, float z, int mouseX, int mouseY) {
     float nearX, nearY, nearZ, tX, tY, tZ;
 
     // Get near and far plane.
-    if (!DK_UnProject(mouseX, mouseY, 0, &nearX, &nearY, &nearZ)) {
+    if (!MP_UnProject(mouseX, mouseY, 0, &nearX, &nearY, &nearZ)) {
         return;
     }
-    if (!DK_UnProject(mouseX, mouseY, 1, &tX, &tY, &tZ)) {
+    if (!MP_UnProject(mouseX, mouseY, 1, &tX, &tY, &tZ)) {
         return;
     }
 
@@ -60,20 +60,20 @@ static void update(void) {
 
     // Get window mouse coordinates.
     SDL_GetMouseState(&mouseX, &mouseY);
-    mouseY = DK_resolution_y - mouseY;
+    mouseY = MP_resolution_y - mouseY;
 
-    updateLevel(DK_CURSOR_LEVEL_FLOOR, 0, mouseX, mouseY);
-    updateLevel(DK_CURSOR_LEVEL_TOP, DK_BLOCK_HEIGHT, mouseX, mouseY);
+    updateLevel(MP_CURSOR_LEVEL_FLOOR, 0, mouseX, mouseY);
+    updateLevel(MP_CURSOR_LEVEL_TOP, MP_BLOCK_HEIGHT, mouseX, mouseY);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-const vec2* DK_GetCursor(DK_CursorLevel level) {
+const vec2* MP_GetCursor(MP_CursorLevel level) {
     return &gCursorPosition[level];
 }
 
-void DK_InitCursor(void) {
-    DK_OnPreRender(update);
+void MP_InitCursor(void) {
+    MP_OnPreRender(update);
 }

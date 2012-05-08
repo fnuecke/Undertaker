@@ -4,15 +4,15 @@ function onUnitAdded(unit, x, y, player)
 	addUnitJob(unit, unit, "wander")
 end
 
--- This is the maximum distance how far we may wander.
-local WANDER_RANGE = 2
--- This is the minimum delay in seconds before wandering again.
-local WANDER_DELAY_MIN = 2
--- This is the variance for the delay, so that
--- WANDER_DELAY_MAX = WANDER_DELAY_MIN + WANDER_DELAY_VARIANCE
-local WANDER_DELAY_VARIANCE = 2
-
 function run(unit)
+	-- This is the maximum distance how far we may wander.
+	local WANDER_RANGE = 2
+	-- This is the minimum delay in seconds before wandering again.
+	local WANDER_DELAY_MIN = 2
+	-- This is the variance for the delay, so that
+	-- WANDER_DELAY_MAX = WANDER_DELAY_MIN + WANDER_DELAY_VARIANCE
+	local WANDER_DELAY_VARIANCE = 2
+
     -- Just walk around dumbly.
 	local x = unit.position.x + WANDER_RANGE * (math.random() - 0.5)
 	local y = unit.position.y + WANDER_RANGE * (math.random() - 0.5)

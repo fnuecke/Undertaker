@@ -23,7 +23,7 @@ extern "C" {
      * @param outCount the number of out attributes names given in outNames.
      * @return the loaded shader, or 0 if loading failed.
      */
-    GLuint DK_LoadProgram(const char* vsPath, const char* fsPath, const char** outNames, unsigned int outCount);
+    GLuint MP_LoadProgram(const char* vsPath, const char* fsPath, const char** outNames, unsigned int outCount);
 
 #ifdef	__cplusplus
 }

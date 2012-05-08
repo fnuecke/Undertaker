@@ -21,26 +21,26 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /** List of all current jobs, per player, per type */
-static DK_Job*** gJobs[DK_PLAYER_COUNT];
+static MP_Job*** gJobs[MP_PLAYER_COUNT];
 
 /** Number of used entries in the job list */
-static unsigned int* gJobsCount[DK_PLAYER_COUNT];
+static unsigned int* gJobsCount[MP_PLAYER_COUNT];
 
 /** Capacity of the workplace lists */
-static unsigned int* gJobsCapacity[DK_PLAYER_COUNT];
+static unsigned int* gJobsCapacity[MP_PLAYER_COUNT];
 
 /** Capacity for job types, per player; this is also the count */
-static unsigned int gJobTypeCapacity[DK_PLAYER_COUNT];
+static unsigned int gJobTypeCapacity[MP_PLAYER_COUNT];
 
 ///////////////////////////////////////////////////////////////////////////////
 // Allocation
 ///////////////////////////////////////////////////////////////////////////////
 
-static void ensureJobListSize(DK_Player player, unsigned int metaId) {
+static void ensureJobListSize(MP_Player player, unsigned int metaId) {
     if (metaId >= gJobTypeCapacity[player]) {
         unsigned int newCapacity = metaId + 1;
 
-        if (!(gJobs[player] = realloc(gJobs[player], newCapacity * sizeof (DK_Job***)))) {
+        if (!(gJobs[player] = realloc(gJobs[player], newCapacity * sizeof (MP_Job***)))) {
             fprintf(stderr, "Out of memory while resizing job list.\n");
             exit(EXIT_FAILURE);
         }
@@ -66,12 +66,12 @@ static void ensureJobListSize(DK_Player player, unsigned int metaId) {
     }
 }
 
-static void ensureJobTypeListSize(DK_Player player, unsigned int metaId) {
+static void ensureJobTypeListSize(MP_Player player, unsigned int metaId) {
     ensureJobListSize(player, metaId);
 
     if (gJobsCount[player][metaId] + 1 > gJobsCapacity[player][metaId]) {
         gJobsCapacity[player][metaId] = gJobsCapacity[player][metaId] * 2 + 1;
-        if (!(gJobs[player][metaId] = realloc(gJobs[player][metaId], gJobsCapacity[player][metaId] * sizeof (DK_Job**)))) {
+        if (!(gJobs[player][metaId] = realloc(gJobs[player][metaId], gJobsCapacity[player][metaId] * sizeof (MP_Job**)))) {
             fprintf(stderr, "Out of memory while resizing job list.\n");
             exit(EXIT_FAILURE);
         }
@@ -79,8 +79,8 @@ static void ensureJobTypeListSize(DK_Player player, unsigned int metaId) {
 }
 
 /** Allocate a job and track it in our list */
-static DK_Job* newJob(DK_Player player, const DK_JobMeta* meta) {
-    DK_Job* job;
+static MP_Job* newJob(MP_Player player, const MP_JobMeta* meta) {
+    MP_Job* job;
 
     assert(meta);
 
@@ -88,7 +88,7 @@ static DK_Job* newJob(DK_Player player, const DK_JobMeta* meta) {
     ensureJobTypeListSize(player, meta->id);
 
     // Allocate the actual job.
-    if (!(job = calloc(1, sizeof (DK_Job)))) {
+    if (!(job = calloc(1, sizeof (MP_Job)))) {
         fprintf(stderr, "Out of memory while allocating a job.\n");
         exit(EXIT_FAILURE);
     }
@@ -99,7 +99,7 @@ static DK_Job* newJob(DK_Player player, const DK_JobMeta* meta) {
 }
 
 /** Delete a job that is no longer used */
-static void deleteJob(DK_Player player, unsigned int metaId, unsigned int number) {
+static void deleteJob(MP_Player player, unsigned int metaId, unsigned int number) {
     assert(gJobsCount[player][metaId] > number);
     assert(gJobs[player][metaId][number]);
 
@@ -108,17 +108,17 @@ static void deleteJob(DK_Player player, unsigned int metaId, unsigned int number
 
     // Move up the list entries to close the gap.
     --gJobsCount[player][metaId];
-    memmove(&gJobs[player][metaId][number], &gJobs[player][metaId][number + 1], (gJobsCount[player][metaId] - number) * sizeof (DK_Job*));
+    memmove(&gJobs[player][metaId][number], &gJobs[player][metaId][number + 1], (gJobsCount[player][metaId] - number) * sizeof (MP_Job*));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // Utility
 ///////////////////////////////////////////////////////////////////////////////
 
-static void getJobPosition(vec2* position, const DK_Job* job) {
+static void getJobPosition(vec2* position, const MP_Job* job) {
     if (job->block) {
         unsigned short x, y;
-        DK_GetBlockCoordinates(&x, &y, job->block);
+        MP_GetBlockCoordinates(&x, &y, job->block);
         position->d.x = x + 0.5f;
         position->d.y = y + 0.5f;
     } else if (job->room) {
@@ -140,14 +140,14 @@ static void getJobPosition(vec2* position, const DK_Job* job) {
 
 /** Debug rendering of where jobs are */
 static void onRender(void) {
-    if (DK_d_draw_jobs) {
-        DK_Material material;
-        DK_InitMaterial(&material);
+    if (MP_d_draw_jobs) {
+        MP_Material material;
+        MP_InitMaterial(&material);
         material.emissivity = 1.0f;
 
-        for (unsigned int metaId = 0; metaId < gJobTypeCapacity[DK_PLAYER_ONE]; ++metaId) {
-            for (unsigned int number = 0; number < gJobsCount[DK_PLAYER_ONE][metaId]; ++number) {
-                const DK_Job* job = gJobs[DK_PLAYER_ONE][metaId][number];
+        for (unsigned int metaId = 0; metaId < gJobTypeCapacity[MP_PLAYER_ONE]; ++metaId) {
+            for (unsigned int number = 0; number < gJobsCount[MP_PLAYER_ONE][metaId]; ++number) {
+                const MP_Job* job = gJobs[MP_PLAYER_ONE][metaId][number];
 
                 // Pick a color for the job.
                 material.diffuseColor.c.r = 0.4f;
@@ -155,13 +155,13 @@ static void onRender(void) {
                 material.diffuseColor.c.b = 0.4f;
                 /*
                                 switch (type) {
-                                    case DK_JOB_DIG:
+                                    case MP_JOB_DIG:
                                         material.diffuseColor.c.r = 0.4f;
                                         material.diffuseColor.c.g = 0.8f;
                                         material.diffuseColor.c.b = 0.4f;
                                         break;
-                                    case DK_JOB_CONVERT_TILE:
-                                    case DK_JOB_CONVERT_WALL:
+                                    case MP_JOB_CONVERT_TILE:
+                                    case MP_JOB_CONVERT_WALL:
                                         material.diffuseColor.c.r = 0.4f;
                                         material.diffuseColor.c.g = 0.4f;
                                         material.diffuseColor.c.b = 0.8f;
@@ -183,15 +183,15 @@ static void onRender(void) {
                 }
 
                 // Apply material and draw quad.
-                DK_SetMaterial(&material);
+                MP_SetMaterial(&material);
                 glBegin(GL_QUADS);
                 {
                     vec2 position;
                     getJobPosition(&position, job);
-                    glVertex3f((position.d.x - 0.1f) * DK_BLOCK_SIZE, (position.d.y - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-                    glVertex3f((position.d.x + 0.1f) * DK_BLOCK_SIZE, (position.d.y - 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-                    glVertex3f((position.d.x + 0.1f) * DK_BLOCK_SIZE, (position.d.y + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
-                    glVertex3f((position.d.x - 0.1f) * DK_BLOCK_SIZE, (position.d.y + 0.1f) * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT + 0.1f);
+                    glVertex3f((position.d.x - 0.1f) * MP_BLOCK_SIZE, (position.d.y - 0.1f) * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT + 0.1f);
+                    glVertex3f((position.d.x + 0.1f) * MP_BLOCK_SIZE, (position.d.y - 0.1f) * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT + 0.1f);
+                    glVertex3f((position.d.x + 0.1f) * MP_BLOCK_SIZE, (position.d.y + 0.1f) * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT + 0.1f);
+                    glVertex3f((position.d.x - 0.1f) * MP_BLOCK_SIZE, (position.d.y + 0.1f) * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT + 0.1f);
                 }
                 glEnd();
             }
@@ -199,16 +199,16 @@ static void onRender(void) {
     }
 }
 
-static void DK_UpdateJobsForBlock(DK_Player player, unsigned short x, unsigned short y) {
-    DK_Block* block = DK_GetBlockAt(x, y);
+static void MP_UpdateJobsForBlock(MP_Player player, unsigned short x, unsigned short y) {
+    MP_Block* block = MP_GetBlockAt(x, y);
 
     // Remove all old jobs that had to do with this block.
-    for (unsigned int metaId = 0; metaId < gJobTypeCapacity[DK_PLAYER_ONE]; ++metaId) {
+    for (unsigned int metaId = 0; metaId < gJobTypeCapacity[MP_PLAYER_ONE]; ++metaId) {
         for (unsigned int number = gJobsCount[player][metaId]; number > 0; --number) {
-            DK_Job* job = gJobs[player][metaId][number - 1];
+            MP_Job* job = gJobs[player][metaId][number - 1];
             if (job->block == block) {
                 // Remove this one. Notify worker that it's no longer needed.
-                DK_StopJob(job);
+                MP_StopJob(job);
 
                 // Free memory.
                 deleteJob(player, metaId, number - 1);
@@ -222,20 +222,20 @@ static void DK_UpdateJobsForBlock(DK_Player player, unsigned short x, unsigned s
         if (x > 0) {
             addJobOpenings(player, x - 1, y);
         }
-        if (x < DK_GetMapSize() - 1) {
+        if (x < MP_GetMapSize() - 1) {
             addJobOpenings(player, x + 1, y);
         }
         if (y > 0) {
             addJobOpenings(player, x, y - 1);
         }
-        if (y < DK_GetMapSize() - 1) {
+        if (y < MP_GetMapSize() - 1) {
             addJobOpenings(player, x, y + 1);
         }
      */
 }
 
-DK_Job* DK_FindJob(const DK_Unit* unit, const DK_JobMeta* type, float* distance) {
-    DK_Job* closestJob = NULL;
+MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobMeta* type, float* distance) {
+    MP_Job* closestJob = NULL;
     float closestDistance = FLT_MAX;
 
     if (!unit || !type) {
@@ -248,7 +248,7 @@ DK_Job* DK_FindJob(const DK_Unit* unit, const DK_JobMeta* type, float* distance)
     for (unsigned int number = 0; number < gJobsCount[unit->owner][type->id]; ++number) {
         float currentDistance;
         vec2 position;
-        DK_Job* job = gJobs[unit->owner][type->id][number];
+        MP_Job* job = gJobs[unit->owner][type->id][number];
 
         // Based on the job type we use the target's position.
         getJobPosition(&position, job);
@@ -262,7 +262,7 @@ DK_Job* DK_FindJob(const DK_Unit* unit, const DK_JobMeta* type, float* distance)
 
         // Find a path to it. We're not really interested in the actual path,
         // though, so pass null for that.
-        if (DK_AStar(unit, &position, NULL, NULL, &currentDistance)) {
+        if (MP_AStar(unit, &position, NULL, NULL, &currentDistance)) {
             // Got a path, check its length.
             if (currentDistance < closestDistance) {
                 // Got a new best. Check if it's occupied, and if so
@@ -274,7 +274,7 @@ DK_Job* DK_FindJob(const DK_Unit* unit, const DK_JobMeta* type, float* distance)
                     // cases, and at least guarantees that *when* we steal the
                     // job, we're really closer.
                     const float workerDistance = v2distance(&job->worker->position, &position);
-                    if (workerDistance <= currentDistance + DK_AI_ALREADY_WORKING_BONUS) {
+                    if (workerDistance <= currentDistance + MP_AI_ALREADY_WORKING_BONUS) {
                         // The one that's on it is better suited, ignore job.
                         continue;
                     }
@@ -295,12 +295,12 @@ DK_Job* DK_FindJob(const DK_Unit* unit, const DK_JobMeta* type, float* distance)
     return closestJob;
 }
 
-void DK_RunJob(DK_Unit* unit, const DK_JobMeta* job) {
+void MP_RunJob(MP_Unit* unit, const MP_JobMeta* job) {
 
 }
 
-void DK_ClearJobs(void) {
-    for (unsigned int player = 0; player < DK_PLAYER_COUNT; ++player) {
+void MP_ClearJobs(void) {
+    for (unsigned int player = 0; player < MP_PLAYER_COUNT; ++player) {
         for (unsigned int metaId = 0; metaId < gJobTypeCapacity[player]; ++metaId) {
             for (unsigned int number = 0; number < gJobsCount[player][metaId]; ++number) {
                 free(gJobs[player][metaId][number]);
@@ -320,11 +320,11 @@ void DK_ClearJobs(void) {
     }
 }
 
-void DK_InitJobs(void) {
-    DK_OnRender(onRender);
+void MP_InitJobs(void) {
+    MP_OnRender(onRender);
 
-    memset(gJobs, 0, DK_PLAYER_COUNT * sizeof (DK_Job***));
-    memset(gJobsCount, 0, DK_PLAYER_COUNT * sizeof (unsigned int*));
-    memset(gJobsCapacity, 0, DK_PLAYER_COUNT * sizeof (unsigned int*));
-    memset(gJobTypeCapacity, 0, DK_PLAYER_COUNT * sizeof (unsigned int));
+    memset(gJobs, 0, MP_PLAYER_COUNT * sizeof (MP_Job***));
+    memset(gJobsCount, 0, MP_PLAYER_COUNT * sizeof (unsigned int*));
+    memset(gJobsCapacity, 0, MP_PLAYER_COUNT * sizeof (unsigned int*));
+    memset(gJobTypeCapacity, 0, MP_PLAYER_COUNT * sizeof (unsigned int));
 }

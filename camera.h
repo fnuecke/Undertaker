@@ -19,34 +19,34 @@ extern "C" {
     ///////////////////////////////////////////////////////////////////////////////
 
     /**
-     * Possible camera movement directions for DK_Camera[Un]SetDirection().
+     * Possible camera movement directions for MP_Camera[Un]SetDirection().
      */
     typedef enum {
         /**
          * No direction.
          */
-        DK_CAMERA_DIRECTION_NONE = 0,
+        MP_CAMERA_DIRECTION_NONE = 0,
 
         /**
          * Northward / upward direction.
          */
-        DK_CAMERA_DIRECTION_NORTH = 1,
+        MP_CAMERA_DIRECTION_NORTH = 1,
 
         /**
          * Eastward / rightward direction.
          */
-        DK_CAMERA_DIRECTION_EAST = 2,
+        MP_CAMERA_DIRECTION_EAST = 2,
 
         /**
          * Southward / downward direction.
          */
-        DK_CAMERA_DIRECTION_SOUTH = 4,
+        MP_CAMERA_DIRECTION_SOUTH = 4,
 
         /**
          * Westward / leftward direction.
          */
-        DK_CAMERA_DIRECTION_WEST = 8
-    } DK_CameraDirection;
+        MP_CAMERA_DIRECTION_WEST = 8
+    } MP_CameraDirection;
 
     ///////////////////////////////////////////////////////////////////////////////
     // Accessors
@@ -56,19 +56,19 @@ extern "C" {
      * Get the current camera position as in world space.
      * @return the current camera position in world space.
      */
-    const vec3* DK_GetCameraPosition(void);
+    const vec3* MP_GetCameraPosition(void);
 
     /**
      * Get the current camera target in world space.
      * @return the current camera target in world space.
      */
-    const vec3* DK_GetCameraTarget(void);
+    const vec3* MP_GetCameraTarget(void);
 
     /**
      * Get the current camera zoom.
      * @return the current camera zoom, as a percentage.
      */
-    float DK_GetCameraZoom(void);
+    float MP_GetCameraZoom(void);
 
     ///////////////////////////////////////////////////////////////////////////////
     // Manipulation
@@ -78,23 +78,23 @@ extern "C" {
      * Make the camera move in the specified direction.
      * @param direction the direction to start scrolling in.
      */
-    void DK_CameraStartScrolling(DK_CameraDirection direction);
+    void MP_CameraStartScrolling(MP_CameraDirection direction);
 
     /**
      * Stop the camera move in the specified direction.
      * @param direction the direction to stop scrolling in.
      */
-    void DK_CameraStopScrolling(DK_CameraDirection direction);
+    void MP_CameraStopScrolling(MP_CameraDirection direction);
 
     /**
      * Zoom the camera in (closer to the map).
      */
-    void DK_CameraZoomIn(void);
+    void MP_CameraZoomIn(void);
 
     /**
      * Zoom the camera out (further away from the map).
      */
-    void DK_CameraZoomOut(void);
+    void MP_CameraZoomOut(void);
 
     ///////////////////////////////////////////////////////////////////////////////
     // Updating
@@ -103,7 +103,7 @@ extern "C" {
     /**
      * Set up camera events and logic.
      */
-    void DK_InitCamera(void);
+    void MP_InitCamera(void);
 
 #ifdef	__cplusplus
 }

@@ -54,7 +54,7 @@ extern "C" {
      * Note that saturation is always bounded to a range of [0, 1], so the
      * thresholds should lie in this interval.
      */
-    struct DK_UnitJobSaturationMeta {
+    struct MP_UnitJobSaturationMeta {
         /** The initial value */
         float initialValue;
 
@@ -83,9 +83,9 @@ extern "C" {
      * their preference, and world influences (which should be normalized in a
      * range of 0 to 1, where 0 means unsatisfied and 1 means satisfied).
      */
-    struct DK_UnitSatisfactionMeta {
+    struct MP_UnitSatisfactionMeta {
         /** Job related satisfaction data */
-        DK_UnitJobSaturationMeta* jobSaturation;
+        MP_UnitJobSaturationMeta* jobSaturation;
 
         /** How satisfaction changes when being slapped */
         float slapDelta;
@@ -97,11 +97,11 @@ extern "C" {
         float angerThreshold;
 
         /** What the unit does when it gets angry */
-        const DK_JobMeta* angerJob;
+        const MP_JobMeta* angerJob;
     };
 
     /** Description of a single unit type */
-    struct DK_UnitMeta {
+    struct MP_UnitMeta {
         /** The ID of this unit type */
         unsigned int id;
 
@@ -109,22 +109,22 @@ extern "C" {
         const char* name;
 
         /** Passability types this unit supports */
-        DK_Passability canPass;
+        MP_Passability canPass;
 
         /** Base movement speed of the unit */
         float moveSpeed;
 
         /** Jobs the unit can perform */
-        const DK_JobMeta** jobs;
+        const MP_JobMeta** jobs;
 
         /** Number of jobs for this unit */
         unsigned int jobCount;
 
         /** Information on unit satisfaction */
-        DK_UnitSatisfactionMeta satisfaction;
+        MP_UnitSatisfactionMeta satisfaction;
     };
 
-    META_header(DK_UnitMeta, Unit);
+    META_header(MP_UnitMeta, Unit);
 
 #ifdef	__cplusplus
 }

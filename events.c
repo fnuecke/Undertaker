@@ -18,16 +18,16 @@
 static void key_down(const SDL_Event* e) {
     switch (e->key.keysym.sym) {
         case SDLK_UP:
-            DK_CameraStartScrolling(DK_CAMERA_DIRECTION_NORTH);
+            MP_CameraStartScrolling(MP_CAMERA_DIRECTION_NORTH);
             break;
         case SDLK_DOWN:
-            DK_CameraStartScrolling(DK_CAMERA_DIRECTION_SOUTH);
+            MP_CameraStartScrolling(MP_CAMERA_DIRECTION_SOUTH);
             break;
         case SDLK_LEFT:
-            DK_CameraStartScrolling(DK_CAMERA_DIRECTION_WEST);
+            MP_CameraStartScrolling(MP_CAMERA_DIRECTION_WEST);
             break;
         case SDLK_RIGHT:
-            DK_CameraStartScrolling(DK_CAMERA_DIRECTION_EAST);
+            MP_CameraStartScrolling(MP_CAMERA_DIRECTION_EAST);
             break;
 
         case SDLK_RETURN:
@@ -39,37 +39,37 @@ static void key_down(const SDL_Event* e) {
             // Debugging commands.
 
         case SDLK_F1:
-            DK_d_draw_test_texture = 1 - DK_d_draw_test_texture;
+            MP_d_draw_test_texture = 1 - MP_d_draw_test_texture;
             break;
         case SDLK_F2:
-            DK_d_draw_paths = 1 - DK_d_draw_paths;
+            MP_d_draw_paths = 1 - MP_d_draw_paths;
             break;
         case SDLK_F3:
-            DK_d_draw_jobs = 1 - DK_d_draw_jobs;
+            MP_d_draw_jobs = 1 - MP_d_draw_jobs;
             break;
         case SDLK_F4:
         {
             vec2 p = {
                 {5, 10}
             };
-            DK_AddUnit(DK_PLAYER_ONE, DK_GetUnitMeta(1), &p);
+            MP_AddUnit(MP_PLAYER_ONE, MP_GetUnitMeta(1), &p);
             break;
         }
         case SDLK_F5:
-            DK_d_draw_deferred = (DK_d_draw_deferred + 1) % DK_D_DISPLAY_MODE_COUNT;
+            MP_d_draw_deferred = (MP_d_draw_deferred + 1) % MP_D_DISPLAY_MODE_COUNT;
             break;
         case SDLK_F6:
-            DK_d_draw_picking_mode = 1 - DK_d_draw_picking_mode;
+            MP_d_draw_picking_mode = 1 - MP_d_draw_picking_mode;
             break;
         case SDLK_F7:
-            DK_d_draw_deferred_shader = 1 - DK_d_draw_deferred_shader;
+            MP_d_draw_deferred_shader = 1 - MP_d_draw_deferred_shader;
             break;
         case SDLK_F8:
-            DK_d_ai_enabled = 1 - DK_d_ai_enabled;
+            MP_d_ai_enabled = 1 - MP_d_ai_enabled;
             break;
         case SDLK_F9:
         {
-            DK_Light* light = calloc(1, sizeof (DK_Light));
+            MP_Light* light = calloc(1, sizeof (MP_Light));
             light->diffuseColor.c.r = 1;
             light->diffuseColor.c.g = 1;
             light->diffuseColor.c.b = 1;
@@ -78,36 +78,36 @@ static void key_down(const SDL_Event* e) {
             light->specularColor.c.g = 1;
             light->specularColor.c.b = 1;
             light->specularPower = 40;
-            light->position.d.x = DK_GetCursor(DK_CURSOR_LEVEL_FLOOR)->v[0];
-            light->position.d.y = DK_GetCursor(DK_CURSOR_LEVEL_FLOOR)->v[1];
-            light->position.d.z = DK_BLOCK_HEIGHT / 2;
-            DK_AddLight(light);
+            light->position.d.x = MP_GetCursor(MP_CURSOR_LEVEL_FLOOR)->v[0];
+            light->position.d.y = MP_GetCursor(MP_CURSOR_LEVEL_FLOOR)->v[1];
+            light->position.d.z = MP_BLOCK_HEIGHT / 2;
+            MP_AddLight(light);
             break;
         }
         case SDLK_F10:
-            DK_d_draw_light_volumes = 1 - DK_d_draw_light_volumes;
+            MP_d_draw_light_volumes = 1 - MP_d_draw_light_volumes;
             break;
 
         case SDLK_1:
-            DK_SetBlockMeta(DK_GetBlockUnderCursor(NULL, NULL), DK_GetBlockMeta(1));
+            MP_SetBlockMeta(MP_GetBlockUnderCursor(NULL, NULL), MP_GetBlockMeta(1));
             break;
         case SDLK_2:
-            DK_SetBlockMeta(DK_GetBlockUnderCursor(NULL, NULL), DK_GetBlockMeta(2));
+            MP_SetBlockMeta(MP_GetBlockUnderCursor(NULL, NULL), MP_GetBlockMeta(2));
             break;
         case SDLK_3:
-            DK_SetBlockMeta(DK_GetBlockUnderCursor(NULL, NULL), DK_GetBlockMeta(3));
+            MP_SetBlockMeta(MP_GetBlockUnderCursor(NULL, NULL), MP_GetBlockMeta(3));
             break;
         case SDLK_4:
-            DK_SetBlockMeta(DK_GetBlockUnderCursor(NULL, NULL), DK_GetBlockMeta(4));
+            MP_SetBlockMeta(MP_GetBlockUnderCursor(NULL, NULL), MP_GetBlockMeta(4));
             break;
         case SDLK_5:
-            DK_SetBlockMeta(DK_GetBlockUnderCursor(NULL, NULL), DK_GetBlockMeta(5));
+            MP_SetBlockMeta(MP_GetBlockUnderCursor(NULL, NULL), MP_GetBlockMeta(5));
             break;
         case SDLK_6:
-            DK_SetBlockMeta(DK_GetBlockUnderCursor(NULL, NULL), DK_GetBlockMeta(6));
+            MP_SetBlockMeta(MP_GetBlockUnderCursor(NULL, NULL), MP_GetBlockMeta(6));
             break;
         case SDLK_7:
-            DK_SetBlockMeta(DK_GetBlockUnderCursor(NULL, NULL), DK_GetBlockMeta(7));
+            MP_SetBlockMeta(MP_GetBlockUnderCursor(NULL, NULL), MP_GetBlockMeta(7));
             break;
         default:
             break;
@@ -117,16 +117,16 @@ static void key_down(const SDL_Event* e) {
 static void key_up(const SDL_Event* e) {
     switch (e->key.keysym.sym) {
         case SDLK_UP:
-            DK_CameraStopScrolling(DK_CAMERA_DIRECTION_NORTH);
+            MP_CameraStopScrolling(MP_CAMERA_DIRECTION_NORTH);
             break;
         case SDLK_DOWN:
-            DK_CameraStopScrolling(DK_CAMERA_DIRECTION_SOUTH);
+            MP_CameraStopScrolling(MP_CAMERA_DIRECTION_SOUTH);
             break;
         case SDLK_LEFT:
-            DK_CameraStopScrolling(DK_CAMERA_DIRECTION_WEST);
+            MP_CameraStopScrolling(MP_CAMERA_DIRECTION_WEST);
             break;
         case SDLK_RIGHT:
-            DK_CameraStopScrolling(DK_CAMERA_DIRECTION_EAST);
+            MP_CameraStopScrolling(MP_CAMERA_DIRECTION_EAST);
             break;
         default:
             break;
@@ -136,16 +136,16 @@ static void key_up(const SDL_Event* e) {
 static void mouse_down(const SDL_Event* e) {
     switch (e->button.button) {
         case SDL_BUTTON_WHEELUP:
-            DK_CameraZoomIn();
+            MP_CameraZoomIn();
             break;
         case SDL_BUTTON_WHEELDOWN:
-            DK_CameraZoomOut();
+            MP_CameraZoomOut();
             break;
         case SDL_BUTTON_LEFT:
-            DK_BeginSelection();
+            MP_BeginSelection();
             break;
         case SDL_BUTTON_RIGHT:
-            if (DK_DiscardSelection()) {
+            if (MP_DiscardSelection()) {
                 break;
             }
             break;
@@ -157,7 +157,7 @@ static void mouse_down(const SDL_Event* e) {
 static void mouse_up(const SDL_Event* e) {
     switch (e->button.button) {
         case SDL_BUTTON_LEFT:
-            DK_ConfirmSelection();
+            MP_ConfirmSelection();
             break;
         default:
             break;
@@ -168,7 +168,7 @@ static void mouse_up(const SDL_Event* e) {
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_Events(void) {
+void MP_Events(void) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         switch (event.type) {

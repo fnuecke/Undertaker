@@ -16,7 +16,7 @@ extern "C" {
 #endif
 
     /** Meta description of a room type */
-    struct DK_RoomMeta {
+    struct MP_RoomMeta {
         /** The ID of this block type */
         unsigned int id;
 
@@ -24,13 +24,13 @@ extern "C" {
         const char* name;
 
         /** The type of underground the room can be built on */
-        DK_Passability canBuildOn;
+        MP_Passability canBuildOn;
 
         /** The type of passability the room provides */
-        DK_Passability passability;
+        MP_Passability passability;
 
         /** The level (height) at which to render this block type */
-        DK_BlockLevel level;
+        MP_BlockLevel level;
 
         /** Determines whether the room is a door (can be locked) */
         bool isDoor;
@@ -39,7 +39,7 @@ extern "C" {
         unsigned int health;
     };
 
-    META_header(DK_RoomMeta, Room);
+    META_header(MP_RoomMeta, Room);
 
 #ifdef	__cplusplus
 }

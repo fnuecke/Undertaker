@@ -15,7 +15,7 @@
 extern "C" {
 #endif
 
-    struct DK_BlockMeta {
+    struct MP_BlockMeta {
         /** The ID of this block type */
         unsigned int id;
 
@@ -23,7 +23,7 @@ extern "C" {
         const char* name;
 
         /** The required passability flag to traverse this block type */
-        DK_Passability passability;
+        MP_Passability passability;
 
         /** Durability of this block (digging resistance) */
         unsigned int durability;
@@ -35,17 +35,17 @@ extern "C" {
         unsigned int gold;
 
         /** The type of block this one becomes upon destruction */
-        const DK_BlockMeta* becomes;
+        const MP_BlockMeta* becomes;
 
         /** The level (height) at which to render this block type */
-        DK_BlockLevel level;
+        MP_BlockLevel level;
 
         /** IDs of textures to use for rendering at different levels */
-        DK_TextureID texturesTop[DK_BLOCK_TEXTURE_TOP_COUNT];
-        DK_TextureID texturesSide[DK_BLOCK_LEVEL_COUNT][DK_BLOCK_TEXTURE_SIDE_COUNT];
+        MP_TextureID texturesTop[MP_BLOCK_TEXTURE_TOP_COUNT];
+        MP_TextureID texturesSide[MP_BLOCK_LEVEL_COUNT][MP_BLOCK_TEXTURE_SIDE_COUNT];
     };
 
-    META_header(DK_BlockMeta, Block);
+    META_header(MP_BlockMeta, Block);
 
 #ifdef	__cplusplus
 }

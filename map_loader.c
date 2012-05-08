@@ -17,35 +17,35 @@
 // Save / Load methods
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_LoadMap(const char* mapname) {
+void MP_LoadMap(const char* mapname) {
     if (!mapname) {
         return;
     }
 
-    fprintf(DK_log_target, "INFO: Loading map '%s'.\n", mapname);
+    fprintf(MP_log_target, "INFO: Loading map '%s'.\n", mapname);
 
     // Kill remaining jobs.
-    DK_ClearJobs();
+    MP_ClearJobs();
 
     // Unload resources.
-    DK_UnloadTextures();
+    MP_UnloadTextures();
 
     // Clear meta information.
-    DK_ClearBlockMeta();
-    DK_ClearJobMeta();
-    DK_ClearRoomMeta();
-    DK_ClearUnitMeta();
+    MP_ClearBlockMeta();
+    MP_ClearJobMeta();
+    MP_ClearRoomMeta();
+    MP_ClearUnitMeta();
 
     // Load new meta information for the map.
-    DK_LoadMeta(mapname);
+    MP_LoadMeta(mapname);
 
     // Adjust map size and set default block type.
-    DK_SetMapSize(128, DK_GetBlockMeta(1));
+    MP_SetMapSize(128, MP_GetBlockMeta(1));
 
     // Load new resources onto GPU.
-    DK_GL_GenerateTextures();
+    MP_GL_GenerateTextures();
 }
 
-void DK_SaveMap(const char* filename) {
+void MP_SaveMap(const char* filename) {
 
 }

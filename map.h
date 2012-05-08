@@ -21,22 +21,22 @@ extern "C" {
     /**
      * Size (width and height, maps are always squared) of the current map.
      */
-    unsigned short DK_GetMapSize(void);
+    unsigned short MP_GetMapSize(void);
 
     /**
      * Get the map block at the specified coordinate.
      */
-    DK_Block* DK_GetBlockAt(int x, int y);
+    MP_Block* MP_GetBlockAt(int x, int y);
 
     /**
      * Get the coordinates of the specified block.
      */
-    int DK_GetBlockCoordinates(unsigned short* x, unsigned short* y, const DK_Block* block);
+    int MP_GetBlockCoordinates(unsigned short* x, unsigned short* y, const MP_Block* block);
 
     /**
      * Gets the block currently hovered by the mouse, and its coordinates.
      */
-    DK_Block* DK_GetBlockUnderCursor(int* x, int* y);
+    MP_Block* MP_GetBlockUnderCursor(int* x, int* y);
 
     ///////////////////////////////////////////////////////////////////////////
     // Modifiers
@@ -47,27 +47,27 @@ extern "C" {
      * event, which should invalidate all other map size dependent data (and
      * generally means that the old map has been unloaded -> cleanup).
      */
-    void DK_SetMapSize(unsigned short size,  const DK_BlockMeta* fillWith);
+    void MP_SetMapSize(unsigned short size,  const MP_BlockMeta* fillWith);
 
     /**
      * Change the type of a block.
      */
-    void DK_SetBlockMeta(DK_Block* block, const DK_BlockMeta* meta);
+    void MP_SetBlockMeta(MP_Block* block, const MP_BlockMeta* meta);
 
     /**
      * Change the owner of a block.
      */
-    void DK_SetBlockOwner(DK_Block* block, DK_Player player);
+    void MP_SetBlockOwner(MP_Block* block, MP_Player player);
 
     /**
      * Apply damage to a block (dirt, gold or gem); return 1 if destroyed.
      */
-    int DK_DamageBlock(DK_Block* block, unsigned int damage);
+    int MP_DamageBlock(MP_Block* block, unsigned int damage);
 
     /**
      * Apply conversion to a block (dirt, wall, empty); return 1 if successful.
      */
-    int DK_ConvertBlock(DK_Block* block, unsigned int strength, DK_Player player);
+    int MP_ConvertBlock(MP_Block* block, unsigned int strength, MP_Player player);
 
     ///////////////////////////////////////////////////////////////////////////
     // Initialization / Events
@@ -76,17 +76,17 @@ extern "C" {
     /**
      * Generates OpenGL resources used by the map.
      */
-    void DK_GL_GenerateMap(void);
+    void MP_GL_GenerateMap(void);
 
     /**
      * Delete OpenGL resources used by the map.
      */
-    void DK_GL_DeleteMap(void);
+    void MP_GL_DeleteMap(void);
 
     /**
      * Initialize map related event logic.
      */
-    void DK_InitMap(void);
+    void MP_InitMap(void);
 
 #ifdef	__cplusplus
 }

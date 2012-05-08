@@ -15,7 +15,7 @@ extern "C" {
     /**
      * Drives update logic by calling registered callbacks.
      */
-    void DK_Update(void);
+    void MP_Update(void);
 
 #ifdef	__cplusplus
 }

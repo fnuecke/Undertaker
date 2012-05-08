@@ -22,7 +22,7 @@ extern "C" {
      * @param textureId the id of the texture to get.
      * @param hash a value that will determine the variation of the texture.
      */
-    GLuint DK_GetTexture(DK_TextureID textureId, unsigned int hash);
+    GLuint MP_GetTexture(MP_TextureID textureId, unsigned int hash);
 
     /**
      * Tries to load a texture into memory. The specified base name will be
@@ -31,23 +31,23 @@ extern "C" {
      * @param basename the base texture name.
      * @return the id of the loaded texture (for GetTexture), or 0 on failure.
      */
-    DK_TextureID DK_LoadTexture(const char* basename);
+    MP_TextureID MP_LoadTexture(const char* basename);
 
     /**
      * Unloads all textures from memory. This will also delete them from the GPU
-     * (i.e. calls DK_DeleteTextures).
+     * (i.e. calls MP_DeleteTextures).
      */
-    void DK_UnloadTextures(void);
+    void MP_UnloadTextures(void);
 
     /**
      * Generate textures for OpenGL, i.e. sends the textures to the GPU.
      */
-    void DK_GL_GenerateTextures(void);
+    void MP_GL_GenerateTextures(void);
 
     /**
      * Deletes textures in OpenGL, i.e. frees the memory on the GPU.
      */
-    void DK_GL_DeleteTextures(void);
+    void MP_GL_DeleteTextures(void);
 
 #ifdef	__cplusplus
 }

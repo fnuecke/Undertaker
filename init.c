@@ -22,28 +22,28 @@
 #include "room_meta.h"
 
 static void shutdown(void) {
-    fprintf(DK_log_target, "INFO: Game shutting down...\n");
-    DK_save_config();
+    fprintf(MP_log_target, "INFO: Game shutting down...\n");
+    MP_save_config();
 }
 
-void DK_Init(void) {
+void MP_Init(void) {
     SDL_Surface* screen;
 
-    DK_load_config();
+    MP_load_config();
 
-    fprintf(DK_log_target, "------------------------------------------------------------------------\n");
-    fprintf(DK_log_target, "INFO: Game starting up...\n");
+    fprintf(MP_log_target, "------------------------------------------------------------------------\n");
+    fprintf(MP_log_target, "INFO: Game starting up...\n");
 
     atexit(shutdown);
 
     // Set up SDL.
     if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO) < 0) {
-        fprintf(DK_log_target, "ERROR: Unable to initialize SDL: %s\n", SDL_GetError());
+        fprintf(MP_log_target, "ERROR: Unable to initialize SDL: %s\n", SDL_GetError());
         exit(EXIT_FAILURE);
     }
     atexit(SDL_Quit);
 
-    fprintf(DK_log_target, "INFO: SDL initialized successfully.\n");
+    fprintf(MP_log_target, "INFO: SDL initialized successfully.\n");
 
     // Set up OpenGL related settings.
     SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 5);
@@ -53,56 +53,56 @@ void DK_Init(void) {
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 1);
     SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 0);
-    if (DK_use_antialiasing) {
+    if (MP_use_antialiasing) {
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
     }
 
-    fprintf(DK_log_target, "INFO: Done configuring SDL.\n");
+    fprintf(MP_log_target, "INFO: Done configuring SDL.\n");
 
     // Set up video.
-    screen = SDL_SetVideoMode(DK_resolution_x, DK_resolution_y, 0, SDL_HWSURFACE | SDL_OPENGL);
+    screen = SDL_SetVideoMode(MP_resolution_x, MP_resolution_y, 0, SDL_HWSURFACE | SDL_OPENGL);
     if (screen == NULL) {
-        fprintf(DK_log_target, "ERROR: Unable to set video: %s.\n", SDL_GetError());
+        fprintf(MP_log_target, "ERROR: Unable to set video: %s.\n", SDL_GetError());
         exit(EXIT_FAILURE);
     }
 
     // Set window title.
     SDL_WM_SetCaption("Undertaker", NULL);
 
-    fprintf(DK_log_target, "INFO: Video set up successfully.\n");
+    fprintf(MP_log_target, "INFO: Video set up successfully.\n");
 
     if (glewInit()) {
-        fprintf(DK_log_target, "ERROR: Unable to initialize GLEW (%d).\n", glGetError());
+        fprintf(MP_log_target, "ERROR: Unable to initialize GLEW (%d).\n", glGetError());
         exit(EXIT_FAILURE);
     }
 
-    fprintf(DK_log_target, "INFO: GLEW initialized successfully\n");
+    fprintf(MP_log_target, "INFO: GLEW initialized successfully\n");
 
     if (!GLEW_VERSION_3_3) {
-        fprintf(DK_log_target, "ERROR: OpenGL 3.3 not supported.\n");
+        fprintf(MP_log_target, "ERROR: OpenGL 3.3 not supported.\n");
         exit(EXIT_FAILURE);
     }
-    fprintf(DK_log_target, "INFO: OpenGL 3.3 supported.\n");
+    fprintf(MP_log_target, "INFO: OpenGL 3.3 supported.\n");
 
     // Initialize openGL.
-    DK_InitRender();
+    MP_InitRender();
 
-    fprintf(DK_log_target, "INFO: Done initializing OpenGL.\n");
+    fprintf(MP_log_target, "INFO: Done initializing OpenGL.\n");
 
     // Set up event bindings.
-    DK_InitGraphics();
+    MP_InitGraphics();
 
-    DK_InitAStar();
-    DK_InitCamera();
-    DK_InitCursor();
-    DK_InitSelection();
-    DK_InitUnits();
-    DK_InitMap();
-    DK_InitJobs();
+    MP_InitAStar();
+    MP_InitCamera();
+    MP_InitCursor();
+    MP_InitSelection();
+    MP_InitUnits();
+    MP_InitMap();
+    MP_InitJobs();
 
-    fprintf(DK_log_target, "INFO: Done initializing internal hooks.\n");
+    fprintf(MP_log_target, "INFO: Done initializing internal hooks.\n");
 
     // Initialize a test map.
-    DK_LoadMap("defaults");
+    MP_LoadMap("defaults");
 }

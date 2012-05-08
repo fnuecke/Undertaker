@@ -15,7 +15,7 @@
 extern "C" {
 #endif
 
-    struct DK_JobMeta {
+    struct MP_JobMeta {
         /** The ID of this job type */
         unsigned int id;
 
@@ -26,7 +26,7 @@ extern "C" {
         lua_State* L;
 
         /** List to check which events are handled by the script */
-        bool handledEvents[DK_JOB_EVENT_COUNT];
+        bool handledEvents[MP_JOB_EVENT_COUNT];
 
         /** Whether the script should be queried for a current saturation */
         bool hasDynamicPreference;
@@ -35,25 +35,25 @@ extern "C" {
         bool hasRunMethod;
     };
 
-    META_header(DK_JobMeta, Job);
+    META_header(MP_JobMeta, Job);
 
     /**
      * Utility method to disable a single event callback for a specific job meta.
      * @param meta the meta to modify.
      */
-    void DK_DisableJobEvent(const DK_JobMeta* meta, DK_JobEvent event);
+    void MP_DisableJobEvent(const MP_JobMeta* meta, MP_JobEvent event);
 
     /**
      * Utility method to disable the dynamic preference for a specific job meta.
      * @param meta the meta to modify.
      */
-    void DK_DisableDynamicPreference(const DK_JobMeta* meta);
+    void MP_DisableDynamicPreference(const MP_JobMeta* meta);
 
     /**
      * Utility method to disable the run method for a specific job meta.
      * @param meta the meta to modify.
      */
-    void DK_DisableRunMethod(const DK_JobMeta* meta);
+    void MP_DisableRunMethod(const MP_JobMeta* meta);
 
 #ifdef	__cplusplus
 }

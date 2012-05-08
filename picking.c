@@ -8,7 +8,7 @@
 #include "graphics.h"
 #include "vmath.h"
 
-GLuint DK_Pick(int x, int y, void(*render)(void)) {
+GLuint MP_Pick(int x, int y, void(*render)(void)) {
     GLuint buffer[64] = {0};
     GLuint closest, depth;
     GLint hits, hit;
@@ -20,12 +20,12 @@ GLuint DK_Pick(int x, int y, void(*render)(void)) {
 
     // Now modify the viewing volume, restricting selection area around the
     // cursor. This way only render what's close to it.
-    DK_BeginPerspectiveForPicking(x, y);
+    MP_BeginPerspectiveForPicking(x, y);
 
     render();
 
     // Done with rendering, pop the matrix.
-    DK_EndPerspective();
+    MP_EndPerspective();
 
     // See if we hit anything.
     hits = glRenderMode(GL_RENDER);

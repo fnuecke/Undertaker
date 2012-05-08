@@ -19,19 +19,19 @@ extern "C" {
     /**
      * Load the current map from a file with the specified name.
      */
-    void DK_LoadMap(const char* filename);
+    void MP_LoadMap(const char* filename);
 
     /**
      * Save the current map to a file with the specified name.
      */
-    void DK_SaveMap(const char* filename);
+    void MP_SaveMap(const char* filename);
 
     /**
      * Initialize map loader for event processing. In particular, the map loader
      * will attach itself to the map size change event, to inject new meta data.
      * If map size changes otherwise, meta data shall remain the same.
      */
-    void DK_InitMapLoader(void);
+    void MP_InitMapLoader(void);
 
 #ifdef	__cplusplus
 }

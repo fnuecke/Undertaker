@@ -15,12 +15,12 @@ extern "C" {
 #endif
 
     /** Represents a single room in the world */
-    struct DK_Room {
+    struct MP_Room {
         /** Info on the room type */
-        const DK_RoomMeta* meta;
+        const MP_RoomMeta* meta;
 
         /** Blocks this room covers */
-        DK_Block* blocks;
+        MP_Block* blocks;
 
         /** Number of blocks this room covers */
         unsigned int blockCount;

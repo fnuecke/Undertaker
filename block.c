@@ -3,26 +3,26 @@
 #include "room.h"
 #include "units.h"
 
-DK_Passability DK_GetBlockPassability(const DK_Block* block) {
+MP_Passability MP_GetBlockPassability(const MP_Block* block) {
     return block && (block->room ? block->room->meta->passability : block->meta->passability);
 }
 
-DK_BlockLevel DK_GetBlockLevel(const DK_Block* block) {
+MP_BlockLevel MP_GetBlockLevel(const MP_Block* block) {
     return block && (block->room ? block->room->meta->level : block->meta->level);
 }
 
-bool DK_IsBlockPassable(const DK_Block* block) {
-    return DK_GetBlockPassability(block) > 0;
+bool MP_IsBlockPassable(const MP_Block* block) {
+    return MP_GetBlockPassability(block) > 0;
 }
 
-bool DK_IsBlockPassableBy(const DK_Block* block, const DK_Unit* unit) {
-    return unit && (DK_GetBlockPassability(block) & unit->meta->canPass) != 0;
+bool MP_IsBlockPassableBy(const MP_Block* block, const MP_Unit* unit) {
+    return unit && (MP_GetBlockPassability(block) & unit->meta->canPass) != 0;
 }
 
-bool DK_IsBlockDestructible(const DK_Block* block) {
+bool MP_IsBlockDestructible(const MP_Block* block) {
     return block && block->meta->durability > 0;
 }
 
-bool DK_IsBlockConvertible(const DK_Block* block) {
+bool MP_IsBlockConvertible(const MP_Block* block) {
     return block && block->meta->strength > 0;
 }

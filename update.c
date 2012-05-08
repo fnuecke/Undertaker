@@ -4,11 +4,11 @@
 
 static Callbacks* gUpdateCallbacks = 0;
 
-void DK_Update(void) {
+void MP_Update(void) {
     CB_Call(gUpdateCallbacks);
 }
 
-void DK_OnUpdate(callback method) {
+void MP_OnUpdate(callback method) {
     if (!gUpdateCallbacks) {
         gUpdateCallbacks = CB_New();
     }

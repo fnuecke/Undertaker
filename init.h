@@ -15,7 +15,7 @@ extern "C" {
     /**
      * Initialize SDL and game data.
      */
-    void DK_Init(void);
+    void MP_Init(void);
 
 #ifdef	__cplusplus
 }

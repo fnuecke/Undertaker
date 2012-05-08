@@ -166,7 +166,7 @@ static struct {
 static bool gIsGeometryPass = false;
 
 /** Represents a single light in a scene */
-static const DK_Light** gLights = 0;
+static const MP_Light** gLights = 0;
 static unsigned int gLightCapacity = 0;
 static unsigned int gLightCount = 0;
 
@@ -316,7 +316,7 @@ static void initShaders(void) {
     const char* outGeometry[] = {"GBuffer0", "GBuffer1", "GBuffer2"};
     const char* outAmbientAndLight[1] = {"Color"};
 
-    gGeometryShader.program = DK_LoadProgram("data/shaders/deferredGeometryPass.vert", "data/shaders/deferredGeometryPass.frag", outGeometry, 3);
+    gGeometryShader.program = MP_LoadProgram("data/shaders/deferredGeometryPass.vert", "data/shaders/deferredGeometryPass.frag", outGeometry, 3);
     if (!gGeometryShader.program) {
         return;
     }
@@ -353,7 +353,7 @@ static void initShaders(void) {
             glGetUniformLocation(gGeometryShader.program, "Emissivity");
     EXIT_ON_OPENGL_ERROR();
 
-    gAmbientShader.program = DK_LoadProgram("data/shaders/deferredAmbientPass.vert", "data/shaders/deferredAmbientPass.frag", outAmbientAndLight, 1);
+    gAmbientShader.program = MP_LoadProgram("data/shaders/deferredAmbientPass.vert", "data/shaders/deferredAmbientPass.frag", outAmbientAndLight, 1);
     if (!gAmbientShader.program) {
         return;
     }
@@ -373,7 +373,7 @@ static void initShaders(void) {
             glGetUniformLocation(gAmbientShader.program, "AmbientLightPower");
     EXIT_ON_OPENGL_ERROR();
 
-    gLightShader.program = DK_LoadProgram("data/shaders/deferredLightPass.vert", "data/shaders/deferredLightPass.frag", outAmbientAndLight, 1);
+    gLightShader.program = MP_LoadProgram("data/shaders/deferredLightPass.vert", "data/shaders/deferredLightPass.frag", outAmbientAndLight, 1);
     if (!gLightShader.program) {
         return;
     }
@@ -418,7 +418,7 @@ static GLenum createRenderBuffer(GLenum internalformat, GLenum attachment) {
     EXIT_ON_OPENGL_ERROR();
 
     // Set it up.
-    glRenderbufferStorage(GL_RENDERBUFFER, internalformat, DK_resolution_x, DK_resolution_y);
+    glRenderbufferStorage(GL_RENDERBUFFER, internalformat, MP_resolution_x, MP_resolution_y);
     EXIT_ON_OPENGL_ERROR();
 
     // Bind it to the frame buffer.
@@ -439,7 +439,7 @@ static GLenum createTexture(GLenum internalformat, GLenum type, GLenum attachmen
     EXIT_ON_OPENGL_ERROR();
 
     // Allocate it.
-    glTexImage2D(GL_TEXTURE_2D, 0, internalformat, DK_resolution_x, DK_resolution_y, 0, GL_RGBA, type, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalformat, MP_resolution_x, MP_resolution_y, 0, GL_RGBA, type, NULL);
     EXIT_ON_OPENGL_ERROR();
 
     // Set some more parameters.
@@ -478,7 +478,7 @@ static void initGBuffer(void) {
 
     // Check if all worked fine and unbind the FBO
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        fprintf(DK_log_target, "ERROR: Can't initialize an FBO render texture. FBO initialization failed.");
+        fprintf(MP_log_target, "ERROR: Can't initialize an FBO render texture. FBO initialization failed.");
         exit(EXIT_FAILURE);
     }
 
@@ -492,7 +492,7 @@ static void initGBuffer(void) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static bool isDeferredShadingPossible(void) {
-    return DK_d_draw_deferred_shader &&
+    return MP_d_draw_deferred_shader &&
             gGeometryShader.program &&
             gAmbientShader.program &&
             gLightShader.program;
@@ -501,10 +501,10 @@ static bool isDeferredShadingPossible(void) {
 static void onModelMatrixChanged(void) {
     if (gIsGeometryPass && isDeferredShadingPossible()) {
         // Set uniforms for geometry shader.
-        glUniformMatrix4fv(gGeometryShader.vs_uniforms.ModelMatrix, 1, GL_FALSE, DK_GetModelMatrix()->m);
-        glUniformMatrix4fv(gGeometryShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
+        glUniformMatrix4fv(gGeometryShader.vs_uniforms.ModelMatrix, 1, GL_FALSE, MP_GetModelMatrix()->m);
+        glUniformMatrix4fv(gGeometryShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, MP_GetModelViewProjectionMatrix()->m);
         // TODO Pre-compute the normal matrix.
-        //glUniformMatrix4fv(geometry_shader.vs_uniforms.NormalMatrix, 1, GL_FALSE, DK_GetNormalMatrix());
+        //glUniformMatrix4fv(geometry_shader.vs_uniforms.NormalMatrix, 1, GL_FALSE, MP_GetNormalMatrix());
 
         EXIT_ON_OPENGL_ERROR();
     }
@@ -538,10 +538,10 @@ static void geometryPass(void) {
 }
 
 static void renderQuad(float startX, float startY, float endX, float endY) {
-    const float tx0 = startX / DK_resolution_x;
-    const float tx1 = endX / DK_resolution_x;
-    const float ty0 = startY / DK_resolution_y;
-    const float ty1 = endY / DK_resolution_y;
+    const float tx0 = startX / MP_resolution_x;
+    const float tx1 = endX / MP_resolution_x;
+    const float ty0 = startY / MP_resolution_y;
+    const float ty1 = endY / MP_resolution_y;
 
     // Render the quad.
     glBegin(GL_QUADS);
@@ -567,31 +567,31 @@ static void ambientPass(void) {
 
     // Set projection matrix to orthogonal, because we want to draw a quad
     // filling the complete screen.
-    DK_BeginOrthogonal();
+    MP_BeginOrthogonal();
 
     // Set view a bit back to avoid clipping.
-    DK_BeginLookAt(1.0f + DK_CLIP_NEAR, 0, 0, 0, 0, 0);
+    MP_BeginLookAt(1.0f + MP_CLIP_NEAR, 0, 0, 0, 0, 0);
 
     // No model transform for us.
-    DK_PushModelMatrix();
-    DK_SetModelMatrix(&IDENTITY_MATRIX4);
+    MP_PushModelMatrix();
+    MP_SetModelMatrix(&IDENTITY_MATRIX4);
 
     // Use ambient shader program and set uniforms for it.
     glUseProgram(gAmbientShader.program);
-    glUniformMatrix4fv(gAmbientShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
+    glUniformMatrix4fv(gAmbientShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, MP_GetModelViewProjectionMatrix()->m);
     glUniform1i(gAmbientShader.fs_uniforms.GBuffer0, 0);
     glUniform1f(gAmbientShader.fs_uniforms.AmbientLightPower, 0.1f);
 
     // Render the quad.
-    renderQuad(0, 0, DK_resolution_x, DK_resolution_y);
+    renderQuad(0, 0, MP_resolution_x, MP_resolution_y);
 
     // Done with our program.
     glUseProgram(0);
 
     // Reset matrices.
-    DK_PopModelMatrix();
-    DK_EndLookAt();
-    DK_EndOrthogonal();
+    MP_PopModelMatrix();
+    MP_EndLookAt();
+    MP_EndOrthogonal();
 
     // Restore state.
     glDepthMask(GL_TRUE);
@@ -600,17 +600,17 @@ static void ambientPass(void) {
     EXIT_ON_OPENGL_ERROR();
 }
 
-static void drawLight(const DK_Light* light) {
+static void drawLight(const MP_Light* light) {
     // Get the radius of the light (i.e. how far from the center it has no
     // noticeable effect anymore).
     const float range = (light->diffusePower > light->specularPower ? light->diffusePower : light->specularPower);
-    const float cameraToLight = v3distance(&light->position, DK_GetCameraPosition());
+    const float cameraToLight = v3distance(&light->position, MP_GetCameraPosition());
     const int cameraIsInLightVolume = cameraToLight <= range * 1.42f;
 
     // Translate to the light.
-    DK_PushModelMatrix();
-    DK_TranslateModelMatrix(light->position.d.x, light->position.d.y, light->position.d.z);
-    DK_ScaleModelMatrix(range, range, range);
+    MP_PushModelMatrix();
+    MP_TranslateModelMatrix(light->position.d.x, light->position.d.y, light->position.d.z);
+    MP_ScaleModelMatrix(range, range, range);
 
     // Disable changing the depth buffer and color output.
     glDepthMask(GL_FALSE);
@@ -661,7 +661,7 @@ static void drawLight(const DK_Light* light) {
     glFrontFace(GL_CCW);
 
     // Translate back away from light.
-    DK_PopModelMatrix();
+    MP_PopModelMatrix();
 
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glDepthFunc(GL_LEQUAL);
@@ -678,29 +678,29 @@ static void drawLight(const DK_Light* light) {
 
     // Set projection matrix to orthogonal, because we want to draw a quad
     // filling the complete screen.
-    DK_BeginOrthogonal();
+    MP_BeginOrthogonal();
 
     // Set view a bit back to avoid clipping.
-    DK_BeginLookAt(1.0f + DK_CLIP_NEAR, 0, 0, 0, 0, 0);
+    MP_BeginLookAt(1.0f + MP_CLIP_NEAR, 0, 0, 0, 0, 0);
 
     // No model transform for us.
-    DK_PushModelMatrix();
-    DK_SetModelMatrix(&IDENTITY_MATRIX4);
+    MP_PushModelMatrix();
+    MP_SetModelMatrix(&IDENTITY_MATRIX4);
 
-    if (DK_d_draw_light_volumes) {
+    if (MP_d_draw_light_volumes) {
         glColor3f(0.05f, 0.05f, 0.05f);
         // Render the quad.
-        renderQuad(0, 0, DK_resolution_x, DK_resolution_y);
+        renderQuad(0, 0, MP_resolution_x, MP_resolution_y);
         glColor3f(1.0f, 1.0f, 1.0f);
     }
 
     // Use lighting shader program.
     glUseProgram(gLightShader.program);
-    glUniformMatrix4fv(gLightShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
+    glUniformMatrix4fv(gLightShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, MP_GetModelViewProjectionMatrix()->m);
     glUniform1i(gLightShader.fs_uniforms.GBuffer0, 0);
     glUniform1i(gLightShader.fs_uniforms.GBuffer1, 1);
     glUniform1i(gLightShader.fs_uniforms.GBuffer2, 2);
-    glUniform3fv(gLightShader.fs_uniforms.CameraPosition, 1, DK_GetCameraPosition()->v);
+    glUniform3fv(gLightShader.fs_uniforms.CameraPosition, 1, MP_GetCameraPosition()->v);
     glUniform3fv(gLightShader.fs_uniforms.DiffuseLightColor, 1, light->diffuseColor.v);
     glUniform1f(gLightShader.fs_uniforms.DiffuseLightPower, light->diffusePower);
     glUniform3fv(gLightShader.fs_uniforms.SpecularLightColor, 1, light->specularColor.v);
@@ -708,15 +708,15 @@ static void drawLight(const DK_Light* light) {
     glUniform3fv(gLightShader.fs_uniforms.LightPosition, 1, light->position.v);
 
     // Render the quad.
-    renderQuad(0, 0, DK_resolution_x, DK_resolution_y);
+    renderQuad(0, 0, MP_resolution_x, MP_resolution_y);
 
     // Pop the shader.
     glUseProgram(0);
 
     // Pop orthogonal view state.
-    DK_PopModelMatrix();
-    DK_EndLookAt();
-    DK_EndOrthogonal();
+    MP_PopModelMatrix();
+    MP_EndLookAt();
+    MP_EndOrthogonal();
 
     // Restore old state.
     glEnable(GL_DEPTH_TEST);
@@ -737,13 +737,13 @@ static void lightPass(void) {
     // Copy over the depth buffer from our frame buffer, to preserve the depths
     // in post-rendering (e.g. for lighting and selection outline).
     glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer.frameBuffer);
-    glBlitFramebuffer(0, 0, DK_resolution_x, DK_resolution_y,
-            0, 0, DK_resolution_x, DK_resolution_y,
+    glBlitFramebuffer(0, 0, MP_resolution_x, MP_resolution_y,
+            0, 0, MP_resolution_x, MP_resolution_y,
             GL_DEPTH_BUFFER_BIT, GL_NEAREST);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
     // Figure out what to draw.
-    if (DK_d_draw_deferred == DK_D_DEFERRED_FINAL) {
+    if (MP_d_draw_deferred == MP_D_DEFERRED_FINAL) {
         // Set our three g-buffer textures.
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, gBuffer.texture[0]);
@@ -757,11 +757,11 @@ static void lightPass(void) {
 
         // Set uniforms for our shader program.
         glUseProgram(gLightShader.program);
-        glUniformMatrix4fv(gLightShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, DK_GetModelViewProjectionMatrix()->m);
+        glUniformMatrix4fv(gLightShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, MP_GetModelViewProjectionMatrix()->m);
         glUniform1i(gLightShader.fs_uniforms.GBuffer0, 0);
         glUniform1i(gLightShader.fs_uniforms.GBuffer1, 1);
         glUniform1i(gLightShader.fs_uniforms.GBuffer2, 2);
-        glUniform3fv(gLightShader.fs_uniforms.CameraPosition, 1, DK_GetCameraPosition()->v);
+        glUniform3fv(gLightShader.fs_uniforms.CameraPosition, 1, MP_GetCameraPosition()->v);
         glUseProgram(0);
 
         EXIT_ON_OPENGL_ERROR();
@@ -770,24 +770,24 @@ static void lightPass(void) {
         for (unsigned int i = 0; i < gLightCount; ++i) {
             drawLight(gLights[i]);
         }
-    } else if (DK_d_draw_deferred == DK_D_DEPTH_BUFFER) {
+    } else if (MP_d_draw_deferred == MP_D_DEPTH_BUFFER) {
         glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer.frameBuffer);
-        glBlitFramebuffer(0, 0, DK_resolution_x, DK_resolution_y,
-                0, 0, DK_resolution_x, DK_resolution_y,
+        glBlitFramebuffer(0, 0, MP_resolution_x, MP_resolution_y,
+                0, 0, MP_resolution_x, MP_resolution_y,
                 GL_DEPTH_BUFFER_BIT, GL_NEAREST);
         glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
         EXIT_ON_OPENGL_ERROR();
     } else {
         glActiveTexture(GL_TEXTURE0);
-        switch (DK_d_draw_deferred) {
-            case DK_D_DEFERRED_DIFFUSE:
+        switch (MP_d_draw_deferred) {
+            case MP_D_DEFERRED_DIFFUSE:
                 glBindTexture(GL_TEXTURE_2D, gBuffer.texture[0]);
                 break;
-            case DK_D_DEFERRED_POSITION:
+            case MP_D_DEFERRED_POSITION:
                 glBindTexture(GL_TEXTURE_2D, gBuffer.texture[1]);
                 break;
-            case DK_D_DEFERRED_NORMALS:
+            case MP_D_DEFERRED_NORMALS:
                 glBindTexture(GL_TEXTURE_2D, gBuffer.texture[2]);
                 break;
             default:
@@ -799,22 +799,22 @@ static void lightPass(void) {
 
         // Set projection matrix to orthogonal, because we want to draw a quad
         // filling the complete screen.
-        DK_BeginOrthogonal();
+        MP_BeginOrthogonal();
 
         // Set view a bit back to avoid clipping.
-        DK_BeginLookAt(1.0f + DK_CLIP_NEAR, 0, 0, 0, 0, 0);
+        MP_BeginLookAt(1.0f + MP_CLIP_NEAR, 0, 0, 0, 0, 0);
 
         // No model transform for us.
-        DK_PushModelMatrix();
-        DK_SetModelMatrix(&IDENTITY_MATRIX4);
+        MP_PushModelMatrix();
+        MP_SetModelMatrix(&IDENTITY_MATRIX4);
 
         // Render the quad.
-        renderQuad(0, 0, DK_resolution_x, DK_resolution_y);
+        renderQuad(0, 0, MP_resolution_x, MP_resolution_y);
 
         // Reset matrices.
-        DK_PopModelMatrix();
-        DK_EndLookAt();
-        DK_EndOrthogonal();
+        MP_PopModelMatrix();
+        MP_EndLookAt();
+        MP_EndOrthogonal();
 
         // Reset state.
         glDisable(GL_TEXTURE_2D);
@@ -841,25 +841,25 @@ static void lightPass(void) {
 // Initialization and rendering
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_Render(void) {
+void MP_Render(void) {
     // Set camera position.
-    const vec3* cameraPosition = DK_GetCameraPosition();
-    const vec3* cameraTarget = DK_GetCameraTarget();
-    DK_BeginLookAt(cameraPosition->d.x, cameraPosition->d.y, cameraPosition->d.z,
+    const vec3* cameraPosition = MP_GetCameraPosition();
+    const vec3* cameraTarget = MP_GetCameraTarget();
+    MP_BeginLookAt(cameraPosition->d.x, cameraPosition->d.y, cameraPosition->d.z,
             cameraTarget->d.x, cameraTarget->d.y, cameraTarget->d.z);
 
     // Set projection matrix.
-    if (DK_d_draw_picking_mode) {
+    if (MP_d_draw_picking_mode) {
         int x, y;
         SDL_GetMouseState(&x, &y);
-        DK_BeginPerspectiveForPicking(x, DK_resolution_y - y);
+        MP_BeginPerspectiveForPicking(x, MP_resolution_y - y);
     } else {
-        DK_BeginPerspective();
+        MP_BeginPerspective();
     }
 
     // Reset model transform.
-    DK_PushModelMatrix();
-    DK_SetModelMatrix(&IDENTITY_MATRIX4);
+    MP_PushModelMatrix();
+    MP_SetModelMatrix(&IDENTITY_MATRIX4);
 
     // Clear to black and set default vertex color to white.
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -890,12 +890,12 @@ void DK_Render(void) {
     // Trigger post render hooks.
     CB_Call(gPostRenderCallbacks);
 
-    DK_PopModelMatrix();
-    DK_EndPerspective();
-    DK_EndLookAt();
+    MP_PopModelMatrix();
+    MP_EndPerspective();
+    MP_EndLookAt();
 }
 
-void DK_InitRender(void) {
+void MP_InitRender(void) {
     // We do use textures, so enable that.
     glEnable(GL_TEXTURE_2D);
     glEnable(GL_MULTISAMPLE);
@@ -924,7 +924,7 @@ void DK_InitRender(void) {
     initGBuffer();
 
     // Define our viewport as the size of our window.
-    glViewport(0, 0, DK_resolution_x, DK_resolution_y);
+    glViewport(0, 0, MP_resolution_x, MP_resolution_y);
     EXIT_ON_OPENGL_ERROR();
 
     // Set our projection matrix to match our viewport. Null the OpenGL internal
@@ -935,7 +935,7 @@ void DK_InitRender(void) {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    DK_OnModelMatrixChanged(onModelMatrixChanged);
+    MP_OnModelMatrixChanged(onModelMatrixChanged);
 
     initSphere();
 }
@@ -944,21 +944,21 @@ void DK_InitRender(void) {
 // Material
 ///////////////////////////////////////////////////////////////////////////////
 
-GLint DK_GetPositionAttributeLocation(void) {
+GLint MP_GetPositionAttributeLocation(void) {
     return gGeometryShader.vs_attributes.ModelVertex;
 }
 
-GLint DK_GetNormalAttributeLocation(void) {
+GLint MP_GetNormalAttributeLocation(void) {
     return gGeometryShader.vs_attributes.ModelNormal;
 }
 
-GLint DK_GetTextureCoordinateAttributeLocation(void) {
+GLint MP_GetTextureCoordinateAttributeLocation(void) {
     return gGeometryShader.vs_attributes.TextureCoordinate;
 }
 
-void DK_SetMaterial(const DK_Material* material) {
+void MP_SetMaterial(const MP_Material* material) {
     if (gIsGeometryPass) {
-        for (unsigned int i = 0; i < DK_MAX_MATERIAL_TEXTURES; ++i) {
+        for (unsigned int i = 0; i < MP_MAX_MATERIAL_TEXTURES; ++i) {
             glActiveTexture(GL_TEXTURE0 + i);
             glDisable(GL_TEXTURE_2D);
             glBindTexture(GL_TEXTURE_2D, 0);
@@ -1004,8 +1004,8 @@ void DK_SetMaterial(const DK_Material* material) {
     }
 }
 
-void DK_InitMaterial(DK_Material* material) {
-    for (unsigned int i = 0; i < DK_MAX_MATERIAL_TEXTURES; ++i) {
+void MP_InitMaterial(MP_Material* material) {
+    for (unsigned int i = 0; i < MP_MAX_MATERIAL_TEXTURES; ++i) {
         material->textures[i] = 0;
     }
     material->textureCount = 0;
@@ -1020,10 +1020,10 @@ void DK_InitMaterial(DK_Material* material) {
     material->normalMap = 0;
 }
 
-void DK_AddLight(const DK_Light* light) {
+void MP_AddLight(const MP_Light* light) {
     if (gLightCount >= gLightCapacity) {
         gLightCapacity = gLightCapacity * 2 + 1;
-        gLights = realloc(gLights, gLightCapacity * sizeof (DK_Light*));
+        gLights = realloc(gLights, gLightCapacity * sizeof (MP_Light*));
     }
 
     // Copy values.
@@ -1033,13 +1033,13 @@ void DK_AddLight(const DK_Light* light) {
     ++gLightCount;
 }
 
-int DK_RemoveLight(const DK_Light* light) {
+int MP_RemoveLight(const MP_Light* light) {
     // Find the light.
     for (unsigned int i = 0; i < gLightCount; ++i) {
         if (gLights[i] == light) {
             // Found it. Close the gap by shifting all following entries one up.
             --gLightCount;
-            memmove(&gLights[i], &gLights[i + 1], (gLightCount - i) * sizeof (DK_Light*));
+            memmove(&gLights[i], &gLights[i + 1], (gLightCount - i) * sizeof (MP_Light*));
             return 1;
         }
     }
@@ -1050,21 +1050,21 @@ int DK_RemoveLight(const DK_Light* light) {
 // Events
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_OnPreRender(callback method) {
+void MP_OnPreRender(callback method) {
     if (!gPreRenderCallbacks) {
         gPreRenderCallbacks = CB_New();
     }
     CB_Add(gPreRenderCallbacks, method);
 }
 
-void DK_OnRender(callback method) {
+void MP_OnRender(callback method) {
     if (!gRenderCallbacks) {
         gRenderCallbacks = CB_New();
     }
     CB_Add(gRenderCallbacks, method);
 }
 
-void DK_OnPostRender(callback method) {
+void MP_OnPostRender(callback method) {
     if (!gPostRenderCallbacks) {
         gPostRenderCallbacks = CB_New();
     }

@@ -16,24 +16,24 @@ extern "C" {
     // Struct typedefs / forward declarations
     ///////////////////////////////////////////////////////////////////////////
 
-    typedef struct DK_Ability DK_Ability;
-    typedef struct DK_AbilityMeta DK_AbilityMeta;
+    typedef struct MP_Ability MP_Ability;
+    typedef struct MP_AbilityMeta MP_AbilityMeta;
 
-    typedef struct DK_Block DK_Block;
-    typedef struct DK_BlockMeta DK_BlockMeta;
+    typedef struct MP_Block MP_Block;
+    typedef struct MP_BlockMeta MP_BlockMeta;
 
-    typedef struct DK_Job DK_Job;
-    typedef struct DK_JobMeta DK_JobMeta;
+    typedef struct MP_Job MP_Job;
+    typedef struct MP_JobMeta MP_JobMeta;
 
-    typedef struct DK_Room DK_Room;
-    typedef struct DK_RoomMeta DK_RoomMeta;
+    typedef struct MP_Room MP_Room;
+    typedef struct MP_RoomMeta MP_RoomMeta;
 
-    typedef struct DK_Unit DK_Unit;
-    typedef struct DK_UnitMeta DK_UnitMeta;
-    typedef struct DK_UnitSaturation DK_UnitSaturation;
-    typedef struct DK_UnitSatisfactionMeta DK_UnitSatisfactionMeta;
-    typedef struct DK_UnitJobSaturationMeta DK_UnitJobSaturationMeta;
-    typedef struct DK_AI_Info DK_AI_Info;
+    typedef struct MP_Unit MP_Unit;
+    typedef struct MP_UnitMeta MP_UnitMeta;
+    typedef struct MP_UnitSaturation MP_UnitSaturation;
+    typedef struct MP_UnitSatisfactionMeta MP_UnitSatisfactionMeta;
+    typedef struct MP_UnitJobSaturationMeta MP_UnitJobSaturationMeta;
+    typedef struct MP_AI_Info MP_AI_Info;
 
     ///////////////////////////////////////////////////////////////////////////
     // value typedefs
@@ -43,10 +43,10 @@ extern "C" {
      * Possible passability types. These are defined by single bits, so they can
      * be combined as a bit field.
      */
-    typedef unsigned int DK_Passability;
+    typedef unsigned int MP_Passability;
 
     /** ID for textures that are loaded via the LoadTexture facilities */
-    typedef unsigned int DK_TextureID;
+    typedef unsigned int MP_TextureID;
 
     /** Boolean type for readability */
     typedef unsigned char bool;
@@ -59,56 +59,56 @@ extern "C" {
     ///////////////////////////////////////////////////////////////////////////
 
     /** Possible block levels */
-    typedef enum DK_BlockLevel {
-        DK_BLOCK_LEVEL_PIT,
-        DK_BLOCK_LEVEL_LOWERED,
-        DK_BLOCK_LEVEL_NORMAL,
-        DK_BLOCK_LEVEL_HIGH,
+    typedef enum MP_BlockLevel {
+        MP_BLOCK_LEVEL_PIT,
+        MP_BLOCK_LEVEL_LOWERED,
+        MP_BLOCK_LEVEL_NORMAL,
+        MP_BLOCK_LEVEL_HIGH,
 
-        DK_BLOCK_LEVEL_COUNT
-    } DK_BlockLevel;
+        MP_BLOCK_LEVEL_COUNT
+    } MP_BlockLevel;
 
-    typedef enum DK_BlockTextureTop {
-        DK_BLOCK_TEXTURE_TOP,
-        DK_BLOCK_TEXTURE_TOP_N,
-        DK_BLOCK_TEXTURE_TOP_NE,
-        DK_BLOCK_TEXTURE_TOP_NS,
-        DK_BLOCK_TEXTURE_TOP_NES,
-        DK_BLOCK_TEXTURE_TOP_NESW,
-        DK_BLOCK_TEXTURE_TOP_NE_CORNER,
-        DK_BLOCK_TEXTURE_TOP_NES_CORNER,
-        DK_BLOCK_TEXTURE_TOP_NESW_CORNER,
-        DK_BLOCK_TEXTURE_TOP_NESWN_CORNER,
-        DK_BLOCK_TEXTURE_TOP_OWNED_OVERLAY,
-        DK_BLOCK_TEXTURE_TOP_COUNT
-    } DK_BlockTextureTop;
+    typedef enum MP_BlockTextureTop {
+        MP_BLOCK_TEXTURE_TOP,
+        MP_BLOCK_TEXTURE_TOP_N,
+        MP_BLOCK_TEXTURE_TOP_NE,
+        MP_BLOCK_TEXTURE_TOP_NS,
+        MP_BLOCK_TEXTURE_TOP_NES,
+        MP_BLOCK_TEXTURE_TOP_NESW,
+        MP_BLOCK_TEXTURE_TOP_NE_CORNER,
+        MP_BLOCK_TEXTURE_TOP_NES_CORNER,
+        MP_BLOCK_TEXTURE_TOP_NESW_CORNER,
+        MP_BLOCK_TEXTURE_TOP_NESWN_CORNER,
+        MP_BLOCK_TEXTURE_TOP_OWNED_OVERLAY,
+        MP_BLOCK_TEXTURE_TOP_COUNT
+    } MP_BlockTextureTop;
 
-    typedef enum DK_BlockTextureSide {
-        DK_BLOCK_TEXTURE_SIDE,
-        DK_BLOCK_TEXTURE_SIDE_OWNED_OVERLAY,
-        DK_BLOCK_TEXTURE_SIDE_COUNT
-    } DK_BlockTextureSide;
+    typedef enum MP_BlockTextureSide {
+        MP_BLOCK_TEXTURE_SIDE,
+        MP_BLOCK_TEXTURE_SIDE_OWNED_OVERLAY,
+        MP_BLOCK_TEXTURE_SIDE_COUNT
+    } MP_BlockTextureSide;
 
     /** Possible events to which a job may react */
-    typedef enum DK_JobEvent {
-        DK_JOB_EVENT_UNIT_ADDED,
-        DK_JOB_EVENT_BLOCK_SELECTION_CHANGED,
-        DK_JOB_EVENT_BLOCK_DESTROYED,
-        DK_JOB_EVENT_BLOCK_CONVERTED,
+    typedef enum MP_JobEvent {
+        MP_JOB_EVENT_UNIT_ADDED,
+        MP_JOB_EVENT_BLOCK_SELECTION_CHANGED,
+        MP_JOB_EVENT_BLOCK_DESTROYED,
+        MP_JOB_EVENT_BLOCK_CONVERTED,
 
-        DK_JOB_EVENT_COUNT
-    } DK_JobEvent;
+        MP_JOB_EVENT_COUNT
+    } MP_JobEvent;
 
     /** Player IDs for possible players in a game */
-    typedef enum DK_Player {
-        DK_PLAYER_NONE,
-        DK_PLAYER_ONE,
-        DK_PLAYER_TWO,
-        DK_PLAYER_THREE,
-        DK_PLAYER_FOUR,
-        DK_PLAYER_FIVE,
-        DK_PLAYER_COUNT
-    } DK_Player;
+    typedef enum MP_Player {
+        MP_PLAYER_NONE,
+        MP_PLAYER_ONE,
+        MP_PLAYER_TWO,
+        MP_PLAYER_THREE,
+        MP_PLAYER_FOUR,
+        MP_PLAYER_FIVE,
+        MP_PLAYER_COUNT
+    } MP_Player;
 
 #ifdef	__cplusplus
 }

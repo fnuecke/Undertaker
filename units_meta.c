@@ -1,6 +1,6 @@
 #include "units_meta.h"
 
-META_globals(DK_UnitMeta)
+META_globals(MP_UnitMeta)
 
 /** Reset defaults on map change */
 static void resetDefaults(void) {
@@ -9,14 +9,14 @@ static void resetDefaults(void) {
 }
 
 /** New type registered */
-inline static bool initMeta(DK_UnitMeta* m, const DK_UnitMeta* meta) {
+inline static bool initMeta(MP_UnitMeta* m, const MP_UnitMeta* meta) {
     *m = *meta;
 
     return true;
 }
 
 /** Type override */
-inline static bool updateMeta(DK_UnitMeta* m, const DK_UnitMeta* meta) {
+inline static bool updateMeta(MP_UnitMeta* m, const MP_UnitMeta* meta) {
     m->moveSpeed = meta->moveSpeed;
     m->canPass = meta->canPass;
     m->satisfaction = meta->satisfaction;
@@ -25,7 +25,7 @@ inline static bool updateMeta(DK_UnitMeta* m, const DK_UnitMeta* meta) {
 }
 
 /** Clear up data for a meta on deletion */
-inline static void deleteMeta(DK_UnitMeta* m) {
+inline static void deleteMeta(MP_UnitMeta* m) {
 }
 
-META_impl(DK_UnitMeta, Unit)
+META_impl(MP_UnitMeta, Unit)

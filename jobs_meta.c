@@ -1,17 +1,17 @@
 #include "jobs_meta.h"
 
-static const char* JOB_EVENT_NAME[DK_JOB_EVENT_COUNT] = {
-    [DK_JOB_EVENT_UNIT_ADDED] = "onUnitAdded",
-    [DK_JOB_EVENT_BLOCK_SELECTION_CHANGED] = "onBlockSelectionChanged",
-    [DK_JOB_EVENT_BLOCK_DESTROYED] = "onBlockDestroyed",
-    [DK_JOB_EVENT_BLOCK_CONVERTED] = "onBlockConverted"
+static const char* JOB_EVENT_NAME[MP_JOB_EVENT_COUNT] = {
+    [MP_JOB_EVENT_UNIT_ADDED] = "onUnitAdded",
+    [MP_JOB_EVENT_BLOCK_SELECTION_CHANGED] = "onBlockSelectionChanged",
+    [MP_JOB_EVENT_BLOCK_DESTROYED] = "onBlockDestroyed",
+    [MP_JOB_EVENT_BLOCK_CONVERTED] = "onBlockConverted"
 };
 
-META_globals(DK_JobMeta)
+META_globals(MP_JobMeta)
 
 /** Reset defaults on map change */
 static void resetDefaults(void) {
-    for (unsigned eventId = 0; eventId < DK_JOB_EVENT_COUNT; ++eventId) {
+    for (unsigned eventId = 0; eventId < MP_JOB_EVENT_COUNT; ++eventId) {
         gMetaDefaults.handledEvents[eventId] = false;
     }
     gMetaDefaults.hasDynamicPreference = false;
@@ -19,26 +19,26 @@ static void resetDefaults(void) {
 }
 
 /** New type registered */
-inline static bool initMeta(DK_JobMeta* m, const DK_JobMeta* meta) {
+inline static bool initMeta(MP_JobMeta* m, const MP_JobMeta* meta) {
     *m = *meta;
 
     return true;
 }
 
 /** Type override */
-inline static bool updateMeta(DK_JobMeta* m, const DK_JobMeta* meta) {
+inline static bool updateMeta(MP_JobMeta* m, const MP_JobMeta* meta) {
     return true;
 }
 
 /** Clear up data for a meta on deletion */
-inline static void deleteMeta(DK_JobMeta* m) {
+inline static void deleteMeta(MP_JobMeta* m) {
     lua_close(m->L);
     m->L = NULL;
 }
 
-META_impl(DK_JobMeta, Job)
+META_impl(MP_JobMeta, Job)
 
-void DK_DisableJobEvent(const DK_JobMeta* meta, DK_JobEvent event) {
+void MP_DisableJobEvent(const MP_JobMeta* meta, MP_JobEvent event) {
     if (meta) {
         // Get non-const pointer...
         for (unsigned int i = 0; i < gMetaCount; ++i) {
@@ -51,7 +51,7 @@ void DK_DisableJobEvent(const DK_JobMeta* meta, DK_JobEvent event) {
     }
 }
 
-void DK_DisableDynamicPreference(const DK_JobMeta* meta) {
+void MP_DisableDynamicPreference(const MP_JobMeta* meta) {
     if (meta) {
         // Get non-const pointer...
         for (unsigned int i = 0; i < gMetaCount; ++i) {
@@ -64,7 +64,7 @@ void DK_DisableDynamicPreference(const DK_JobMeta* meta) {
     }
 }
 
-void DK_DisableRunMethod(const DK_JobMeta* meta) {
+void MP_DisableRunMethod(const MP_JobMeta* meta) {
     if (meta) {
         // Get non-const pointer...
         for (unsigned int i = 0; i < gMetaCount; ++i) {
@@ -77,11 +77,11 @@ void DK_DisableRunMethod(const DK_JobMeta* meta) {
     }
 }
 
-int DK_Lua_AddJobMeta(lua_State* L) {
+int MP_Lua_AddJobMeta(lua_State* L) {
     char filename[128];
 
     // New type, start with defaults.
-    DK_JobMeta meta = gMetaDefaults;
+    MP_JobMeta meta = gMetaDefaults;
 
     // Validate input.
     luaL_argcheck(L, lua_gettop(L) == 1 && lua_isstring(L, 1), 0, "must specify one string");
@@ -98,35 +98,48 @@ int DK_Lua_AddJobMeta(lua_State* L) {
         return luaL_argerror(L, 1, "job name too long");
     }
 
+    fprintf(MP_log_target, "INFO: Start parsing job file '%s'.\n", filename);
+
     // Try to parse the file.
     if (luaL_dofile(meta.L, filename) != LUA_OK) {
-        fprintf(DK_log_target, "ERROR: Failed parsing job file: %s\n", lua_tostring(meta.L, -1));
+        fprintf(MP_log_target, "ERROR: Failed parsing job file: %s\n", lua_tostring(meta.L, -1));
         lua_close(meta.L);
         return luaL_argerror(L, 1, "invalid job script");
     }
 
     // Check script capabilities. First, check for event callbacks.
-    for (unsigned int jobEvent = 0; jobEvent < DK_JOB_EVENT_COUNT; ++jobEvent) {
+    for (unsigned int jobEvent = 0; jobEvent < MP_JOB_EVENT_COUNT; ++jobEvent) {
         lua_getglobal(meta.L, JOB_EVENT_NAME[jobEvent]);
         meta.handledEvents[jobEvent] = lua_isfunction(meta.L, -1);
         lua_pop(meta.L, 1);
+        if (meta.handledEvents[jobEvent]) {
+            fprintf(MP_log_target, "INFO: Found event handler '%s'.\n", JOB_EVENT_NAME[jobEvent]);
+        }
     }
 
     // Then check for dynamic preference callback.
     lua_getglobal(meta.L, "preference");
     meta.hasDynamicPreference = lua_isfunction(meta.L, -1);
     lua_pop(meta.L, 1);
+    if (meta.hasDynamicPreference) {
+        fprintf(MP_log_target, "INFO: Found dynamic preference callback.\n");
+    }
 
     // And finally for the run callback (job active logic).
     lua_getglobal(meta.L, "run");
     meta.hasRunMethod = lua_isfunction(meta.L, -1);
     lua_pop(meta.L, 1);
+    if (meta.hasRunMethod) {
+        fprintf(MP_log_target, "INFO: Found run callback.\n");
+    }
 
     // Try to add the job.
-    if (!DK_AddJobMeta(&meta)) {
+    if (!MP_AddJobMeta(&meta)) {
         lua_close(meta.L);
         return luaL_argerror(L, 1, "bad job meta");
     }
+
+    fprintf(MP_log_target, "INFO: Done parsing job file '%s'.\n", filename);
 
     return 0;
 }

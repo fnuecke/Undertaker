@@ -27,29 +27,29 @@
 static GLUquadric* quadratic = 0;
 
 /** Units in the game, must be ensured to be non-sparse */
-static DK_Unit units[DK_PLAYER_COUNT * DK_UNITS_MAX_PER_PLAYER];
+static MP_Unit units[MP_PLAYER_COUNT * MP_UNITS_MAX_PER_PLAYER];
 
 /** Total number of units */
 static unsigned int gTotalUnitCount = 0;
 
 /** Number of units per player */
-static unsigned int gUnitCount[DK_PLAYER_COUNT] = {0};
+static unsigned int gUnitCount[MP_PLAYER_COUNT] = {0};
 
 ///////////////////////////////////////////////////////////////////////////////
 // Update
 ///////////////////////////////////////////////////////////////////////////////
 
 static void onUpdate(void) {
-    if (DK_d_ai_enabled) {
+    if (MP_d_ai_enabled) {
         for (unsigned int i = 0; i < gTotalUnitCount; ++i) {
             // Update the unit's AI state.
-            DK_UpdateAI(&units[i]);
+            MP_UpdateAI(&units[i]);
         }
     }
 }
 
 static void onMapChange(void) {
-    for (unsigned int i = 0; i < DK_PLAYER_COUNT; ++i) {
+    for (unsigned int i = 0; i < MP_PLAYER_COUNT; ++i) {
         gUnitCount[i] = 0;
     }
     gTotalUnitCount = 0;
@@ -60,13 +60,13 @@ static void onMapChange(void) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static void onRender(void) {
-    DK_Material material;
+    MP_Material material;
 
     for (unsigned int i = 0; i < gTotalUnitCount; ++i) {
-        const DK_Unit* unit = &units[i];
+        const MP_Unit* unit = &units[i];
         //const AI_State* state = unit->ai->current;
 
-        DK_InitMaterial(&material);
+        MP_InitMaterial(&material);
         material.specularIntensity = 0.9f;
         material.specularExponent = 25.0f;
 
@@ -76,13 +76,13 @@ static void onRender(void) {
         material.diffuseColor.c.b = 0.6f;
         /*
                 switch (state->jobType) {
-                    case DK_JOB_DIG:
+                    case MP_JOB_DIG:
                         material.diffuseColor.c.r = 0.6f;
                         material.diffuseColor.c.g = 0.9f;
                         material.diffuseColor.c.b = 0.6f;
                         break;
-                    case DK_JOB_CONVERT_TILE:
-                    case DK_JOB_CONVERT_WALL:
+                    case MP_JOB_CONVERT_TILE:
+                    case MP_JOB_CONVERT_WALL:
                         material.diffuseColor.c.r = 0.6f;
                         material.diffuseColor.c.g = 0.6f;
                         material.diffuseColor.c.b = 0.9f;
@@ -95,40 +95,40 @@ static void onRender(void) {
                 }
          */
         // Highlight, if the unit is moving.
-        if (DK_IsUnitMoving(unit)) {
+        if (MP_IsUnitMoving(unit)) {
             material.diffuseColor.c.r += 0.2f;
             material.diffuseColor.c.g += 0.2f;
             material.diffuseColor.c.b += 0.2f;
         }
-        DK_SetMaterial(&material);
+        MP_SetMaterial(&material);
 
         // Push name of the unit for picking.
         glLoadName(i);
 
         // Render the unit.
-        DK_PushModelMatrix();
-        DK_TranslateModelMatrix(unit->position.d.x * DK_BLOCK_SIZE, unit->position.d.y * DK_BLOCK_SIZE, 4);
-        gluSphere(quadratic, DK_BLOCK_SIZE / 6.0f, 16, 16);
-        DK_PopModelMatrix();
+        MP_PushModelMatrix();
+        MP_TranslateModelMatrix(unit->position.d.x * MP_BLOCK_SIZE, unit->position.d.y * MP_BLOCK_SIZE, 4);
+        gluSphere(quadratic, MP_BLOCK_SIZE / 6.0f, 16, 16);
+        MP_PopModelMatrix();
 
         // If we display pathing render the units current path.
-        if (DK_d_draw_paths && DK_IsUnitMoving(unit)) {
+        if (MP_d_draw_paths && MP_IsUnitMoving(unit)) {
             const vec2* path = unit->ai->pathing.nodes;
             const unsigned int depth = unit->ai->pathing.depth;
 
             // Draw a line along the path.
-            DK_InitMaterial(&material);
+            MP_InitMaterial(&material);
             material.emissivity = 1.0f;
             material.diffuseColor.c.r = 0.8f;
             material.diffuseColor.c.g = 0.8f;
             material.diffuseColor.c.b = 0.9f;
-            DK_SetMaterial(&material);
+            MP_SetMaterial(&material);
             glLineWidth(1.75f);
 
             glBegin(GL_LINES);
             {
                 unsigned int j = 0;
-                glVertex3f(path[1].d.x * DK_BLOCK_SIZE, path[1].d.y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                glVertex3f(path[1].d.x * MP_BLOCK_SIZE, path[1].d.y * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT);
                 /*
                                 for (j = 2; j <= depth; ++j) {
                                     // Somewhere in the middle, smooth the path.
@@ -136,12 +136,12 @@ static void onRender(void) {
                                         const float t = k / 20.0f;
                                         const float x = catmull_rom(path[j - 2].d.x, path[j - 1].d.x, path[j].d.x, path[j + 1].d.x, t);
                                         const float y = catmull_rom(path[j - 2].d.y, path[j - 1].d.y, path[j].d.y, path[j + 1].d.y, t);
-                                        glVertex3f(x * DK_BLOCK_SIZE, y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
-                                        glVertex3f(x * DK_BLOCK_SIZE, y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                                        glVertex3f(x * MP_BLOCK_SIZE, y * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT);
+                                        glVertex3f(x * MP_BLOCK_SIZE, y * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT);
                                     }
                                 }
                  */
-                glVertex3f(path[j - 1].d.x * DK_BLOCK_SIZE, path[j - 1].d.y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                glVertex3f(path[j - 1].d.x * MP_BLOCK_SIZE, path[j - 1].d.y * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT);
             }
             glEnd();
 
@@ -149,13 +149,13 @@ static void onRender(void) {
             material.diffuseColor.c.r = 0.8f;
             material.diffuseColor.c.g = 0.4f;
             material.diffuseColor.c.b = 0.4f;
-            DK_SetMaterial(&material);
+            MP_SetMaterial(&material);
 
             for (unsigned int j = 1; j <= depth; ++j) {
-                DK_PushModelMatrix();
-                DK_TranslateModelMatrix(path[j].d.x * DK_BLOCK_SIZE, path[j].d.y * DK_BLOCK_SIZE, DK_D_DRAW_PATH_HEIGHT);
+                MP_PushModelMatrix();
+                MP_TranslateModelMatrix(path[j].d.x * MP_BLOCK_SIZE, path[j].d.y * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT);
                 gluSphere(quadratic, 0.5f, 8, 8);
-                DK_PopModelMatrix();
+                MP_PopModelMatrix();
             }
         }
     }
@@ -165,15 +165,15 @@ static void onRender(void) {
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-bool DK_IsUnitMoving(const DK_Unit* unit) {
+bool MP_IsUnitMoving(const MP_Unit* unit) {
     return unit->ai->pathing.index < unit->ai->pathing.depth;
 }
 
-int DK_AddUnit(DK_Player player, const DK_UnitMeta* type, const vec2* position) {
-    DK_Unit* unit = &units[gTotalUnitCount];
+int MP_AddUnit(MP_Player player, const MP_UnitMeta* type, const vec2* position) {
+    MP_Unit* unit = &units[gTotalUnitCount];
 
     // Can there be any more units?
-    if (gTotalUnitCount > DK_PLAYER_COUNT * DK_UNITS_MAX_PER_PLAYER) {
+    if (gTotalUnitCount > MP_PLAYER_COUNT * MP_UNITS_MAX_PER_PLAYER) {
         return 0;
     }
 
@@ -184,19 +184,19 @@ int DK_AddUnit(DK_Player player, const DK_UnitMeta* type, const vec2* position) 
     unit->position = *position;
 
     // Can that kind of unit be spawned at the specified position?
-    if (!DK_IsBlockPassableBy(DK_GetBlockAt((int) floorf(position->d.x), (int) floorf(position->d.y)), unit)) {
+    if (!MP_IsBlockPassableBy(MP_GetBlockAt((int) floorf(position->d.x), (int) floorf(position->d.y)), unit)) {
         return 0;
     }
 
     // OK, allocate AI data, if necessary.
-    if (!unit->ai && !(unit->ai = calloc(1, sizeof (DK_AI_Info)))) {
+    if (!unit->ai && !(unit->ai = calloc(1, sizeof (MP_AI_Info)))) {
         fprintf(stderr, "Out of memory while allocating AI info.\n");
         exit(EXIT_FAILURE);
     }
 
     // Set the pointer past the lower stack bound, so we know we have to
     // find something to do.
-    unit->ai->current = &unit->ai->stack[DK_AI_STACK_DEPTH];
+    unit->ai->current = &unit->ai->stack[MP_AI_STACK_DEPTH];
 
     // Increment counters.
     ++gTotalUnitCount;
@@ -205,11 +205,11 @@ int DK_AddUnit(DK_Player player, const DK_UnitMeta* type, const vec2* position) 
     return 1;
 }
 
-void DK_StopJob(DK_Job* job) {
+void MP_StopJob(MP_Job* job) {
     if (job && job->worker) {
         // Traverse the AI stack, starting at the current node.
         AI_State* state = job->worker->ai->current;
-        while (state < &job->worker->ai->stack[DK_AI_STACK_DEPTH]) {
+        while (state < &job->worker->ai->stack[MP_AI_STACK_DEPTH]) {
             // If we have a match, make it the current one and tell it to stop.
             if (state->job == job) {
                 job->worker->ai->current = state;
@@ -228,10 +228,10 @@ void DK_StopJob(DK_Job* job) {
     }
 }
 
-void DK_InitUnits(void) {
-    DK_OnUpdate(onUpdate);
-    DK_OnRender(onRender);
-    DK_OnMapSizeChange(onMapChange);
+void MP_InitUnits(void) {
+    MP_OnUpdate(onUpdate);
+    MP_OnRender(onRender);
+    MP_OnMapSizeChange(onMapChange);
 
     quadratic = gluNewQuadric();
 }

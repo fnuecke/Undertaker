@@ -14,7 +14,7 @@
  * Selected blocks, per player.
  * This is a bitset, where each bit represents a block in the map.
  */
-static BitSet gPlayerSelection[DK_PLAYER_COUNT] = {0};
+static BitSet gPlayerSelection[MP_PLAYER_COUNT] = {0};
 
 /**
  * Current local selection mode.
@@ -39,10 +39,10 @@ static enum {
 /**
  * The current area selection for the local player.
  */
-static DK_Selection gCurrentSelection;
+static MP_Selection gCurrentSelection;
 
 // TODO use local player via some variable (for network gaming)
-static DK_Player gLocalPlayer = DK_PLAYER_ONE;
+static MP_Player gLocalPlayer = MP_PLAYER_ONE;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Utility
@@ -53,7 +53,7 @@ static DK_Player gLocalPlayer = DK_PLAYER_ONE;
  * coordinates are lower than or equal to end coordinates.
  * @param selection the selection to validate.
  */
-static void validate(DK_Selection* selection) {
+static void validate(MP_Selection* selection) {
     if (selection->startX > selection->endX) {
         int tmp = selection->endX;
         selection->endX = selection->startX;
@@ -71,7 +71,7 @@ static void validate(DK_Selection* selection) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static void onUpdate(void) {
-    DK_GetBlockUnderCursor(&gCurrentSelection.endX, &gCurrentSelection.endY);
+    MP_GetBlockUnderCursor(&gCurrentSelection.endX, &gCurrentSelection.endY);
     if (gMode == MODE_NONE) {
         gCurrentSelection.startX = gCurrentSelection.endX;
         gCurrentSelection.startY = gCurrentSelection.endY;
@@ -79,9 +79,9 @@ static void onUpdate(void) {
 }
 
 static void onMapChange(void) {
-    for (int i = 0; i < DK_PLAYER_COUNT; ++i) {
+    for (int i = 0; i < MP_PLAYER_COUNT; ++i) {
         BS_Delete(gPlayerSelection[i]);
-        gPlayerSelection[i] = BS_New(DK_GetMapSize() * DK_GetMapSize());
+        gPlayerSelection[i] = BS_New(MP_GetMapSize() * MP_GetMapSize());
     }
 }
 
@@ -89,31 +89,31 @@ static void onMapChange(void) {
 // Accessors
 ///////////////////////////////////////////////////////////////////////////////
 
-DK_Selection DK_GetSelection(void) {
-    DK_Selection currentSelection = gCurrentSelection;
+MP_Selection MP_GetSelection(void) {
+    MP_Selection currentSelection = gCurrentSelection;
     validate(&currentSelection);
     return currentSelection;
 }
 
-int DK_IsBlockSelectable(DK_Player player, int x, int y) {
-    const DK_Block* block = DK_GetBlockAt(x, y);
-    return DK_IsBlockDestructible(block) &&
-            (block->owner == DK_PLAYER_NONE || block->owner == player);
+int MP_IsBlockSelectable(MP_Player player, int x, int y) {
+    const MP_Block* block = MP_GetBlockAt(x, y);
+    return MP_IsBlockDestructible(block) &&
+            (block->owner == MP_PLAYER_NONE || block->owner == player);
 }
 
-int DK_IsBlockSelected(DK_Player player, unsigned short x, unsigned short y) {
-    return BS_Test(gPlayerSelection[player], y * DK_GetMapSize() + x);
+int MP_IsBlockSelected(MP_Player player, unsigned short x, unsigned short y) {
+    return BS_Test(gPlayerSelection[player], y * MP_GetMapSize() + x);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // User area selection
 ///////////////////////////////////////////////////////////////////////////////
 
-int DK_BeginSelection(void) {
+int MP_BeginSelection(void) {
     if (gMode == MODE_NONE) {
-        if (DK_IsBlockSelectable(gLocalPlayer, gCurrentSelection.startX, gCurrentSelection.startY)) {
+        if (MP_IsBlockSelectable(gLocalPlayer, gCurrentSelection.startX, gCurrentSelection.startY)) {
             // OK, if it's selectable, start selection.
-            if (DK_IsBlockSelected(gLocalPlayer, gCurrentSelection.startX, gCurrentSelection.startY)) {
+            if (MP_IsBlockSelected(gLocalPlayer, gCurrentSelection.startX, gCurrentSelection.startY)) {
                 gMode = MODE_DESELECT;
             } else {
                 gMode = MODE_SELECT;
@@ -124,7 +124,7 @@ int DK_BeginSelection(void) {
     return 0;
 }
 
-int DK_DiscardSelection(void) {
+int MP_DiscardSelection(void) {
     if (gMode != MODE_NONE) {
         // Reset mode.
         gMode = MODE_NONE;
@@ -135,7 +135,7 @@ int DK_DiscardSelection(void) {
     return 0;
 }
 
-void DK_ConfirmSelection(void) {
+void MP_ConfirmSelection(void) {
     if (gMode != MODE_NONE) {
         // Validate the selection.
         validate(&gCurrentSelection);
@@ -144,9 +144,9 @@ void DK_ConfirmSelection(void) {
         for (int x = gCurrentSelection.startX; x <= gCurrentSelection.endX; ++x) {
             for (int y = gCurrentSelection.startY; y <= gCurrentSelection.endY; ++y) {
                 if (gMode == MODE_SELECT) {
-                    DK_SelectBlock(gLocalPlayer, x, y);
+                    MP_SelectBlock(gLocalPlayer, x, y);
                 } else if (gMode == MODE_DESELECT) {
-                    DK_DeselectBlock(gLocalPlayer, x, y);
+                    MP_DeselectBlock(gLocalPlayer, x, y);
                 }
             }
         }
@@ -160,14 +160,14 @@ void DK_ConfirmSelection(void) {
 // Modifiers
 ///////////////////////////////////////////////////////////////////////////////
 
-int DK_SelectBlock(DK_Player player, int x, int y) {
-    if (DK_IsBlockSelectable(player, x, y)) {
-        const unsigned int idx = y * DK_GetMapSize() + x;
+int MP_SelectBlock(MP_Player player, int x, int y) {
+    if (MP_IsBlockSelectable(player, x, y)) {
+        const unsigned int idx = y * MP_GetMapSize() + x;
 
         // Only update if something changed.
         if (!BS_Test(gPlayerSelection[player], idx)) {
             BS_Set(gPlayerSelection[player], idx);
-            //DK_UpdateJobsForBlock(player, x, y);
+            //MP_UpdateJobsForBlock(player, x, y);
             // TODO event
             return 1;
         }
@@ -175,14 +175,14 @@ int DK_SelectBlock(DK_Player player, int x, int y) {
     return 0;
 }
 
-int DK_DeselectBlock(DK_Player player, int x, int y) {
-    if (x >= 0 && y >= 0 && x < DK_GetMapSize() && y < DK_GetMapSize()) {
-        const unsigned int idx = y * DK_GetMapSize() + x;
+int MP_DeselectBlock(MP_Player player, int x, int y) {
+    if (x >= 0 && y >= 0 && x < MP_GetMapSize() && y < MP_GetMapSize()) {
+        const unsigned int idx = y * MP_GetMapSize() + x;
 
         // Only update if something changed.
         if (BS_Test(gPlayerSelection[player], idx)) {
             BS_Unset(gPlayerSelection[player], idx);
-            //DK_UpdateJobsForBlock(player, x, y);
+            //MP_UpdateJobsForBlock(player, x, y);
             // TODO event
             return 1;
         }
@@ -194,7 +194,7 @@ int DK_DeselectBlock(DK_Player player, int x, int y) {
 // Initialization
 ///////////////////////////////////////////////////////////////////////////////
 
-void DK_InitSelection(void) {
-    DK_OnUpdate(onUpdate);
-    DK_OnMapSizeChange(onMapChange);
+void MP_InitSelection(void) {
+    MP_OnUpdate(onUpdate);
+    MP_OnMapSizeChange(onMapChange);
 }

@@ -41,21 +41,21 @@ extern "C" {
      */
 
     /** Data for a single job */
-    struct DK_Job {
+    struct MP_Job {
         /** Job type information */
-        const DK_JobMeta* meta;
+        const MP_JobMeta* meta;
 
         /** The unit that is currently assigned to that job */
-        DK_Unit* worker;
+        MP_Unit* worker;
 
         /** The targeted block, if any */
-        DK_Block* block;
+        MP_Block* block;
 
         /** The targeted room, if any */
-        DK_Room* room;
+        MP_Room* room;
 
         /** The targeted unit, if any */
-        DK_Unit* unit;
+        MP_Unit* unit;
 
         /** Offset to the target position; absolute, if there is no target */
         vec2 offset;
@@ -68,22 +68,22 @@ extern "C" {
      * @param the distance to the found job, if any.
      * @return the closest job of that type to the unit. May be null.
      */
-    DK_Job* DK_FindJob(const DK_Unit* unit, const DK_JobMeta* type, float* distance);
+    MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobMeta* type, float* distance);
 
     /**
      * Run a job's script for the specified unit.
      */
-    void DK_RunJob(DK_Unit* unit, const DK_JobMeta* job);
+    void MP_RunJob(MP_Unit* unit, const MP_JobMeta* job);
 
     /**
      * Clear all job lists and free all additional memory.
      */
-    void DK_ClearJobs(void);
+    void MP_ClearJobs(void);
 
     /**
      * Initialize job system.
      */
-    void DK_InitJobs(void);
+    void MP_InitJobs(void);
 
 #ifdef	__cplusplus
 }

@@ -35,10 +35,10 @@ static void loadTestTexture(void) {
     if (gTestTextureSurface) {
         return;
     }
-    snprintf(filename, sizeof (filename), "%s%s%s", DK_TEX_DIR, "test", DK_TEX_FILETYPE);
+    snprintf(filename, sizeof (filename), "%s%s%s", MP_TEX_DIR, "test", MP_TEX_FILETYPE);
     gTestTextureSurface = IMG_Load(filename);
     if (gTestTextureSurface == NULL) {
-        fprintf(DK_log_target, "ERROR: failed loading dummy texture.\n");
+        fprintf(MP_log_target, "ERROR: failed loading dummy texture.\n");
         exit(EXIT_FAILURE);
     }
 }
@@ -87,8 +87,8 @@ static GLuint generateTexture(const SDL_Surface* surface) {
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-GLuint DK_GetTexture(DK_TextureID textureId, unsigned int hash) {
-    if (!DK_d_draw_test_texture && textureId > 0 && textureId - 1 < gTextureCount) {
+GLuint MP_GetTexture(MP_TextureID textureId, unsigned int hash) {
+    if (!MP_d_draw_test_texture && textureId > 0 && textureId - 1 < gTextureCount) {
         const Texture* texture = &gTextures[textureId - 1];
         return texture->textureId[hash % texture->count];
     } else {
@@ -96,15 +96,15 @@ GLuint DK_GetTexture(DK_TextureID textureId, unsigned int hash) {
     }
 }
 
-DK_TextureID DK_LoadTexture(const char* basename) {
+MP_TextureID MP_LoadTexture(const char* basename) {
     unsigned int capacity = 0;
     char filename[256];
     SDL_Surface* surface;
     Texture texture = {0, 0, 0};
     while (1) {
         // Generate file name.
-        if (snprintf(filename, sizeof (filename), "%s%s_%d%s", DK_TEX_DIR, basename, texture.count, DK_TEX_FILETYPE) > (int) sizeof (filename)) {
-            fprintf(DK_log_target, "ERROR: Texture name too long: '%s'.\n", basename);
+        if (snprintf(filename, sizeof (filename), "%s%s_%d%s", MP_TEX_DIR, basename, texture.count, MP_TEX_FILETYPE) > (int) sizeof (filename)) {
+            fprintf(MP_log_target, "ERROR: Texture name too long: '%s'.\n", basename);
             break;
         }
 
@@ -127,7 +127,7 @@ DK_TextureID DK_LoadTexture(const char* basename) {
     }
 
     if (texture.count == 0) {
-        fprintf(DK_log_target, "WARNING: Found no variations of texture '%s'.\n", basename);
+        fprintf(MP_log_target, "WARNING: Found no variations of texture '%s'.\n", basename);
     }
 
     if (texture.count > 0) {
@@ -140,8 +140,8 @@ DK_TextureID DK_LoadTexture(const char* basename) {
     }
 }
 
-void DK_UnloadTextures(void) {
-    DK_GL_DeleteTextures();
+void MP_UnloadTextures(void) {
+    MP_GL_DeleteTextures();
     if (gTestTextureSurface) {
         SDL_FreeSurface(gTestTextureSurface);
         gTestTextureSurface = 0;
@@ -167,7 +167,7 @@ void DK_UnloadTextures(void) {
     gTextureCapacity = 0;
 }
 
-void DK_GL_GenerateTextures(void) {
+void MP_GL_GenerateTextures(void) {
     loadTestTexture();
     gTestTextureId = generateTexture(gTestTextureSurface);
     for (unsigned int t = 0; t < gTextureCount; ++t) {
@@ -180,7 +180,7 @@ void DK_GL_GenerateTextures(void) {
     EXIT_ON_OPENGL_ERROR();
 }
 
-void DK_GL_DeleteTextures(void) {
+void MP_GL_DeleteTextures(void) {
     if (gTestTextureId) {
         glDeleteTextures(1, &gTestTextureId);
         gTestTextureId = 0;
