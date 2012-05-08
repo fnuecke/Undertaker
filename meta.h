@@ -137,6 +137,7 @@ bool DK_Add##NAME##Meta(const TYPE* meta) { \
 #define META_clear(NAME) \
 void DK_Clear##NAME##Meta(void) { \
     for (unsigned int i = 0; i < gMetaCount; ++i) { \
+        deleteMeta(&gMetas[i]); \
         free(gMetaNames[i]); \
         gMetaNames[i] = NULL; \
         gMetas[i].name = NULL; \

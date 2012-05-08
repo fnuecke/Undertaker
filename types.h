@@ -30,9 +30,9 @@ extern "C" {
 
     typedef struct DK_Unit DK_Unit;
     typedef struct DK_UnitMeta DK_UnitMeta;
-    typedef struct DK_UnitSatisfaction DK_UnitSatisfaction;
+    typedef struct DK_UnitSaturation DK_UnitSaturation;
     typedef struct DK_UnitSatisfactionMeta DK_UnitSatisfactionMeta;
-    typedef struct DK_UnitJobSatisfactionMeta DK_UnitJobSatisfactionMeta;
+    typedef struct DK_UnitJobSaturationMeta DK_UnitJobSaturationMeta;
     typedef struct DK_AI_Info DK_AI_Info;
 
     ///////////////////////////////////////////////////////////////////////////

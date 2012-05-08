@@ -28,6 +28,9 @@ extern "C" {
         /** List to check which events are handled by the script */
         bool handledEvents[DK_JOB_EVENT_COUNT];
 
+        /** Whether the script should be queried for a current saturation */
+        bool hasDynamicPreference;
+
         /** Whether the script has a run method (and thus: can be active) */
         bool hasRunMethod;
     };

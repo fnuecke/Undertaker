@@ -19,10 +19,10 @@ extern "C" {
     // Types
     ///////////////////////////////////////////////////////////////////////////
 
-    /** Holds information on unit satisfaction */
-    struct DK_UnitSatisfaction {
+    /** Holds information on unit job desire saturation */
+    struct DK_UnitSaturation {
         /** How satisfied the unit is with each job */
-        float* jobSatisfaction;
+        float* jobSaturation;
 
         /** How satisfied the unit is from (not) being slapped */
         float slapDelta;
@@ -42,8 +42,8 @@ extern "C" {
         /** Current position of the unit */
         vec2 position;
 
-        /** Unit satisfaction information */
-        DK_UnitSatisfaction satisfaction;
+        /** Unit desire saturation information */
+        DK_UnitSaturation saturation;
 
         /** Internal AI state of the unit */
         DK_AI_Info* ai;

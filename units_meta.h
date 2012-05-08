@@ -16,32 +16,29 @@ extern "C" {
 #endif
 
     /**
-     * Describes a unit's "satisfaction" with a certain job. This controls how
-     * distances are weighted when looking for jobs. The satisfaction state can
-     * be seen in multiple segments: unsatisfied, undecided, satisfied, bored.
+     * Describes a unit's "desire saturation" for a certain job. This controls
+     * how distances are weighted when looking for jobs. The saturation is
+     * divided into multiple segments: unsatisfied, neutral, satisfied, bored.
      * 
      * This is per job per unit.
      * 
      * When a unit is bored with a job it just doesn't want to do it. It'll
-     * rather wander around the dungeon.
+     * rather idle.
      * 
      * When a unit is satisfied, it doesn't really have to do this job. The job
      * will not receive any weighting when looking for a job to perform. The
      * unit will still continue to perform the job if there's nothing else to do
      * though.
      * 
-     * When a unit is undecided the job receives a base weighing that ranges
-     * from 0 to the value of the unit's preference for this particular job
-     * linearly in the satisfaction range of satisfiedThreshold to
-     * unsatisfiedThreshold, respectively.
+     * When a unit is neutral, the job receives a base weighing based on how
+     * satisfied the unit is.
      * 
      * When a unit is unsatisfied, in addition to the weighing (which is still
      * used in case there are multiple unsatisfied desires), all other jobs that
      * the unit is at least undecided with are ignored when looking for a job.
      * 
-     * When a unit is angry it's essentially beyond repair. The unit will switch
-     * to its "anger job". This can range from leaving the dungeon to randomly
-     * attacking other minions.
+     * When a unit is angry it will switch to its "anger job". This can range
+     * from leaving the dungeon to randomly attacking other minions.
      * 
      * 
      * The job preference that is used for weighting is applied to the distance
@@ -54,10 +51,10 @@ extern "C" {
      * preferred (as it's 10 - 0 > 15 - 6 -> 10 > 9).
      * 
      * 
-     * Note that satisfaction is always bounded to a range of [0, 1], so the
-     * thresholds should lay in this interval.
+     * Note that saturation is always bounded to a range of [0, 1], so the
+     * thresholds should lie in this interval.
      */
-    struct DK_UnitJobSatisfactionMeta {
+    struct DK_UnitJobSaturationMeta {
         /** The initial value */
         float initialValue;
 
@@ -73,10 +70,10 @@ extern "C" {
         /** The value at which a unit becomes bored with this job */
         float boredThreshold;
 
-        /** How does the satisfaction change while performing the job? */
+        /** How does the saturation change while performing the job? */
         float performingDelta;
 
-        /** How does the satisfaction change while *not* performing the job? */
+        /** How does the saturation change while *not* performing the job? */
         float notPerformingDelta;
     };
 
@@ -88,7 +85,7 @@ extern "C" {
      */
     struct DK_UnitSatisfactionMeta {
         /** Job related satisfaction data */
-        DK_UnitJobSatisfactionMeta* jobSatisfaction;
+        DK_UnitJobSaturationMeta* jobSaturation;
 
         /** How satisfaction changes when being slapped */
         float slapDelta;

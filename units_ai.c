@@ -19,7 +19,10 @@
 static float cr(float p0, float p1, float p2, float p3, float t) {
     const float m1 = DK_AI_CATMULL_ROM_T * (p2 - p0);
     const float m2 = DK_AI_CATMULL_ROM_T * (p3 - p1);
-    return (2 * p1 - 2 * p2 + m1 + m2) * t * t * t + (-3 * p1 + 3 * p2 - 2 * m1 - m2) * t * t + m1 * t + p1;
+    return (2 * p1 - 2 * p2 + m1 + m2) * t * t * t +
+            (-3 * p1 + 3 * p2 - 2 * m1 - m2) * t * t +
+            m1 * t +
+            p1;
 }
 
 /** Moves a unit along its current path */
@@ -50,8 +53,10 @@ static void updateMove(DK_Unit* unit) {
             // Do a direct check for distance, to allow skipping equal
             // nodes.
             {
-                const float dx = path->nodes[path->index].d.x - path->nodes[path->index - 1].d.x;
-                const float dy = path->nodes[path->index].d.y - path->nodes[path->index - 1].d.y;
+                const float dx = path->nodes[path->index].d.x -
+                        path->nodes[path->index - 1].d.x;
+                const float dy = path->nodes[path->index].d.y -
+                        path->nodes[path->index - 1].d.y;
                 path->distance = sqrtf(dx * dx + dy * dy);
             }
             // If there is a distance, estimate the actual path length.
@@ -63,8 +68,14 @@ static void updateMove(DK_Unit* unit) {
                 path->distance = 0;
                 for (e = 1; e <= DK_AI_PATH_INTERPOLATION; ++e) {
                     const float t = e / (float) DK_AI_PATH_INTERPOLATION;
-                    x = cr(path->nodes[path->index - 2].d.x, path->nodes[path->index - 1].d.x, path->nodes[path->index].d.x, path->nodes[path->index + 1].d.x, t);
-                    y = cr(path->nodes[path->index - 2].d.y, path->nodes[path->index - 1].d.y, path->nodes[path->index].d.y, path->nodes[path->index + 1].d.y, t);
+                    x = cr(path->nodes[path->index - 2].d.x,
+                            path->nodes[path->index - 1].d.x,
+                            path->nodes[path->index].d.x,
+                            path->nodes[path->index + 1].d.x, t);
+                    y = cr(path->nodes[path->index - 2].d.y,
+                            path->nodes[path->index - 1].d.y,
+                            path->nodes[path->index].d.y,
+                            path->nodes[path->index + 1].d.y, t);
                     dx = x - lx;
                     dy = y - ly;
                     lx = x;
@@ -78,40 +89,51 @@ static void updateMove(DK_Unit* unit) {
     // Compute actual position of the unit.
     if (path->distance > 0) {
         const float t = path->traveled / path->distance;
-        unit->position.d.x = cr(path->nodes[path->index - 2].d.x, path->nodes[path->index - 1].d.x, path->nodes[path->index].d.x, path->nodes[path->index + 1].d.x, t);
-        unit->position.d.y = cr(path->nodes[path->index - 2].d.y, path->nodes[path->index - 1].d.y, path->nodes[path->index].d.y, path->nodes[path->index + 1].d.y, t);
+        unit->position.d.x = cr(
+                path->nodes[path->index - 2].d.x,
+                path->nodes[path->index - 1].d.x,
+                path->nodes[path->index].d.x,
+                path->nodes[path->index + 1].d.x, t);
+        unit->position.d.y = cr(
+                path->nodes[path->index - 2].d.y,
+                path->nodes[path->index - 1].d.y,
+                path->nodes[path->index].d.y,
+                path->nodes[path->index + 1].d.y, t);
     }
 }
 
-/** Updates unit satisfaction based on currently performed job and other states */
-static void updateSatisfaction(DK_Unit* unit) {
+/** Updates unit desire saturation based on currently performed job and such */
+static void updateSaturation(DK_Unit* unit) {
     const DK_UnitSatisfactionMeta* meta = &unit->meta->satisfaction;
-    DK_UnitSatisfaction* state = &unit->satisfaction;
+    DK_UnitSaturation* state = &unit->saturation;
     const AI_State* ai = unit->ai->current;
 
-    // Update job satisfaction values. Remember if there are any jobs we're not
+    // Update job saturation values. Remember if there are any jobs we're not
     // satisfied with (except the one we're currently doing).
     bool someUnsatisfied = false;
-    for (unsigned int jobNumber; jobNumber < unit->meta->jobCount; ++jobNumber) {
+    for (unsigned int number; number < unit->meta->jobCount; ++number) {
         // Yes, check it's currently performing it.
-        if (ai->jobNumber == jobNumber) {
+        if (ai->jobNumber == number) {
             // Yes, update for the respective delta.
-            state->jobSatisfaction[jobNumber] += meta->jobSatisfaction[jobNumber].performingDelta;
+            state->jobSaturation[number] +=
+                    meta->jobSaturation[number].performingDelta;
         } else {
             // No, update for the respective delta.
-            state->jobSatisfaction[jobNumber] += meta->jobSatisfaction[jobNumber].notPerformingDelta;
+            state->jobSaturation[number] +=
+                    meta->jobSaturation[number].notPerformingDelta;
 
             // Are we unsatisfied with this job?
-            if (state->jobSatisfaction[jobNumber] < meta->jobSatisfaction[jobNumber].unsatisfiedThreshold) {
+            if (state->jobSaturation[number] <
+                    meta->jobSaturation[number].unsatisfiedThreshold) {
                 someUnsatisfied = true;
             }
         }
 
         // Make sure it's in bounds.
-        if (state->jobSatisfaction[jobNumber] < 0) {
-            state->jobSatisfaction[jobNumber] = 0;
-        } else if (state->jobSatisfaction[jobNumber] > 1.0f) {
-            state->jobSatisfaction[jobNumber] = 1.0f;
+        if (state->jobSaturation[number] < 0) {
+            state->jobSaturation[number] = 0;
+        } else if (state->jobSaturation[number] > 1.0f) {
+            state->jobSaturation[number] = 1.0f;
         }
     }
 
@@ -120,29 +142,31 @@ static void updateSatisfaction(DK_Unit* unit) {
     // Check if we are not unsatisfied with our current job and there's another
     // one we are. If so, cancel the current job to allow starting the one we're
     // unsatisfied with.
-    if (someUnsatisfied && state->jobSatisfaction[ai->jobNumber] >= meta->jobSatisfaction[ai->jobNumber].unsatisfiedThreshold) {
+    if (someUnsatisfied && state->jobSaturation[ai->jobNumber] >=
+            meta->jobSaturation[ai->jobNumber].unsatisfiedThreshold) {
         // Indeed, so pop the current job.
         DK_StopJob(ai->job);
     }
 }
 
-/** Computes additional job weight based on satisfaction */
-static float satisfactionWeight(float satisfaction, const DK_UnitJobSatisfactionMeta* meta) {
-    // Map satisfaction to interval between unsatisfied and satisfied thresh.
-    satisfaction = (satisfaction - meta->unsatisfiedThreshold) / (meta->satisfiedThreshold - meta->unsatisfiedThreshold);
-    if (satisfaction < 0.0f) {
-        satisfaction = 0.0f;
-    } else if (satisfaction > 1.0f) {
-        satisfaction = 1.0f;
-    }
-    return meta->preference * satisfaction;
+/** Computes additional job weight based on saturation */
+static float weightedPreference(float saturation, const DK_UnitJobSaturationMeta* meta) {
+    // Map saturation to interval between unsatisfied and satisfied thresh so
+    // that unsatisfiedThreshold = 1 and satisfiedThreshold = 0 and ensure it's
+    // larger or equal to zero.
+    saturation = (meta->satisfiedThreshold - saturation) /
+            (meta->satisfiedThreshold - meta->unsatisfiedThreshold);
+    if (saturation < 0.0f) {
+        saturation = 0.0f;
+    } // It's OK if it's larger than one, in that case the unit is unsatisfied.
+    return meta->preference * saturation;
 }
 
 /** Looks for the most desirable job for the unit */
 static void findJob(DK_Unit* unit) {
     // Shortcuts.
     const DK_UnitSatisfactionMeta* meta = &unit->meta->satisfaction;
-    const DK_UnitSatisfaction* state = &unit->satisfaction;
+    const DK_UnitSaturation* state = &unit->saturation;
 
     // For closest job search.
     DK_Job* bestJob = 0;
@@ -151,38 +175,39 @@ static void findJob(DK_Unit* unit) {
 
     // Do a quick scan to see if the unit has any unsatisfied job desires.
     bool someUnsatisfied = false;
-    for (unsigned int jobNumber = 0; jobNumber < unit->meta->jobCount; ++jobNumber) {
+    for (unsigned int number = 0; number < unit->meta->jobCount; ++number) {
         // Check if the unit is unsatisfied.
-        if (state->jobSatisfaction[jobNumber] < meta->jobSatisfaction[jobNumber].unsatisfiedThreshold) {
+        if (state->jobSaturation[number] <
+                meta->jobSaturation[number].unsatisfiedThreshold) {
             someUnsatisfied = true;
         }
     }
 
     // Find the closest job, weighted based on the unit's preferences.
-    for (unsigned int jobNumber = 0; jobNumber < unit->meta->jobCount; ++jobNumber) {
+    for (unsigned int number = 0; number < unit->meta->jobCount; ++number) {
         float distance;
         DK_Job* job;
 
         // Check if the unit is unsatisfied or doesn't have others unsatisfied.
-        if (someUnsatisfied &&
-                state->jobSatisfaction[jobNumber] >= meta->jobSatisfaction[jobNumber].unsatisfiedThreshold) {
+        if (someUnsatisfied && state->jobSaturation[number] >=
+                meta->jobSaturation[number].unsatisfiedThreshold) {
             // Unit isn't unsatisfied with this job, but some other, so skip it.
             continue;
         }
 
         // Find closest job opening.
-        if (!(job = DK_FindJob(unit, unit->meta->jobs[jobNumber], &distance))) {
+        if (!(job = DK_FindJob(unit, unit->meta->jobs[number], &distance))) {
             // Didn't find a job of this type.
             continue;
         }
 
-        // Weigh the distance based on the satisfaction and preference.
-        distance -= satisfactionWeight(state->jobSatisfaction[jobNumber], &meta->jobSatisfaction[jobNumber]);
+        // Weigh the distance based on the saturation and preference.
+        distance -= weightedPreference(state->jobSaturation[number], &meta->jobSaturation[number]);
 
         // Better than other jobs we have found?
         if (distance < bestWeightedDistance) {
             bestJob = job;
-            bestNumber = jobNumber;
+            bestNumber = number;
             bestWeightedDistance = distance;
         }
     }
@@ -265,10 +290,10 @@ void DK_UpdateAI(DK_Unit* unit) {
     // wandering, etc.
     updateMove(unit);
 
-    // Update a unit's satisfaction values. This will also make the unit lose
-    // its current job, if it's unsatisfied with another one (and isn't with
-    // this one, yet).
-    updateSatisfaction(unit);
+    // Update a unit's job desire saturation values. This will also make the
+    // unit lose its current job, if it's unsatisfied with another one (and
+    // isn't with this one, yet).
+    updateSaturation(unit);
 
     // See if we should pop the current state.
     if (state < &unit->ai->stack[DK_AI_STACK_DEPTH] && state->shouldCancel) {

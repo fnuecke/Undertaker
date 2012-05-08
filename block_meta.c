@@ -181,7 +181,7 @@ static void resetDefaults(void) {
 }
 
 /** New type registered */
-static bool initMeta(DK_BlockMeta* m, const DK_BlockMeta* meta) {
+inline static bool initMeta(DK_BlockMeta* m, const DK_BlockMeta* meta) {
     *m = *meta;
     loadTexturesFor(m);
 
@@ -189,7 +189,7 @@ static bool initMeta(DK_BlockMeta* m, const DK_BlockMeta* meta) {
 }
 
 /** Type override */
-static bool updateMeta(DK_BlockMeta* m, const DK_BlockMeta* meta) {
+inline static bool updateMeta(DK_BlockMeta* m, const DK_BlockMeta* meta) {
     m->durability = meta->durability;
     m->strength = meta->strength;
     m->gold = meta->gold;
@@ -198,6 +198,10 @@ static bool updateMeta(DK_BlockMeta* m, const DK_BlockMeta* meta) {
     m->becomes = meta->becomes;
 
     return true;
+}
+
+/** Clear up data for a meta on deletion */
+inline static void deleteMeta(DK_BlockMeta* m) {
 }
 
 META_impl(DK_BlockMeta, Block)

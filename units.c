@@ -71,29 +71,29 @@ static void onRender(void) {
         material.specularExponent = 25.0f;
 
         // Set color based on current job.
-                material.diffuseColor.c.r = 0.6f;
-                material.diffuseColor.c.g = 0.6f;
-                material.diffuseColor.c.b = 0.6f;
-/*
-        switch (state->jobType) {
-            case DK_JOB_DIG:
-                material.diffuseColor.c.r = 0.6f;
-                material.diffuseColor.c.g = 0.9f;
-                material.diffuseColor.c.b = 0.6f;
-                break;
-            case DK_JOB_CONVERT_TILE:
-            case DK_JOB_CONVERT_WALL:
-                material.diffuseColor.c.r = 0.6f;
-                material.diffuseColor.c.g = 0.6f;
-                material.diffuseColor.c.b = 0.9f;
-                break;
-            default:
-                material.diffuseColor.c.r = 0.6f;
-                material.diffuseColor.c.g = 0.6f;
-                material.diffuseColor.c.b = 0.6f;
-                break;
-        }
-*/
+        material.diffuseColor.c.r = 0.6f;
+        material.diffuseColor.c.g = 0.6f;
+        material.diffuseColor.c.b = 0.6f;
+        /*
+                switch (state->jobType) {
+                    case DK_JOB_DIG:
+                        material.diffuseColor.c.r = 0.6f;
+                        material.diffuseColor.c.g = 0.9f;
+                        material.diffuseColor.c.b = 0.6f;
+                        break;
+                    case DK_JOB_CONVERT_TILE:
+                    case DK_JOB_CONVERT_WALL:
+                        material.diffuseColor.c.r = 0.6f;
+                        material.diffuseColor.c.g = 0.6f;
+                        material.diffuseColor.c.b = 0.9f;
+                        break;
+                    default:
+                        material.diffuseColor.c.r = 0.6f;
+                        material.diffuseColor.c.g = 0.6f;
+                        material.diffuseColor.c.b = 0.6f;
+                        break;
+                }
+         */
         // Highlight, if the unit is moving.
         if (DK_IsUnitMoving(unit)) {
             material.diffuseColor.c.r += 0.2f;
@@ -220,10 +220,10 @@ void DK_StopJob(DK_Job* job) {
 
                 // And we're done.
                 return;
+            } else {
+                // Move on to the next.
+                ++state;
             }
-
-            // And move on to the next (could be more than one occurrence).
-            ++state;
         }
     }
 }

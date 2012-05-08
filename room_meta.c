@@ -12,14 +12,14 @@ static void resetDefaults(void) {
 }
 
 /** New type registered */
-static bool initMeta(DK_RoomMeta* m, const DK_RoomMeta* meta) {
+inline static bool initMeta(DK_RoomMeta* m, const DK_RoomMeta* meta) {
     *m = *meta;
 
     return true;
 }
 
 /** Type override */
-static bool updateMeta(DK_RoomMeta* m, const DK_RoomMeta* meta) {
+inline static bool updateMeta(DK_RoomMeta* m, const DK_RoomMeta* meta) {
     m->canBuildOn = meta->canBuildOn;
     m->passability = meta->passability;
     m->level = meta->level;
@@ -27,6 +27,10 @@ static bool updateMeta(DK_RoomMeta* m, const DK_RoomMeta* meta) {
     m->health = meta->health;
 
     return true;
+}
+
+/** Clear up data for a meta on deletion */
+inline static void deleteMeta(DK_RoomMeta* m) {
 }
 
 META_impl(DK_RoomMeta, Room)

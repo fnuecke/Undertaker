@@ -11,18 +11,29 @@ META_globals(DK_JobMeta)
 
 /** Reset defaults on map change */
 static void resetDefaults(void) {
+    for (unsigned eventId = 0; eventId < DK_JOB_EVENT_COUNT; ++eventId) {
+        gMetaDefaults.handledEvents[eventId] = false;
+    }
+    gMetaDefaults.hasDynamicPreference = false;
     gMetaDefaults.hasRunMethod = false;
 }
 
 /** New type registered */
-static bool initMeta(DK_JobMeta* m, const DK_JobMeta* meta) {
+inline static bool initMeta(DK_JobMeta* m, const DK_JobMeta* meta) {
     *m = *meta;
+
     return true;
 }
 
 /** Type override */
-static bool updateMeta(DK_JobMeta* m, const DK_JobMeta* meta) {
+inline static bool updateMeta(DK_JobMeta* m, const DK_JobMeta* meta) {
     return true;
+}
+
+/** Clear up data for a meta on deletion */
+inline static void deleteMeta(DK_JobMeta* m) {
+    lua_close(m->L);
+    m->L = NULL;
 }
 
 META_impl(DK_JobMeta, Job)
@@ -55,12 +66,19 @@ int DK_Lua_AddJobMeta(lua_State* L) {
         return luaL_argerror(L, 1, "invalid job script");
     }
 
-    // Check script capabilities.
+    // Check script capabilities. First, check for event callbacks.
     for (unsigned int jobEvent = 0; jobEvent < DK_JOB_EVENT_COUNT; ++jobEvent) {
         lua_getglobal(meta.L, JOB_EVENT_NAME[jobEvent]);
         meta.handledEvents[jobEvent] = lua_isfunction(meta.L, -1);
         lua_pop(meta.L, 1);
     }
+
+    // Then check for dynamic preference callback.
+    lua_getglobal(meta.L, "preference");
+    meta.hasDynamicPreference = lua_isfunction(meta.L, -1);
+    lua_pop(meta.L, 1);
+
+    // And finally for the run callback (job active logic).
     lua_getglobal(meta.L, "run");
     meta.hasRunMethod = lua_isfunction(meta.L, -1);
     lua_pop(meta.L, 1);

@@ -9,19 +9,23 @@ static void resetDefaults(void) {
 }
 
 /** New type registered */
-static bool initMeta(DK_UnitMeta* m, const DK_UnitMeta* meta) {
+inline static bool initMeta(DK_UnitMeta* m, const DK_UnitMeta* meta) {
     *m = *meta;
 
     return true;
 }
 
 /** Type override */
-static bool updateMeta(DK_UnitMeta* m, const DK_UnitMeta* meta) {
+inline static bool updateMeta(DK_UnitMeta* m, const DK_UnitMeta* meta) {
     m->moveSpeed = meta->moveSpeed;
     m->canPass = meta->canPass;
     m->satisfaction = meta->satisfaction;
 
     return true;
+}
+
+/** Clear up data for a meta on deletion */
+inline static void deleteMeta(DK_UnitMeta* m) {
 }
 
 META_impl(DK_UnitMeta, Unit)

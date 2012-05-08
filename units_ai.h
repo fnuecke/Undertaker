@@ -29,8 +29,8 @@ extern "C" {
 
         /**
          * Whether the job should be canceled. Jobs can only be popped by
-         * themselves, to avoid stack corruption regardless of the call chain, and
-         * this is how we notify them they should do just that.
+         * themselves, to avoid stack corruption regardless of the call chain,
+         * and this is how we notify them they should do just that.
          */
         bool shouldCancel;
     } AI_State;
