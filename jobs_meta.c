@@ -107,6 +107,12 @@ int MP_Lua_AddJobMeta(lua_State* L) {
     // Get name.
     meta.name = lua_tostring(L, 1);
 
+    // Skip if we already know this job (no overrides for job types).
+    if (MP_GetJobMetaByName(meta.name)) {
+        fprintf(MP_log_target, "INFO: Duplicate job declaration for '%s', skipping.\n", meta.name);
+        return 0;
+    }
+
     // Load AI script.
     meta.L = luaL_newstate();
 

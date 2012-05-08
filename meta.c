@@ -25,7 +25,8 @@ bool MP_LoadMeta(const char* name) {
     lua_register(L, "job", MP_Lua_AddJobMeta);
     lua_register(L, "passability", MP_Lua_AddPassability);
     //lua_register(L, "room", MP_Lua_AddRoomMeta);
-    //lua_register(L, "unit", MP_Lua_AddUnitMeta);
+    lua_register(L, "unitdefaults", MP_Lua_UnitMetaDefaults);
+    lua_register(L, "unit", MP_Lua_AddUnitMeta);
 
     fprintf(MP_log_target, "INFO: Start parsing meta file '%s'.\n", filename);
 

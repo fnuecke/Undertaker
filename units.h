@@ -20,15 +20,9 @@ extern "C" {
     ///////////////////////////////////////////////////////////////////////////
 
     /** Holds information on unit job desire saturation */
-    struct MP_UnitSaturation {
+    struct MP_UnitSatisfaction {
         /** How satisfied the unit is with each job */
         float* jobSaturation;
-
-        /** How satisfied the unit is from (not) being slapped */
-        float slapDelta;
-
-        /** How satisfied the unit is from (not) being held in the hand */
-        float inHandDelta;
     };
 
     /** Contains data on a single unit instance */
@@ -43,7 +37,7 @@ extern "C" {
         vec2 position;
 
         /** Unit desire saturation information */
-        MP_UnitSaturation saturation;
+        MP_UnitSatisfaction satisfaction;
 
         /** Internal AI state of the unit */
         MP_AI_Info* ai;

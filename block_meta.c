@@ -5,6 +5,10 @@
 #include "passability.h"
 #include "textures.h"
 
+///////////////////////////////////////////////////////////////////////////////
+// Constants / globals
+///////////////////////////////////////////////////////////////////////////////
+
 /** File name suffixes for textures */
 const char* BLOCK_LEVEL_SUFFIX[] = {
     [MP_BLOCK_LEVEL_PIT] = "pit",
@@ -43,68 +47,86 @@ static int tableToBlock(lua_State* L, MP_BlockMeta* meta, bool forDefaults) {
     // Keep track at which table entry we are.
     int narg = 1;
 
+    // What do we use for defaults?
+    if (!forDefaults) {
+        const char* name;
+        const MP_BlockMeta* existing;
+
+        // Get the name.
+        lua_getfield(L, -1, "name"); // -> table, table["name"]
+        luaL_argcheck(L, lua_type(L, -1) == LUA_TSTRING, narg, "keys must be strings");
+        name = lua_tostring(L, -1);
+        lua_pop(L, 1);
+        luaL_argcheck(L, name && strlen(name), narg, "'name' must not be empty");
+
+        // Check if that type is already known (override).
+        if ((existing = MP_GetBlockMetaByName(name))) {
+            // Yes, this will be an override.
+            *meta = *existing;
+        } else {
+            // New entry.
+            *meta = gMetaDefaults;
+            meta->name = name;
+        }
+    } // else meta already equals gMetaDefaults
+
     // Now loop through the table. Push initial 'key' -- nil means start.
-    lua_pushnil(L); // -> -2=table, -1=key
-    while (lua_next(L, 1)) { // -> -3=table, -2=key, -1=value
+    lua_pushnil(L); // -> table, key
+    while (lua_next(L, -2)) { // -> table, key, value
+        // Get key as string.
+        const char* key;
         luaL_argcheck(L, lua_type(L, -2) == LUA_TSTRING, narg, "keys must be strings");
-        {
-            // We can be sure it's a string at this point.
-            const char* key = lua_tostring(L, -2);
+        key = lua_tostring(L, -2);
 
-            // See what we have.
-            if (strcmp(key, "name") == 0) {
-                if (!forDefaults) {
-                    const char* name = luaL_checkstring(L, -1);
-                    luaL_argcheck(L, name && strlen(name), narg, "'name' must not be empty");
-                    meta->name = name;
-                } else {
-                    return luaL_argerror(L, narg, "'name' not allowed in defaults");
-                }
-
-            } else if (strcmp(key, "level") == 0) {
-                const char* level = luaL_checkstring(L, -1);
-                luaL_argcheck(L, level && strlen(level), narg, "'level' must not be empty");
-                if (strcmp(level, "pit") == 0) {
-                    meta->level = MP_BLOCK_LEVEL_PIT;
-                } else if (strcmp(level, "lowered") == 0) {
-                    meta->level = MP_BLOCK_LEVEL_LOWERED;
-                } else if (strcmp(level, "normal") == 0) {
-                    meta->level = MP_BLOCK_LEVEL_NORMAL;
-                } else if (strcmp(level, "high") == 0) {
-                    meta->level = MP_BLOCK_LEVEL_HIGH;
-                } else {
-                    return luaL_argerror(L, narg, "unknown 'level' value");
-                }
-
-            } else if (strcmp(key, "passability") == 0) {
-                const MP_Passability value = MP_GetPassability(luaL_checkstring(L, -1));
-                luaL_argcheck(L, value, narg, "unknown 'passability' value");
-                meta->passability = value;
-
-            } else if (strcmp(key, "durability") == 0) {
-                meta->durability = luaL_checkunsigned(L, -1);
-
-            } else if (strcmp(key, "strength") == 0) {
-                meta->strength = luaL_checkunsigned(L, -1);
-
-            } else if (strcmp(key, "gold") == 0) {
-                meta->gold = luaL_checkunsigned(L, -1);
-
-            } else if (strcmp(key, "becomes") == 0) {
-                const MP_BlockMeta* value = MP_GetBlockMetaByName(luaL_checkstring(L, -1));
-                luaL_argcheck(L, value, narg, "unknown 'becomes' value");
-                meta->becomes = value;
-
-            } else {
-                return luaL_argerror(L, narg, "unknown key");
+        // See what we have.
+        if (strcmp(key, "name") == 0) {
+            if (forDefaults) {
+                return luaL_argerror(L, narg, "'name' not allowed in defaults");
             }
+
+        } else if (strcmp(key, "level") == 0) {
+            const char* level = luaL_checkstring(L, -1);
+            luaL_argcheck(L, level && strlen(level), narg, "'level' must not be empty");
+            if (strcmp(level, "pit") == 0) {
+                meta->level = MP_BLOCK_LEVEL_PIT;
+            } else if (strcmp(level, "lowered") == 0) {
+                meta->level = MP_BLOCK_LEVEL_LOWERED;
+            } else if (strcmp(level, "normal") == 0) {
+                meta->level = MP_BLOCK_LEVEL_NORMAL;
+            } else if (strcmp(level, "high") == 0) {
+                meta->level = MP_BLOCK_LEVEL_HIGH;
+            } else {
+                return luaL_argerror(L, narg, "unknown 'level' value");
+            }
+
+        } else if (strcmp(key, "passability") == 0) {
+            const MP_Passability value = MP_GetPassability(luaL_checkstring(L, -1));
+            luaL_argcheck(L, value, narg, "unknown 'passability' value");
+            meta->passability = value;
+
+        } else if (strcmp(key, "durability") == 0) {
+            meta->durability = luaL_checkunsigned(L, -1);
+
+        } else if (strcmp(key, "strength") == 0) {
+            meta->strength = luaL_checkunsigned(L, -1);
+
+        } else if (strcmp(key, "gold") == 0) {
+            meta->gold = luaL_checkunsigned(L, -1);
+
+        } else if (strcmp(key, "becomes") == 0) {
+            const MP_BlockMeta* value = MP_GetBlockMetaByName(luaL_checkstring(L, -1));
+            luaL_argcheck(L, value, narg, "unknown 'becomes' value");
+            meta->becomes = value;
+
+        } else {
+            return luaL_argerror(L, narg, "unknown key");
         }
 
         // Pop 'value', keep key to get next entry.
-        lua_pop(L, 1); // -> -2=table, -1=key
+        lua_pop(L, 1); // -> table, key
 
         ++narg;
-    } // -1=table
+    } // -> table
 
     return 0;
 }
@@ -218,7 +240,7 @@ int MP_Lua_BlockMetaDefaults(lua_State* L) {
 
 int MP_Lua_AddBlockMeta(lua_State* L) {
     // New type, start with defaults.
-    MP_BlockMeta meta = gMetaDefaults;
+    MP_BlockMeta meta;
 
     // Validate input.
     luaL_argcheck(L, lua_gettop(L) == 1 && lua_istable(L, 1), 0, "must specify one table");
@@ -227,7 +249,7 @@ int MP_Lua_AddBlockMeta(lua_State* L) {
     tableToBlock(L, &meta, false /* not for defaults */);
 
     // We require for at least the name to be set.
-    luaL_argcheck(L, meta.name, 1, "name is required but not set");
+    luaL_argcheck(L, meta.name, 1, "'name' is required but not set");
 
     // All green, add the type.
     if (!MP_AddBlockMeta(&meta)) {

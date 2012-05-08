@@ -104,8 +104,8 @@ jobs			= nil		obligatory, see below
 abilities		= nil		see below
 onslap			= 0			how unit happiness changes when slapped (per minute)
 inhand			= 0			how unit happiness changes when held (per minute)
-angerthreshold	= 0			satsifaction value below which a unit is angry
-angerjob		= nil		the job a unit switches to when angry (unsatisfied)
+angrybelow		= 0			satsifaction value below which a unit is angry
+angerjob		= nil		the job a unit switches to when angry
 
 The jobs field must be a table, containing in turn one table per job for the
 unit. For each job a unit has a 'satisfaction' rating, which can vary in the
@@ -137,41 +137,44 @@ give job B a preference rating 10 larger than job A.
 
 A single job's table contains the following fields:
 Field			Default		Info
-preference		= 1			how strongly to weigh the job when on job search
+preference		= 0			how strongly to weigh the job when on job search
+performing		= 0			the delta per minute when performing the job
+notperforming	= 0			the delta per minute when not performing the job
 initial			= 1			initial satisfaction value
 unsatisfied		= 0			the threshold below which a unit is unsatisfied
 satisfied		= 0			the threshold above which a unit is satisfied
 bored			= 1			the threshold above which a unit is bored
-performing		= 0			the delta per minute when performing the job
-notperforming	= 0			the delta per minute when not performing the job
 
 Not all these fields have to be set.
 --]]
-unit {name="imp", canpass={"land", "water"}, movespeed=1.8,
+unitdefaults {canpass={"land", "water"}}
+unit {name="imp", movespeed=1.8,
 		jobs={
 			{name="wander", preference=0}
 		}}
+
 --[[
 Room types.
 
 buildon "open"
-room {name="heart", buildon="open", level="normal"		air			1300	0		gold
-room {name="entrance", buildon="open", level="lowered		land		4000	0		spawn
-room {name="treasure", buildon="open",		normal		land		100		50		gold
-room {name="lair", buildon="open",		normal		land		200		100		sleep
-room {name="hatchery", buildon="open",		lowered		land		350		125		eat
-room {name="dojo", buildon="open",		normal		land		1250	150		train
-room {name="library", buildon="open",		normal		land		320		200		research
-room {name="workshop", buildon="open",		normal		land		900		200		craft
-room {name="prison", buildon="open",		normal		land		600		225		rot
-room {name="torture", buildon="open",		normal		land		1000	350		torture
-room {name="graveyard", buildon="open",		lowered		land		350		300		revive
-room {name="scavenge", buildon="open",		normal		land		1000	750		scavenge
-room {name="temple", buildon="open",		normal		land		1000	350		pray
-room {name="barrack", buildon="open",		normal		land		350		125		none
-room {name="guardpost", buildon="open",		normal		land		5000	50		guard
-room {name="bridge", buildon="water",		normal		land		100		30		none
-room {name="stonebridge", buildon={"water","lava"},	normal		land		150		50		none
+roomdefaults {buildon="open", level="normal", passability="land"}
+room {name="heart", passability="air", strength="1300"}
+room {name="entrance", level="lowered", strength="4000", cost="0"}
+room {name="treasure", strength="100", cost="50"}
+room {name="lair", strength="200", cost="100"}
+room {name="hatchery", level="lowered", strength="350", cost="125"}
+room {name="dojo", strength="1250", cost="150"}
+room {name="library", strength="320", cost="200"}
+room {name="workshop", strength="900", cost="200"}
+room {name="prison", strength="600", cost="225"}
+room {name="torture", strength="1000", cost="350"}
+room {name="graveyard", level="lowered", strength="350", cost="300"}
+room {name="scavenge", strength="1000", cost="750"}
+room {name="temple", strength="1000", cost="350"}
+room {name="barrack", strength="350", cost="125"}
+room {name="guardpost", strength="5000", cost="50"}
+room {name="bridge", buildon="water", strength="100", cost="30"}
+room {name="stonebridge", buildon={"water","lava"}, strength="150", cost="50"}
 --]]
 
 --[[

@@ -105,7 +105,7 @@ static void updateMove(MP_Unit* unit) {
 /** Updates unit desire saturation based on currently performed job and such */
 static void updateSaturation(MP_Unit* unit) {
     const MP_UnitSatisfactionMeta* meta = &unit->meta->satisfaction;
-    MP_UnitSaturation* state = &unit->saturation;
+    MP_UnitSatisfaction* state = &unit->satisfaction;
     const AI_State* ai = unit->ai->current;
 
     // Update job saturation values. Remember if there are any jobs we're not
@@ -208,7 +208,7 @@ static float weightedPreference(float saturation, float preference, const MP_Uni
 /** Looks for the most desirable job for the unit */
 static void findJob(MP_Unit* unit) {
     const MP_UnitSatisfactionMeta* meta;
-    const MP_UnitSaturation* state;
+    const MP_UnitSatisfaction* state;
     MP_Job* bestJob;
     unsigned int bestNumber;
     float bestWeightedDistance;
@@ -221,7 +221,7 @@ static void findJob(MP_Unit* unit) {
 
     // Initialize.
     meta = &unit->meta->satisfaction;
-    state = &unit->saturation;
+    state = &unit->satisfaction;
     bestJob = NULL;
     bestNumber = 0;
     bestWeightedDistance = FLT_MAX;

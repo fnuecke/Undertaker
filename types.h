@@ -30,7 +30,7 @@ extern "C" {
 
     typedef struct MP_Unit MP_Unit;
     typedef struct MP_UnitMeta MP_UnitMeta;
-    typedef struct MP_UnitSaturation MP_UnitSaturation;
+    typedef struct MP_UnitSatisfaction MP_UnitSatisfaction;
     typedef struct MP_UnitSatisfactionMeta MP_UnitSatisfactionMeta;
     typedef struct MP_UnitJobSaturationMeta MP_UnitJobSaturationMeta;
     typedef struct MP_AI_Info MP_AI_Info;

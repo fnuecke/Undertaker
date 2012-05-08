@@ -87,12 +87,6 @@ extern "C" {
         /** Job related satisfaction data */
         MP_UnitJobSaturationMeta* jobSaturation;
 
-        /** How satisfaction changes when being slapped */
-        float slapDelta;
-
-        /** How satisfaction changes while being held in the hand */
-        float inHandDelta;
-
         /** The value at which a unit becomes seriously pissed */
         float angerThreshold;
 
