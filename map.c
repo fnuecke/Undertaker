@@ -16,6 +16,7 @@
 #include "cursor.h"
 #include "graphics.h"
 #include "jobs.h"
+#include "jobs_events.h"
 #include "picking.h"
 #include "render.h"
 #include "selection.h"
@@ -466,12 +467,10 @@ static void updateBlock(MP_Block* block) {
         }
     }
 
-    // Update jobs for this block by deselecting it.
+    // Deselect block and fire event for AI scripts.
     for (int i = 0; i < MP_PLAYER_COUNT; ++i) {
-        if (!MP_DeselectBlock(MP_PLAYER_NONE + i, x, y)) {
-            //MP_UpdateJobsForBlock(MP_PLAYER_NONE + i, x, y);
-            // TODO event
-        }
+        MP_DeselectBlock(MP_PLAYER_NONE + i, x, y);
+        MP_FireBlockDestroyed(block, x, y);
     }
 }
 
@@ -1408,9 +1407,8 @@ int MP_ConvertBlock(MP_Block* block, unsigned int strength, MP_Player player) {
         // Completely repaired.
         block->strength = max_strength;
 
-        // Update jobs nearby.
-        //MP_UpdateJobsForBlock(player, x, y);
-        // TODO event
+        // Fire event for AI scripts.
+        MP_FireBlockConverted(block, x, y);
     }
     return 1;
 }

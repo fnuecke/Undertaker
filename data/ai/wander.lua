@@ -1,5 +1,5 @@
 -- Register the wander job for the newly added unit.
-function onUnitAdded(unit, x, y, player)
+function onUnitAdded(unit)
 	-- We target ourself.
 	addUnitJob(unit, unit, "wander")
 end

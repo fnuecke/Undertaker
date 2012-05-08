@@ -1,4 +1,5 @@
 #include "units.h"
+#include "jobs_events.h"
 
 #include <float.h>
 #include <math.h>
@@ -169,8 +170,13 @@ bool MP_IsUnitMoving(const MP_Unit* unit) {
     return unit->ai->pathing.index < unit->ai->pathing.depth;
 }
 
-int MP_AddUnit(MP_Player player, const MP_UnitMeta* type, const vec2* position) {
-    MP_Unit* unit = &units[gTotalUnitCount];
+int MP_AddUnit(MP_Player player, const MP_UnitMeta* meta, const vec2* position) {
+    MP_Unit* unit;
+
+    // Unit definition valid?
+    if (!meta) {
+        return 0;
+    }
 
     // Can there be any more units?
     if (gTotalUnitCount > MP_PLAYER_COUNT * MP_UNITS_MAX_PER_PLAYER) {
@@ -179,7 +185,8 @@ int MP_AddUnit(MP_Player player, const MP_UnitMeta* type, const vec2* position) 
 
     // Initialize a new unit. We do this up front because it's needed for
     // the next spawn point validity check.
-    unit->meta = type;
+    unit = &units[gTotalUnitCount];
+    unit->meta = meta;
     unit->owner = player;
     unit->position = *position;
 
@@ -201,6 +208,9 @@ int MP_AddUnit(MP_Player player, const MP_UnitMeta* type, const vec2* position) 
     // Increment counters.
     ++gTotalUnitCount;
     ++gUnitCount[player];
+
+    // Send event to AI scripts.
+    MP_FireUnitAdded(unit);
 
     return 1;
 }

@@ -160,7 +160,7 @@ static void popCanceled(MP_Unit* unit) {
 /** Get preference value from AI script */
 static float getDynamicPreference(MP_Unit* unit, MP_Job* job) {
     lua_State* L = job->meta->L;
-    // Try to get the preference callback.
+    // Try to get the callback.
     lua_getglobal(L, "preference");
     if (lua_isfunction(L, -1)) {
         // Call it.

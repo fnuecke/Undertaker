@@ -87,26 +87,24 @@ extern "C" {
     ///////////////////////////////////////////////////////////////////////////////
 
     /**
-     * Select the block at the specified coordinates for the specified player. Will
-     * do nothing if the block is not selectable. If a selection change took place,
-     * this will also trigger an update to the nearby jobs.
+     * Select the block at the specified coordinates for the specified player.
+     * Will do nothing if the block is not selectable. If a selection change
+     * took place, this will also trigger an event for AI scripts.
      * @param player the player to select the block for.
      * @param x the x coordinate of the block, in map space.
      * @param y the y coordinate of the block, in map space.
-     * @return whether the block selection changed (1) or not (0).
      */
-    int MP_SelectBlock(MP_Player player, int x, int y);
+    void MP_SelectBlock(MP_Player player, int x, int y);
 
     /**
      * Deselect the block at the specified coordinates for the specified player.
-     * Will do nothing if the coordinates are invalid. If a selection change took
-     * place, this will also trigger an update to the nearby jobs.
+     * Will do nothing if the coordinates are invalid. If a selection change
+     * took place, this will also trigger an event for AI scripts.
      * @param player the player to deselect the block for.
      * @param x the x coordinate of the block, in map space.
      * @param y the y coordinate of the block, in map space.
-     * @return whether the block selection changed (1) or not (0).
      */
-    int MP_DeselectBlock(MP_Player player, int x, int y);
+    void MP_DeselectBlock(MP_Player player, int x, int y);
 
     ///////////////////////////////////////////////////////////////////////////////
     // Initialization / Update

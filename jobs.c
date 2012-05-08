@@ -135,7 +135,7 @@ static void getJobPosition(vec2* position, const MP_Job* job) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Header implementation
+// Rendering
 ///////////////////////////////////////////////////////////////////////////////
 
 /** Debug rendering of where jobs are */
@@ -199,40 +199,9 @@ static void onRender(void) {
     }
 }
 
-static void MP_UpdateJobsForBlock(MP_Player player, unsigned short x, unsigned short y) {
-    MP_Block* block = MP_GetBlockAt(x, y);
-
-    // Remove all old jobs that had to do with this block.
-    for (unsigned int metaId = 0; metaId < gJobTypeCapacity[MP_PLAYER_ONE]; ++metaId) {
-        for (unsigned int number = gJobsCount[player][metaId]; number > 0; --number) {
-            MP_Job* job = gJobs[player][metaId][number - 1];
-            if (job->block == block) {
-                // Remove this one. Notify worker that it's no longer needed.
-                MP_StopJob(job);
-
-                // Free memory.
-                deleteJob(player, metaId, number - 1);
-            }
-        }
-    }
-
-    // Update / recreate jobs.
-    /*
-        addJobOpenings(player, x, y);
-        if (x > 0) {
-            addJobOpenings(player, x - 1, y);
-        }
-        if (x < MP_GetMapSize() - 1) {
-            addJobOpenings(player, x + 1, y);
-        }
-        if (y > 0) {
-            addJobOpenings(player, x, y - 1);
-        }
-        if (y < MP_GetMapSize() - 1) {
-            addJobOpenings(player, x, y + 1);
-        }
-     */
-}
+///////////////////////////////////////////////////////////////////////////////
+// Accessors
+///////////////////////////////////////////////////////////////////////////////
 
 MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobMeta* type, float* distance) {
     MP_Job* closestJob = NULL;
@@ -298,6 +267,10 @@ MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobMeta* type, float* distance)
 void MP_RunJob(MP_Unit* unit, const MP_JobMeta* job) {
 
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// Init / Teardown
+///////////////////////////////////////////////////////////////////////////////
 
 void MP_ClearJobs(void) {
     for (unsigned int player = 0; player < MP_PLAYER_COUNT; ++player) {

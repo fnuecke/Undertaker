@@ -1,5 +1,8 @@
 #include "selection.h"
 
+
+#include "jobs_events.h"
+
 #include "bitset.h"
 #include "block.h"
 #include "jobs.h"
@@ -160,34 +163,30 @@ void MP_ConfirmSelection(void) {
 // Modifiers
 ///////////////////////////////////////////////////////////////////////////////
 
-int MP_SelectBlock(MP_Player player, int x, int y) {
+void MP_SelectBlock(MP_Player player, int x, int y) {
     if (MP_IsBlockSelectable(player, x, y)) {
         const unsigned int idx = y * MP_GetMapSize() + x;
 
         // Only update if something changed.
         if (!BS_Test(gPlayerSelection[player], idx)) {
             BS_Set(gPlayerSelection[player], idx);
-            //MP_UpdateJobsForBlock(player, x, y);
-            // TODO event
-            return 1;
+            // Send event to AI scripts.
+            MP_FireBlockSelectionChanged(MP_GetBlockAt(x, y), x, y, true);
         }
     }
-    return 0;
 }
 
-int MP_DeselectBlock(MP_Player player, int x, int y) {
+void MP_DeselectBlock(MP_Player player, int x, int y) {
     if (x >= 0 && y >= 0 && x < MP_GetMapSize() && y < MP_GetMapSize()) {
         const unsigned int idx = y * MP_GetMapSize() + x;
 
         // Only update if something changed.
         if (BS_Test(gPlayerSelection[player], idx)) {
             BS_Unset(gPlayerSelection[player], idx);
-            //MP_UpdateJobsForBlock(player, x, y);
-            // TODO event
-            return 1;
+            // Send event to AI scripts.
+            MP_FireBlockSelectionChanged(MP_GetBlockAt(x, y), x, y, false);
         }
     }
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -26,7 +26,7 @@ extern "C" {
         lua_State* L;
 
         /** List to check which events are handled by the script */
-        bool handledEvents[MP_JOB_EVENT_COUNT];
+        bool handlesEvent[MP_JOB_EVENT_COUNT];
 
         /** Whether the script should be queried for a current saturation */
         bool hasDynamicPreference;
