@@ -45,7 +45,7 @@ extern "C" {
         DK_TextureID texturesSide[DK_BLOCK_LEVEL_COUNT][DK_BLOCK_TEXTURE_SIDE_COUNT];
     };
 
-    META_header(DK_BlockMeta, Block)
+    META_header(DK_BlockMeta, Block);
 
 #ifdef	__cplusplus
 }

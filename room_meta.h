@@ -39,7 +39,7 @@ extern "C" {
         unsigned int health;
     };
 
-    META_header(DK_RoomMeta, Room)
+    META_header(DK_RoomMeta, Room);
 
 #ifdef	__cplusplus
 }

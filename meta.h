@@ -51,7 +51,7 @@ unsigned int DK_Get##NAME##MetaCount(void); \
 bool DK_Add##NAME##Meta(const TYPE* meta); \
 int DK_Lua_##NAME##MetaDefaults(lua_State* L); \
 int DK_Lua_Add##NAME##Meta(lua_State* L); \
-void DK_Clear##NAME##Meta(void);
+void DK_Clear##NAME##Meta(void)
 
 #define META_globals(TYPE) \
 static TYPE* gMetas = 0; \

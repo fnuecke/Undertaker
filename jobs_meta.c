@@ -38,6 +38,45 @@ inline static void deleteMeta(DK_JobMeta* m) {
 
 META_impl(DK_JobMeta, Job)
 
+void DK_DisableJobEvent(const DK_JobMeta* meta, DK_JobEvent event) {
+    if (meta) {
+        // Get non-const pointer...
+        for (unsigned int i = 0; i < gMetaCount; ++i) {
+            if (gMetas[i].id == meta->id) {
+                // Modify.
+                gMetas[i].handledEvents[event] = false;
+                return;
+            }
+        }
+    }
+}
+
+void DK_DisableDynamicPreference(const DK_JobMeta* meta) {
+    if (meta) {
+        // Get non-const pointer...
+        for (unsigned int i = 0; i < gMetaCount; ++i) {
+            if (gMetas[i].id == meta->id) {
+                // Modify.
+                gMetas[i].hasDynamicPreference = false;
+                return;
+            }
+        }
+    }
+}
+
+void DK_DisableRunMethod(const DK_JobMeta* meta) {
+    if (meta) {
+        // Get non-const pointer...
+        for (unsigned int i = 0; i < gMetaCount; ++i) {
+            if (gMetas[i].id == meta->id) {
+                // Modify.
+                gMetas[i].hasRunMethod = false;
+                return;
+            }
+        }
+    }
+}
+
 int DK_Lua_AddJobMeta(lua_State* L) {
     char filename[128];
 

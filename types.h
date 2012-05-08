@@ -90,17 +90,17 @@ extern "C" {
     } DK_BlockTextureSide;
 
     /** Possible events to which a job may react */
-    typedef enum DK_JobEvents {
+    typedef enum DK_JobEvent {
         DK_JOB_EVENT_UNIT_ADDED,
         DK_JOB_EVENT_BLOCK_SELECTION_CHANGED,
         DK_JOB_EVENT_BLOCK_DESTROYED,
         DK_JOB_EVENT_BLOCK_CONVERTED,
 
         DK_JOB_EVENT_COUNT
-    } DK_JobEvents;
+    } DK_JobEvent;
 
     /** Player IDs for possible players in a game */
-    typedef enum {
+    typedef enum DK_Player {
         DK_PLAYER_NONE,
         DK_PLAYER_ONE,
         DK_PLAYER_TWO,

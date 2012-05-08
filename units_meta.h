@@ -124,7 +124,7 @@ extern "C" {
         DK_UnitSatisfactionMeta satisfaction;
     };
 
-    META_header(DK_UnitMeta, Unit)
+    META_header(DK_UnitMeta, Unit);
 
 #ifdef	__cplusplus
 }

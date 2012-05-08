@@ -35,7 +35,25 @@ extern "C" {
         bool hasRunMethod;
     };
 
-    META_header(DK_JobMeta, Job)
+    META_header(DK_JobMeta, Job);
+
+    /**
+     * Utility method to disable a single event callback for a specific job meta.
+     * @param meta the meta to modify.
+     */
+    void DK_DisableJobEvent(const DK_JobMeta* meta, DK_JobEvent event);
+
+    /**
+     * Utility method to disable the dynamic preference for a specific job meta.
+     * @param meta the meta to modify.
+     */
+    void DK_DisableDynamicPreference(const DK_JobMeta* meta);
+
+    /**
+     * Utility method to disable the run method for a specific job meta.
+     * @param meta the meta to modify.
+     */
+    void DK_DisableRunMethod(const DK_JobMeta* meta);
 
 #ifdef	__cplusplus
 }

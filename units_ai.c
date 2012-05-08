@@ -149,8 +149,42 @@ static void updateSaturation(DK_Unit* unit) {
     }
 }
 
+static float getDynamicPreference(DK_Unit* unit, DK_Job* job) {
+    lua_State* L = job->meta->L;
+    // Try to get the preference callback.
+    lua_getglobal(L, "preference");
+    if (lua_isfunction(L, -1)) {
+        // Call it.
+        // TODO parameters; at least the unit this concerns.
+        if (lua_pcall(L, 0, 1, 0) == LUA_OK) {
+            // OK, try to get the result as a float.
+            if (lua_isnumber(L, -1)) {
+                float preference = lua_tonumber(L, -1);
+                lua_pop(L, 1);
+                return preference;
+            } else {
+                lua_pop(L, 1);
+                fprintf(DK_log_target, "ERROR: Dynamic preference for '%s' returned something that's not a number.\n", job->meta->name);
+            }
+        } else {
+            // Something went wrong.
+            fprintf(DK_log_target, "ERROR: Something bad happened evaluating dynamic preference for '%s': %s\n", job->meta->name, lua_tostring(L, -1));
+            lua_pop(L, 1);
+        }
+    } else {
+        fprintf(DK_log_target, "ERROR: Dynamic preference function for '%s' isn't a function anymore.\n", job->meta->name);
+    }
+
+    // We get here only on failure. In that case disable the dynamic preference,
+    // so we don't try this again.
+    fprintf(DK_log_target, "INFO: Disabling dynamic preference for '%s'.\n", job->meta->name);
+    DK_DisableDynamicPreference(job->meta);
+
+    return 0;
+}
+
 /** Computes additional job weight based on saturation */
-static float weightedPreference(float saturation, const DK_UnitJobSaturationMeta* meta) {
+static float weightedPreference(float saturation, float preference, const DK_UnitJobSaturationMeta* meta) {
     // Map saturation to interval between unsatisfied and satisfied thresh so
     // that unsatisfiedThreshold = 1 and satisfiedThreshold = 0 and ensure it's
     // larger or equal to zero.
@@ -159,7 +193,7 @@ static float weightedPreference(float saturation, const DK_UnitJobSaturationMeta
     if (saturation < 0.0f) {
         saturation = 0.0f;
     } // It's OK if it's larger than one, in that case the unit is unsatisfied.
-    return meta->preference * saturation;
+    return preference * saturation;
 }
 
 /** Looks for the most desirable job for the unit */
@@ -202,7 +236,11 @@ static void findJob(DK_Unit* unit) {
         }
 
         // Weigh the distance based on the saturation and preference.
-        distance -= weightedPreference(state->jobSaturation[number], &meta->jobSaturation[number]);
+        if (job->meta->hasDynamicPreference) {
+            distance -= weightedPreference(state->jobSaturation[number], getDynamicPreference(unit, job), &meta->jobSaturation[number]);
+        } else {
+            distance -= weightedPreference(state->jobSaturation[number], meta->jobSaturation[number].preference, &meta->jobSaturation[number]);
+        }
 
         // Better than other jobs we have found?
         if (distance < bestWeightedDistance) {
