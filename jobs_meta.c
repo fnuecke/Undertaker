@@ -95,8 +95,92 @@ void MP_DisableRunMethod(const MP_JobMeta* meta) {
 // Lua callbacks
 ///////////////////////////////////////////////////////////////////////////////
 
+static int addJob(lua_State* L) {
+    return 0;
+}
+
+static int removeJob(lua_State* L) {
+    return 0;
+}
+
+static const luaL_Reg ailib[] = {
+    {"addJob", addJob},
+    {"removeJob", removeJob},
+    {NULL, NULL}
+};
+
+static unsigned int findEnv(lua_State* L) {
+    unsigned int i = 1;
+    const char* name;
+    while (1) {
+        name = lua_getupvalue(L, -1, i);
+        if (name == NULL) {
+            return 0;
+        }
+        lua_pop(L, 1);
+        if (strcmp(name, "_ENV") == 0) {
+            return i;
+        }
+    }
+
+    // We'll never get here, but suppress warnings for dump parsers...
+    return 0;
+}
+
+static int blockNewIndex(lua_State* L) {
+    lua_pushstring(L, "globals are disabled");
+    return lua_error(L);
+}
+
+static bool createEnv(lua_State* L) {
+    // Find _ENV upvalue to force a local, immutable environment.
+    const int n = findEnv(L);
+    if (!n) {
+        return false;
+    }
+
+    // Create environment.
+    lua_newtable(L);
+    // -> f, env
+
+    // Create metatable.
+    lua_newtable(L);
+    // -> f, env, meta
+    lua_pushvalue(L, -1);
+    // -> f, env, meta, meta
+
+    // Register API methods.
+    for (const luaL_Reg* l = ailib; l->name != NULL; ++l) {
+        lua_pushcfunction(L, l->func);
+        // -> f, env, meta, meta, function
+        lua_setfield(L, -2, l->name);
+        // -> f, env, meta, meta
+    }
+
+    // Make meta its own index.
+    lua_setfield(L, -2, "__index");
+    // -> f, env, meta
+
+    // Disable adding new globals.
+    lua_pushcfunction(L, blockNewIndex);
+    // -> f, env, meta, function
+    lua_setfield(L, -2, "__newindex");
+    // -> f, env, meta
+
+    // Set the meta table for our environment.
+    lua_setmetatable(L, -2);
+    // -> f, env
+
+    // Apply the new environment.
+    lua_setupvalue(L, -2, n);
+    // -> f
+
+    return true;
+}
+
 int MP_Lua_AddJobMeta(lua_State* L) {
     char filename[128];
+    bool isEnvSetup = false;
 
     // New type, start with defaults.
     MP_JobMeta meta = gMetaDefaults;
@@ -109,7 +193,7 @@ int MP_Lua_AddJobMeta(lua_State* L) {
 
     // Skip if we already know this job (no overrides for job types).
     if (MP_GetJobMetaByName(meta.name)) {
-        fprintf(MP_log_target, "INFO: Duplicate job declaration for '%s', skipping.\n", meta.name);
+        MP_log_info("Duplicate job declaration for '%s', skipping.\n", meta.name);
         return 0;
     }
 
@@ -122,11 +206,11 @@ int MP_Lua_AddJobMeta(lua_State* L) {
         return luaL_argerror(L, 1, "job name too long");
     }
 
-    fprintf(MP_log_target, "INFO: Start parsing job file '%s'.\n", filename);
+    MP_log_info("Start parsing job file '%s'.\n", filename);
 
     // Try to parse the file.
     if (luaL_dofile(meta.L, filename) != LUA_OK) {
-        fprintf(MP_log_target, "ERROR: Failed parsing job file: %s\n", lua_tostring(meta.L, -1));
+        MP_log_error("Failed parsing job file:\n%s\n", lua_tostring(meta.L, -1));
         lua_close(meta.L);
         return luaL_argerror(L, 1, "invalid job script");
     }
@@ -134,28 +218,43 @@ int MP_Lua_AddJobMeta(lua_State* L) {
     // Check script capabilities. First, check for event callbacks.
     for (unsigned int jobEvent = 0; jobEvent < MP_JOB_EVENT_COUNT; ++jobEvent) {
         lua_getglobal(meta.L, JOB_EVENT_NAME[jobEvent]);
-        meta.handlesEvent[jobEvent] = lua_isfunction(meta.L, -1);
-        lua_pop(meta.L, 1);
-        if (meta.handlesEvent[jobEvent]) {
-            fprintf(MP_log_target, "INFO: Found event handler '%s'.\n", JOB_EVENT_NAME[jobEvent]);
+        if (lua_isfunction(meta.L, -1)) {
+            if (!isEnvSetup && !createEnv(meta.L)) {
+                lua_pushfstring(L, "failed setting up environment for '%s'", JOB_EVENT_NAME[jobEvent]);
+                return lua_error(L);
+            }
+            isEnvSetup = true;
+            meta.handlesEvent[jobEvent] = true;
+            MP_log_info("Found event handler '%s'.\n", JOB_EVENT_NAME[jobEvent]);
         }
+        lua_pop(meta.L, 1);
     }
 
     // Then check for dynamic preference callback.
     lua_getglobal(meta.L, "preference");
-    meta.hasDynamicPreference = lua_isfunction(meta.L, -1);
-    lua_pop(meta.L, 1);
-    if (meta.hasDynamicPreference) {
-        fprintf(MP_log_target, "INFO: Found dynamic preference callback.\n");
+    if (lua_isfunction(meta.L, -1)) {
+        if (!isEnvSetup && !createEnv(meta.L)) {
+            lua_pushfstring(L, "failed setting up environment for '%s'", "preference");
+            return lua_error(L);
+        }
+        isEnvSetup = true;
+        meta.hasDynamicPreference = true;
+        MP_log_info("Found dynamic preference callback.\n");
     }
+    lua_pop(meta.L, 1);
 
     // And finally for the run callback (job active logic).
     lua_getglobal(meta.L, "run");
-    meta.hasRunMethod = lua_isfunction(meta.L, -1);
-    lua_pop(meta.L, 1);
-    if (meta.hasRunMethod) {
-        fprintf(MP_log_target, "INFO: Found run callback.\n");
+    if (lua_isfunction(meta.L, -1)) {
+        if (!isEnvSetup && !createEnv(meta.L)) {
+            lua_pushfstring(L, "failed setting up environment for '%s'", "run");
+            return lua_error(L);
+        }
+        isEnvSetup = true;
+        meta.hasRunMethod = true;
+        MP_log_info("Found run callback.\n");
     }
+    lua_pop(meta.L, 1);
 
     // Try to add the job.
     if (!MP_AddJobMeta(&meta)) {
@@ -163,7 +262,7 @@ int MP_Lua_AddJobMeta(lua_State* L) {
         return luaL_argerror(L, 1, "bad job meta");
     }
 
-    fprintf(MP_log_target, "INFO: Done parsing job file '%s'.\n", filename);
+    MP_log_info("Done parsing job file '%s'.\n", filename);
 
     return 0;
 }
@@ -173,26 +272,28 @@ int MP_Lua_AddJobMeta(lua_State* L) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static void onUnitAdded(MP_JobMeta* meta, MP_Unit* unit) {
+    const char* eventName = JOB_EVENT_NAME[MP_JOB_EVENT_UNIT_ADDED];
     lua_State* L = meta->L;
     // Try to get the callback.
-    lua_getglobal(L, "preference");
+    lua_getglobal(L, eventName);
     if (lua_isfunction(L, -1)) {
         // Call it.
         // TODO parameters; at least the unit this concerns.
-        if (lua_pcall(L, 0, 0, 0) == LUA_OK) {
+        lua_pushstring(L, "test");
+        if (lua_pcall(L, 1, 0, 0) == LUA_OK) {
             return;
         } else {
             // Something went wrong.
-            fprintf(MP_log_target, "ERROR: Something bad happened in event handler '%s' for job '%s': %s\n", JOB_EVENT_NAME[MP_JOB_EVENT_UNIT_ADDED], meta->name, lua_tostring(L, -1));
-            lua_pop(L, 1);
+            MP_log_error("Something bad happened in event handler '%s' for job '%s':\n%s\n", eventName, meta->name, lua_tostring(L, -1));
         }
     } else {
-        fprintf(MP_log_target, "ERROR: Event handler '%s' for job '%s' isn't a function anymore.\n", JOB_EVENT_NAME[MP_JOB_EVENT_UNIT_ADDED], meta->name);
+        lua_pop(L, 1);
+        MP_log_error("Event handler '%s' for job '%s' isn't a function anymore.\n", eventName, meta->name);
     }
 
     // We get here only on failure. In that case disable the event callback,
     // so we don't try this again.
-    fprintf(MP_log_target, "INFO: Disabling event callback '%s' for job '%s'.\n", JOB_EVENT_NAME[MP_JOB_EVENT_UNIT_ADDED], meta->name);
+    MP_log_info("Disabling event callback '%s' for job '%s'.\n", eventName, meta->name);
     MP_DisableJobEvent(meta, MP_JOB_EVENT_UNIT_ADDED);
 }
 

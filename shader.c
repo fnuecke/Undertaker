@@ -6,6 +6,7 @@
 #include <GL/glew.h>
 
 #include "config.h"
+#include "log.h"
 
 /** Print info log of a shader or program in case it failed to compile / link */
 static int verify(GLuint obj, const char* path) {
@@ -34,9 +35,9 @@ static int verify(GLuint obj, const char* path) {
     // Print info if we have any.
     if (log_size > 0) {
         if (path) {
-            fprintf(MP_log_target, "WARNING: Failed compiling shader '%s':\n%s\n", path, log);
+            MP_log_warning("Failed compiling shader '%s':\n%s\n", path, log);
         } else {
-            fprintf(MP_log_target, "WARNING: Failed linking program:\n%s\n", log);
+            MP_log_warning("Failed linking program:\n%s\n", log);
         }
     }
 
@@ -52,7 +53,7 @@ static GLuint loadShader(const char* path, GLenum type) {
 
     // Try to open the file.
     if (!(file = fopen(path, "r"))) {
-        fprintf(MP_log_target, "WARNING: Can't open shader '%s' for reading.\n", path);
+        MP_log_warning("Can't open shader '%s' for reading.\n", path);
         return 0;
     }
 
@@ -63,7 +64,7 @@ static GLuint loadShader(const char* path, GLenum type) {
 
     // Allocate enough memory to read the source.
     if (!(buffer = calloc(file_length, sizeof (char)))) {
-        fprintf(MP_log_target, "ERROR: Could not allocate enough memory for shader '%s'.\n", path);
+        MP_log_error("Could not allocate enough memory for shader '%s'.\n", path);
         fclose(file);
         return 0;
     }

@@ -12,6 +12,7 @@
 #include "cursor.h"
 #include "graphics.h"
 #include "jobs.h"
+#include "log.h"
 #include "map.h"
 #include "shader.h"
 #include "textures.h"
@@ -478,8 +479,7 @@ static void initGBuffer(void) {
 
     // Check if all worked fine and unbind the FBO
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        fprintf(MP_log_target, "ERROR: Can't initialize an FBO render texture. FBO initialization failed.");
-        exit(EXIT_FAILURE);
+        MP_log_fatal("Failed initializing GBuffer.");
     }
 
     // All done, unbind frame buffer.

@@ -197,13 +197,24 @@ int MP_AddUnit(MP_Player player, const MP_UnitMeta* meta, const vec2* position) 
 
     // OK, allocate AI data, if necessary.
     if (!unit->ai && !(unit->ai = calloc(1, sizeof (MP_AI_Info)))) {
-        fprintf(stderr, "Out of memory while allocating AI info.\n");
-        exit(EXIT_FAILURE);
+        MP_log_fatal("Out of memory while allocating AI info.\n");
+    }
+
+    // Allocate job saturation memory.
+    if (!unit->satisfaction.jobSaturation &&
+            !(unit->satisfaction.jobSaturation = calloc(unit->meta->jobCount, sizeof (float)))) {
+        MP_log_fatal("Out of memory while allocating job saturation.\n");
     }
 
     // Set the pointer past the lower stack bound, so we know we have to
     // find something to do.
     unit->ai->current = &unit->ai->stack[MP_AI_STACK_DEPTH];
+
+    // Set initial job saturations.
+    for (unsigned int number = 0; number < unit->meta->jobCount; ++number) {
+        unit->satisfaction.jobSaturation[number] =
+                unit->meta->satisfaction.jobSaturation[number].initialValue;
+    }
 
     // Increment counters.
     ++gTotalUnitCount;

@@ -5,6 +5,7 @@
 
 #include "config.h"
 #include "events.h"
+#include "log.h"
 
 #define PASSABILITY_TYPES_MAX (CHAR_BIT * sizeof(MP_Passability))
 
@@ -22,13 +23,13 @@ static void onMapSizeChange(void) {
 bool MP_AddPassability(const char* name) {
     // Is the name valid?
     if (!name || !strlen(name)) {
-        fprintf(MP_log_target, "ERROR: Invalid passability type name (null or empty).");
+        MP_log_error("Invalid passability type name (null or empty).");
         return false;
     }
 
     // Too many types.
     if (gPassabilityTypeCount >= PASSABILITY_TYPES_MAX) {
-        fprintf(MP_log_target, "ERROR: Too many passability types (maximum is %d).", PASSABILITY_TYPES_MAX);
+        MP_log_error("Too many passability types (maximum is %d).", PASSABILITY_TYPES_MAX);
         return false;
     }
 
@@ -39,9 +40,9 @@ bool MP_AddPassability(const char* name) {
         strcpy(gPassabilityTypes[gPassabilityTypeCount], name);
         ++gPassabilityTypeCount;
 
-        fprintf(MP_log_target, "INFO: Registered passability type '%s'.\n", name);
+        MP_log_info("Registered passability type '%s'.\n", name);
     } else {
-        fprintf(MP_log_target, "INFO: Redundant passability type '%s'.\n", name);
+        MP_log_info("Redundant passability type '%s'.\n", name);
     }
 
     return true;

@@ -10,6 +10,7 @@
 #include "camera.h"
 #include "config.h"
 #include "graphics.h"
+#include "log.h"
 #include "map.h"
 #include "map_loader.h"
 #include "render.h"
@@ -22,7 +23,7 @@
 #include "room_meta.h"
 
 static void shutdown(void) {
-    fprintf(MP_log_target, "INFO: Game shutting down...\n");
+    MP_log_info("Game shutting down...\n");
     MP_save_config();
 }
 
@@ -30,20 +31,18 @@ void MP_Init(void) {
     SDL_Surface* screen;
 
     MP_load_config();
-
-    fprintf(MP_log_target, "------------------------------------------------------------------------\n");
-    fprintf(MP_log_target, "INFO: Game starting up...\n");
+    
+    MP_log_info("Game starting up...\n");
 
     atexit(shutdown);
 
     // Set up SDL.
     if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO) < 0) {
-        fprintf(MP_log_target, "ERROR: Unable to initialize SDL: %s\n", SDL_GetError());
-        exit(EXIT_FAILURE);
+        MP_log_fatal("Unable to initialize SDL: %s\n", SDL_GetError());
     }
     atexit(SDL_Quit);
 
-    fprintf(MP_log_target, "INFO: SDL initialized successfully.\n");
+    MP_log_info("SDL initialized successfully.\n");
 
     // Set up OpenGL related settings.
     SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 5);
@@ -58,37 +57,34 @@ void MP_Init(void) {
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
     }
 
-    fprintf(MP_log_target, "INFO: Done configuring SDL.\n");
+    MP_log_info("Done configuring SDL.\n");
 
     // Set up video.
     screen = SDL_SetVideoMode(MP_resolution_x, MP_resolution_y, 0, SDL_HWSURFACE | SDL_OPENGL);
     if (screen == NULL) {
-        fprintf(MP_log_target, "ERROR: Unable to set video: %s.\n", SDL_GetError());
-        exit(EXIT_FAILURE);
+        MP_log_fatal("Unable to set video: %s.\n", SDL_GetError());
     }
 
     // Set window title.
     SDL_WM_SetCaption("Undertaker", NULL);
 
-    fprintf(MP_log_target, "INFO: Video set up successfully.\n");
+    MP_log_info("Video set up successfully.\n");
 
     if (glewInit()) {
-        fprintf(MP_log_target, "ERROR: Unable to initialize GLEW (%d).\n", glGetError());
-        exit(EXIT_FAILURE);
+        MP_log_fatal("Unable to initialize GLEW (%d).\n", glGetError());
     }
 
-    fprintf(MP_log_target, "INFO: GLEW initialized successfully\n");
+    MP_log_info("GLEW initialized successfully\n");
 
     if (!GLEW_VERSION_3_3) {
-        fprintf(MP_log_target, "ERROR: OpenGL 3.3 not supported.\n");
-        exit(EXIT_FAILURE);
+        MP_log_fatal("OpenGL 3.3 not supported.\n");
     }
-    fprintf(MP_log_target, "INFO: OpenGL 3.3 supported.\n");
+    MP_log_info("OpenGL 3.3 supported.\n");
 
     // Initialize openGL.
     MP_InitRender();
 
-    fprintf(MP_log_target, "INFO: Done initializing OpenGL.\n");
+    MP_log_info("Done initializing OpenGL.\n");
 
     // Set up event bindings.
     MP_InitGraphics();
@@ -101,7 +97,7 @@ void MP_Init(void) {
     MP_InitMap();
     MP_InitJobs();
 
-    fprintf(MP_log_target, "INFO: Done initializing internal hooks.\n");
+    MP_log_info("Done initializing internal hooks.\n");
 
     // Initialize a test map.
     MP_LoadMap("defaults");

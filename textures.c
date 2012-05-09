@@ -7,6 +7,7 @@
 #include <GL/glew.h>
 
 #include "config.h"
+#include "log.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Variables
@@ -38,8 +39,7 @@ static void loadTestTexture(void) {
     snprintf(filename, sizeof (filename), "%s%s%s", MP_TEX_DIR, "test", MP_TEX_FILETYPE);
     gTestTextureSurface = IMG_Load(filename);
     if (gTestTextureSurface == NULL) {
-        fprintf(MP_log_target, "ERROR: failed loading dummy texture.\n");
-        exit(EXIT_FAILURE);
+        MP_log_fatal("Failed loading dummy texture.\n");
     }
 }
 
@@ -47,8 +47,7 @@ static Texture* getNextFreeEntry(void) {
     if (gTextureCount >= gTextureCapacity) {
         gTextureCapacity = gTextureCapacity * 2 + 1;
         if (!(gTextures = realloc(gTextures, gTextureCapacity * sizeof (Texture)))) {
-            fprintf(stderr, "Out of memory while resizing texture list.\n");
-            exit(EXIT_FAILURE);
+            MP_log_fatal("Out of memory while resizing texture list.\n");
         }
     }
     return &gTextures[gTextureCount++];
@@ -104,7 +103,7 @@ MP_TextureID MP_LoadTexture(const char* basename) {
     while (1) {
         // Generate file name.
         if (snprintf(filename, sizeof (filename), "%s%s_%d%s", MP_TEX_DIR, basename, texture.count, MP_TEX_FILETYPE) > (int) sizeof (filename)) {
-            fprintf(MP_log_target, "ERROR: Texture name too long: '%s'.\n", basename);
+            MP_log_error("Texture name too long: '%s'.\n", basename);
             break;
         }
 
@@ -127,7 +126,7 @@ MP_TextureID MP_LoadTexture(const char* basename) {
     }
 
     if (texture.count == 0) {
-        fprintf(MP_log_target, "WARNING: Found no variations of texture '%s'.\n", basename);
+        MP_log_warning("Found no variations of texture '%s'.\n", basename);
     }
 
     if (texture.count > 0) {

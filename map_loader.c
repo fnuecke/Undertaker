@@ -1,12 +1,11 @@
 #include "map_loader.h"
 
-#include <stdio.h>
-
 #include "block_meta.h"
 #include "config.h"
 #include "events.h"
 #include "jobs.h"
 #include "jobs_meta.h"
+#include "log.h"
 #include "map.h"
 #include "meta.h"
 #include "room_meta.h"
@@ -22,7 +21,8 @@ void MP_LoadMap(const char* mapname) {
         return;
     }
 
-    fprintf(MP_log_target, "INFO: Loading map '%s'.\n", mapname);
+    MP_log_info("Loading map '%s'.\n", mapname);
+    fflush(MP_log_target);
 
     // Kill remaining jobs.
     MP_ClearJobs();
@@ -37,7 +37,11 @@ void MP_LoadMap(const char* mapname) {
     MP_ClearUnitMeta();
 
     // Load new meta information for the map.
-    MP_LoadMeta(mapname);
+    if (!MP_LoadMeta(mapname)) {
+        return;
+    }
+
+    fflush(MP_log_target);
 
     // Adjust map size and set default block type.
     MP_SetMapSize(128, MP_GetBlockMeta(1));

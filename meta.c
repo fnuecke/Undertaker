@@ -12,7 +12,7 @@ bool MP_LoadMeta(const char* name) {
 
     // Build the file name.
     if (snprintf(filename, sizeof (filename), "data/meta/%s.lua", name) > (int) sizeof (filename)) {
-        fprintf(MP_log_target, "ERROR: Meta name too long: '%s'.\n", name);
+        MP_log_error("Meta name too long: '%s'.\n", name);
         return false;
     }
 
@@ -28,17 +28,17 @@ bool MP_LoadMeta(const char* name) {
     lua_register(L, "unitdefaults", MP_Lua_UnitMetaDefaults);
     lua_register(L, "unit", MP_Lua_AddUnitMeta);
 
-    fprintf(MP_log_target, "INFO: Start parsing meta file '%s'.\n", filename);
+    MP_log_info("Start parsing meta file '%s'.\n", filename);
 
     // Try to parse the file.
     if (luaL_dofile(L, filename) != LUA_OK) {
         // Print error and clean up.
-        fprintf(MP_log_target, "ERROR: Failed parsing meta file: %s\n", lua_tostring(L, -1));
+        MP_log_error("Failed parsing meta file:\n%s\n", lua_tostring(L, -1));
         lua_close(L);
         return false;
     }
 
-    fprintf(MP_log_target, "INFO: Done parsing meta file '%s'.\n", filename);
+    MP_log_info("Done parsing meta file '%s'.\n", filename);
 
     // Clean up.
     lua_close(L);

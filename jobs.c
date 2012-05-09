@@ -41,18 +41,15 @@ static void ensureJobListSize(MP_Player player, unsigned int metaId) {
         unsigned int newCapacity = metaId + 1;
 
         if (!(gJobs[player] = realloc(gJobs[player], newCapacity * sizeof (MP_Job***)))) {
-            fprintf(stderr, "Out of memory while resizing job list.\n");
-            exit(EXIT_FAILURE);
+            MP_log_fatal("Out of memory while resizing job list.\n");
         }
 
         if (!(gJobsCount[player] = realloc(gJobsCount[player], newCapacity * sizeof (unsigned int)))) {
-            fprintf(stderr, "Out of memory while resizing job count list.\n");
-            exit(EXIT_FAILURE);
+            MP_log_fatal("Out of memory while resizing job count list.\n");
         }
 
         if (!(gJobsCapacity[player] = realloc(gJobsCapacity[player], newCapacity * sizeof (unsigned int)))) {
-            fprintf(stderr, "Out of memory while resizing job capacity list.\n");
-            exit(EXIT_FAILURE);
+            MP_log_fatal("Out of memory while resizing job capacity list.\n");
         }
 
         // Clear the new slots.
@@ -72,8 +69,7 @@ static void ensureJobTypeListSize(MP_Player player, unsigned int metaId) {
     if (gJobsCount[player][metaId] + 1 > gJobsCapacity[player][metaId]) {
         gJobsCapacity[player][metaId] = gJobsCapacity[player][metaId] * 2 + 1;
         if (!(gJobs[player][metaId] = realloc(gJobs[player][metaId], gJobsCapacity[player][metaId] * sizeof (MP_Job**)))) {
-            fprintf(stderr, "Out of memory while resizing job list.\n");
-            exit(EXIT_FAILURE);
+            MP_log_fatal("Out of memory while resizing job list.\n");
         }
     }
 }
@@ -89,8 +85,7 @@ static MP_Job* newJob(MP_Player player, const MP_JobMeta* meta) {
 
     // Allocate the actual job.
     if (!(job = calloc(1, sizeof (MP_Job)))) {
-        fprintf(stderr, "Out of memory while allocating a job.\n");
-        exit(EXIT_FAILURE);
+        MP_log_fatal("Out of memory while allocating a job.\n");
     }
     job->meta = meta;
 

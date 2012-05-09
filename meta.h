@@ -9,7 +9,6 @@
 #define	META_H
 
 #include <malloc.h>
-#include <stdio.h>
 #include <string.h>
 
 #include "lua/lua.h"
@@ -17,6 +16,7 @@
 
 #include "config.h"
 #include "events.h"
+#include "log.h"
 #include "types.h"
 
 #ifdef	__cplusplus
@@ -114,20 +114,20 @@ bool MP_Add##NAME##Meta(const TYPE* meta) { \
     if (meta && meta->name) { \
         if ((m = findByName(meta->name))) { \
             if (updateMeta(m, meta)) { \
-                fprintf(MP_log_target, "INFO: Successfully updated %s type '%s'.\n", #NAME, meta->name); \
+                MP_log_info("Successfully updated %s type '%s'.\n", #NAME, meta->name); \
                 return true; \
             } else { \
-                fprintf(MP_log_target, "ERROR: Failed updating %s type '%s'.\n", #NAME, meta->name); \
+                MP_log_error("Failed updating %s type '%s'.\n", #NAME, meta->name); \
             } \
         } else { \
             m = getNextFreeEntry(); \
             if (initMeta(m, meta)) { \
                 m->id = gMetaCount; \
                 m->name = storeName(meta->name); \
-                fprintf(MP_log_target, "INFO: Successfully registered %s type '%s'.\n", #NAME, meta->name); \
+                MP_log_info("Successfully registered %s type '%s'.\n", #NAME, meta->name); \
                 return true; \
             } else { \
-                fprintf(MP_log_target, "ERROR: Failed registering %s type '%s'.\n", #NAME, m->name); \
+                MP_log_error("Failed registering %s type '%s'.\n", #NAME, m->name); \
             } \
         } \
     } \

@@ -30,7 +30,7 @@ static void updateMove(MP_Unit* unit) {
     AI_Path* path = &unit->ai->pathing;
 
     // Are we even moving?
-    if (path->index > path->depth) {
+    if (path->index >= path->depth) {
         return;
     }
 
@@ -173,20 +173,20 @@ static float getDynamicPreference(MP_Unit* unit, MP_Job* job) {
                 return preference;
             } else {
                 lua_pop(L, 1);
-                fprintf(MP_log_target, "ERROR: Dynamic preference for '%s' returned something that's not a number.\n", job->meta->name);
+                MP_log_error("Dynamic preference for '%s' returned something that's not a number.\n", job->meta->name);
             }
         } else {
             // Something went wrong.
-            fprintf(MP_log_target, "ERROR: Something bad happened evaluating dynamic preference for '%s': %s\n", job->meta->name, lua_tostring(L, -1));
+            MP_log_error("Something bad happened evaluating dynamic preference for '%s':\n%s\n", job->meta->name, lua_tostring(L, -1));
             lua_pop(L, 1);
         }
     } else {
-        fprintf(MP_log_target, "ERROR: Dynamic preference function for '%s' isn't a function anymore.\n", job->meta->name);
+        MP_log_error("Dynamic preference function for '%s' isn't a function anymore.\n", job->meta->name);
     }
 
     // We get here only on failure. In that case disable the dynamic preference,
     // so we don't try this again.
-    fprintf(MP_log_target, "INFO: Disabling dynamic preference for '%s'.\n", job->meta->name);
+    MP_log_info("INFO: Disabling dynamic preference for '%s'.\n", job->meta->name);
     MP_DisableDynamicPreference(job->meta);
 
     return 0;

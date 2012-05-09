@@ -275,7 +275,7 @@ extern "C" {
     { \
         GLenum error = glGetError(); \
         if (error != GL_NO_ERROR) { \
-            fprintf(MP_log_target, "ERROR: OpenGL broke at %s:%d:\n%s\n", __FILE__, __LINE__, gluErrorString(error)); \
+            MP_log("ERROR: OpenGL broke at %s:%d:\n%s\n", __FILE__, __LINE__, gluErrorString(error)); \
             exit(EXIT_FAILURE); \
         } \
     }

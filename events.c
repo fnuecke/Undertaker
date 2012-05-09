@@ -49,9 +49,8 @@ static void key_down(const SDL_Event* e) {
             break;
         case SDLK_F4:
         {
-            vec2 p = {
-                {5, 10}
-            };
+            vec2 p = *MP_GetCursor(MP_CURSOR_LEVEL_FLOOR);
+            v2idivs(&p, MP_BLOCK_SIZE);
             MP_AddUnit(MP_PLAYER_ONE, MP_GetUnitMeta(1), &p);
             break;
         }

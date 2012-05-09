@@ -1234,8 +1234,7 @@ void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith) {
 
         // Allocate new map data.
         if (!(gMap = calloc(size * size, sizeof (MP_Block)))) {
-            fprintf(stderr, "Out of memory while allocating map data.\n");
-            exit(EXIT_FAILURE);
+            MP_log_fatal("Out of memory while allocating map data.\n");
         }
 
         // Free old map model data.
@@ -1246,8 +1245,7 @@ void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith) {
         gVertices = calloc(gVerticesPerDimension * gVerticesPerDimension * 5, sizeof (struct Vertex));
 
         if (!gVertices) {
-            fprintf(stderr, "Out of memory while allocating map model data.\n");
-            exit(EXIT_FAILURE);
+            MP_log_fatal("Out of memory while allocating map model data.\n");
         }
 
         MP_GL_DeleteMap();
