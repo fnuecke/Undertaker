@@ -1,7 +1,7 @@
 -- Register the wander job for the newly added unit.
 function onUnitAdded(unit)
 	-- We target ourself.
-	addJob {name="wander", tunit=unit}
+	addJob {name="wander", unit=unit}
 end
 
 function run(unit)
@@ -16,7 +16,7 @@ function run(unit)
     -- Just walk around dumbly.
 	local x = unit.position.x + WANDER_RANGE * (math.random() - 0.5)
 	local y = unit.position.y + WANDER_RANGE * (math.random() - 0.5)
-	
+
     -- TODO Make sure the unit doesn't wander too close to a wall.
     --[[
         if (position.d.x < 0.2f) {

@@ -43,19 +43,25 @@ static int tableToJobInfo(lua_State* L, MP_UnitMeta* meta) {
     MP_UnitJobSaturationMeta* saturation;
 
     // Get the name.
-    lua_getfield(L, -1, "name"); // -> table, table["name"]
-    luaL_argcheck(L, lua_type(L, -1) == LUA_TSTRING, narg, "keys must be strings");
+    lua_getfield(L, -1, "name");
+    // -> table, table["name"]
+    luaL_argcheck(L, lua_type(L, -1) == LUA_TSTRING, narg, "no 'name' or not a string");
     name = lua_tostring(L, -1);
-    lua_pop(L, 1); // -> table
+    lua_pop(L, 1);
+    // -> table
+
+    // Get job meta data.
     job = MP_GetJobMetaByName(name);
-    luaL_argcheck(L, job, narg, "unkown job");
+    luaL_argcheck(L, job, narg, "unknown job type");
 
     // Get or add the job type to the list of jobs the unit can perform.
     saturation = addOrGetJobSaturation(meta, job);
 
     // Now loop through the table. Push initial 'key' -- nil means start.
-    lua_pushnil(L); // -> table, key
-    while (lua_next(L, -2)) { // -> table, key, value
+    lua_pushnil(L);
+    // -> table, nil
+    while (lua_next(L, -2)) {
+        // -> table, key, value
         // Get key as string.
         const char* key;
         luaL_argcheck(L, lua_type(L, -2) == LUA_TSTRING, narg, "keys must be strings");
@@ -115,10 +121,12 @@ static int tableToJobInfo(lua_State* L, MP_UnitMeta* meta) {
         }
 
         // Pop 'value', keep key to get next entry.
-        lua_pop(L, 1); // -> table, key
+        lua_pop(L, 1);
+        // -> table, key
 
         ++narg;
-    } // -> table
+    }
+    // -> table
 
     return 0;
 }
@@ -134,11 +142,13 @@ static int tableToUnit(lua_State* L, MP_UnitMeta* meta, bool forDefaults) {
         const MP_UnitMeta* existing;
 
         // Get the name.
-        lua_getfield(L, -1, "name"); // -> table, table["name"]
-        luaL_argcheck(L, lua_type(L, -1) == LUA_TSTRING, narg, "keys must be strings");
+        lua_getfield(L, -1, "name");
+        // -> table, table["name"]
+        luaL_argcheck(L, lua_type(L, -1) == LUA_TSTRING, narg, "no 'name' or not a string");
         name = lua_tostring(L, -1);
-        lua_pop(L, 1); // -> table
-        luaL_argcheck(L, name && strlen(name), narg, "'name' must not be empty");
+        lua_pop(L, 1);
+        // -> table
+        luaL_argcheck(L, strlen(name), narg, "'name' must not be empty");
 
         // Check if that type is already known (override).
         if ((existing = MP_GetUnitMetaByName(name))) {
@@ -152,8 +162,11 @@ static int tableToUnit(lua_State* L, MP_UnitMeta* meta, bool forDefaults) {
     } // else meta already equals gMetaDefaults
 
     // Now loop through the table. Push initial 'key' -- nil means start.
-    lua_pushnil(L); // -> table, key
-    while (lua_next(L, -2)) { // -> table, key, value
+    lua_pushnil(L);
+    // -> table, nil
+    while (lua_next(L, -2)) {
+        // -> table, key, value
+
         // Get key as string.
         const char* key;
         luaL_argcheck(L, lua_type(L, -2) == LUA_TSTRING, narg, "keys must be strings");
@@ -170,13 +183,17 @@ static int tableToUnit(lua_State* L, MP_UnitMeta* meta, bool forDefaults) {
             if (lua_istable(L, -1)) {
                 // It's a table. Loop through that table in turn.
                 meta->canPass = 0;
-                lua_pushnil(L); // -> table, key, value=table, key
-                while (lua_next(L, -2)) { // -> table, key, value=table, key, value
+                lua_pushnil(L);
+                // -> table, key, value=table, key
+                while (lua_next(L, -2)) {
+                    // -> table, key, value=table, key, value
                     const MP_Passability value = MP_GetPassability(luaL_checkstring(L, -1));
                     luaL_argcheck(L, value, narg, "unknown 'passability' value");
                     meta->canPass |= value;
-                    lua_pop(L, 1); // -> table, key, value=table, key
-                } // -> table, key, value=table
+                    lua_pop(L, 1);
+                    // -> table, key, value=table, key
+                }
+                // -> table, key, value=table
             } else {
                 // Must be a single string in that case.
                 const MP_Passability value = MP_GetPassability(luaL_checkstring(L, -1));
@@ -192,12 +209,16 @@ static int tableToUnit(lua_State* L, MP_UnitMeta* meta, bool forDefaults) {
                 return luaL_argerror(L, narg, "'jobs' not allowed in defaults");
             } else {
                 luaL_argcheck(L, lua_istable(L, -1), narg, "'jobs' must be a table");
-                lua_pushnil(L); // -> table, key, value=table, key
-                while (lua_next(L, -2)) { // -> table, key, value=table, key, value
+                lua_pushnil(L);
+                // -> table, key, value=table, key
+                while (lua_next(L, -2)) {
+                    // -> table, key, value=table, key, value
                     luaL_argcheck(L, lua_istable(L, -1), narg, "'jobs' entries must be tables");
                     tableToJobInfo(L, meta);
-                    lua_pop(L, 1); // -> table, key, value=table, key
-                } // -> table, key, value=table
+                    lua_pop(L, 1);
+                    // -> table, key, value=table, key
+                }
+                // -> table, key, value=table
             }
 
         } else if (strcmp(key, "angrybelow") == 0) {
@@ -219,10 +240,12 @@ static int tableToUnit(lua_State* L, MP_UnitMeta* meta, bool forDefaults) {
         }
 
         // Pop 'value', keep key to get next entry.
-        lua_pop(L, 1); // -> table, key
+        lua_pop(L, 1);
+        // -> table, key
 
         ++narg;
-    } // -> table
+    }
+    // -> table
 
     return 0;
 }

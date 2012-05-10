@@ -53,11 +53,12 @@ static int tableToBlock(lua_State* L, MP_BlockMeta* meta, bool forDefaults) {
         const MP_BlockMeta* existing;
 
         // Get the name.
-        lua_getfield(L, -1, "name"); // -> table, table["name"]
-        luaL_argcheck(L, lua_type(L, -1) == LUA_TSTRING, narg, "keys must be strings");
+        lua_getfield(L, -1, "name");
+        // -> table, table["name"]
+        luaL_argcheck(L, lua_type(L, -1) == LUA_TSTRING, narg, "no 'name' or not a string");
         name = lua_tostring(L, -1);
         lua_pop(L, 1);
-        luaL_argcheck(L, name && strlen(name), narg, "'name' must not be empty");
+        luaL_argcheck(L, strlen(name), narg, "'name' must not be empty");
 
         // Check if that type is already known (override).
         if ((existing = MP_GetBlockMetaByName(name))) {
@@ -71,8 +72,10 @@ static int tableToBlock(lua_State* L, MP_BlockMeta* meta, bool forDefaults) {
     } // else meta already equals gMetaDefaults
 
     // Now loop through the table. Push initial 'key' -- nil means start.
-    lua_pushnil(L); // -> table, key
-    while (lua_next(L, -2)) { // -> table, key, value
+    lua_pushnil(L);
+    // -> table, nil
+    while (lua_next(L, -2)) {
+        // -> table, key, value
         // Get key as string.
         const char* key;
         luaL_argcheck(L, lua_type(L, -2) == LUA_TSTRING, narg, "keys must be strings");
@@ -123,10 +126,12 @@ static int tableToBlock(lua_State* L, MP_BlockMeta* meta, bool forDefaults) {
         }
 
         // Pop 'value', keep key to get next entry.
-        lua_pop(L, 1); // -> table, key
+        lua_pop(L, 1);
+        // -> table, key
 
         ++narg;
-    } // -> table
+    }
+    // -> table
 
     return 0;
 }

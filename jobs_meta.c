@@ -1,6 +1,10 @@
 #include "jobs_meta.h"
 
 #include "jobs_events.h"
+#include "jobs.h"
+#include "block.h"
+#include "room.h"
+#include "units.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Constants and globals
@@ -96,6 +100,59 @@ void MP_DisableRunMethod(const MP_JobMeta* meta) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static int addJob(lua_State* L) {
+    MP_Job job = {NULL, NULL, NULL, NULL, NULL, {{0, 0}}};
+    const char* name;
+    // Keep track at which table entry we are.
+    int narg = 1;
+
+    // Validate input.
+    luaL_argcheck(L, lua_gettop(L) == 1 && lua_istable(L, 1), 0, "must specify one table");
+
+    // Get the name.
+    lua_getfield(L, -1, "name");
+    // -> table, table["name"]
+    luaL_argcheck(L, lua_type(L, -1) == LUA_TSTRING, narg, "no 'name' or not a string");
+    name = lua_tostring(L, -1);
+    lua_pop(L, 1);
+    // -> table
+
+    // Get job meta data.
+    job.meta = MP_GetJobMetaByName(name);
+    luaL_argcheck(L, job.meta, narg, "unknown job type");
+
+    // Now loop through the table. Push initial 'key' -- nil means start.
+    lua_pushnil(L);
+    // -> table, nil
+    while (lua_next(L, -2)) {
+        // -> table, key, value
+        // Get key as string.
+        const char* key;
+        luaL_argcheck(L, lua_type(L, -2) == LUA_TSTRING, narg, "keys must be strings");
+        key = lua_tostring(L, -2);
+
+        // See what we have.
+        if (strcmp(key, "name") == 0) {
+            // Silently skip it.
+
+        } else if (strcmp(key, "block") == 0) {
+            job.block = MP_Lua_checkblock(L, -1);
+
+        } else if (strcmp(key, "room") == 0) {
+            job.room = MP_Lua_checkroom(L, -1);
+
+        } else if (strcmp(key, "unit") == 0) {
+            job.unit = MP_Lua_checkunit(L, -1);
+
+        } else if (strcmp(key, "offset") == 0) {
+            // TODO
+
+        } else {
+            return luaL_argerror(L, narg, "unknown key");
+        }
+
+        lua_pop(L, 1);
+    }
+
     return 0;
 }
 
@@ -262,6 +319,11 @@ int MP_Lua_AddJobMeta(lua_State* L) {
         return luaL_argerror(L, 1, "bad job meta");
     }
 
+    // OK, register metatables for types.
+    MP_Lua_RegisterBlock(meta.L);
+    MP_Lua_RegisterRoom(meta.L);
+    MP_Lua_RegisterUnit(meta.L);
+
     MP_log_info("Done parsing job file '%s'.\n", filename);
 
     return 0;
@@ -277,9 +339,8 @@ static void onUnitAdded(MP_JobMeta* meta, MP_Unit* unit) {
     // Try to get the callback.
     lua_getglobal(L, eventName);
     if (lua_isfunction(L, -1)) {
-        // Call it.
-        // TODO parameters; at least the unit this concerns.
-        lua_pushstring(L, "test");
+        // Call it with the unit that was added as the parameter.
+        MP_Lua_pushunit(L, unit);
         if (lua_pcall(L, 1, 0, 0) == LUA_OK) {
             return;
         } else {

@@ -14,13 +14,17 @@
 extern "C" {
 #endif
 
+    ///////////////////////////////////////////////////////////////////////////
+    // Types
+    ///////////////////////////////////////////////////////////////////////////
+
     /** Description of a single block instance */
     struct MP_Block {
         /** Info on the block type */
         const MP_BlockMeta* meta;
 
         /** The type of room on this block */
-        const MP_Room* room;
+        MP_Room* room;
 
         /** The player owning the block */
         MP_Player owner;
@@ -35,6 +39,10 @@ extern "C" {
         unsigned int gold;
     };
 
+    ///////////////////////////////////////////////////////////////////////////
+    // Accessors
+    ///////////////////////////////////////////////////////////////////////////
+
     MP_Passability MP_GetBlockPassability(const MP_Block* block);
 
     MP_BlockLevel MP_GetBlockLevel(const MP_Block* block);
@@ -46,6 +54,16 @@ extern "C" {
     bool MP_IsBlockDestructible(const MP_Block* block);
 
     bool MP_IsBlockConvertible(const MP_Block* block);
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Scripting
+    ///////////////////////////////////////////////////////////////////////////
+
+    void MP_Lua_RegisterBlock(lua_State* L);
+
+    void MP_Lua_pushblock(lua_State* L, MP_Block* block);
+
+    MP_Block* MP_Lua_checkblock(lua_State* L, int narg);
 
 #ifdef	__cplusplus
 }

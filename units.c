@@ -256,3 +256,27 @@ void MP_InitUnits(void) {
 
     quadratic = gluNewQuadric();
 }
+
+#define LUA_MT_UNIT "Unit"
+
+void MP_Lua_RegisterUnit(lua_State* L) {
+    luaL_newmetatable(L, LUA_MT_UNIT);
+
+    // TODO register methods
+
+    lua_pop(L, 1);
+}
+
+void MP_Lua_pushunit(lua_State* L, MP_Unit* unit) {
+    MP_Unit** ud = (MP_Unit**) lua_newuserdata(L, sizeof (MP_Unit*));
+    *ud = unit;
+    luaL_setmetatable(L, LUA_MT_UNIT);
+}
+
+MP_Unit* MP_Lua_checkunit(lua_State* L, int narg) {
+    void* ud = luaL_checkudata(L, narg, LUA_MT_UNIT);
+    luaL_argcheck(L, ud, 1, "'Unit' expected");
+    return *(MP_Unit**) ud;
+}
+
+#undef LUA_MT_UNIT
