@@ -52,7 +52,7 @@ static int tableToJobInfo(lua_State* L, MP_UnitMeta* meta) {
 
     // Get job meta data.
     job = MP_GetJobMetaByName(name);
-    luaL_argcheck(L, job, narg, "unknown job type");
+    luaL_argcheck(L, job != NULL, narg, "unknown job type");
 
     // Get or add the job type to the list of jobs the unit can perform.
     saturation = addOrGetJobSaturation(meta, job);
@@ -148,7 +148,7 @@ static int tableToUnit(lua_State* L, MP_UnitMeta* meta, bool forDefaults) {
         name = lua_tostring(L, -1);
         lua_pop(L, 1);
         // -> table
-        luaL_argcheck(L, strlen(name), narg, "'name' must not be empty");
+        luaL_argcheck(L, strlen(name) > 0, narg, "'name' must not be empty");
 
         // Check if that type is already known (override).
         if ((existing = MP_GetUnitMetaByName(name))) {
@@ -187,18 +187,18 @@ static int tableToUnit(lua_State* L, MP_UnitMeta* meta, bool forDefaults) {
                 // -> table, key, value=table, key
                 while (lua_next(L, -2)) {
                     // -> table, key, value=table, key, value
-                    const MP_Passability value = MP_GetPassability(luaL_checkstring(L, -1));
-                    luaL_argcheck(L, value, narg, "unknown 'passability' value");
-                    meta->canPass |= value;
+                    const MP_Passability canPass = MP_GetPassability(luaL_checkstring(L, -1));
+                    luaL_argcheck(L, canPass != MP_PASSABILITY_NONE, narg, "unknown 'passability' value");
+                    meta->canPass |= canPass;
                     lua_pop(L, 1);
                     // -> table, key, value=table, key
                 }
                 // -> table, key, value=table
             } else {
                 // Must be a single string in that case.
-                const MP_Passability value = MP_GetPassability(luaL_checkstring(L, -1));
-                luaL_argcheck(L, value, narg, "unknown 'passability' value");
-                meta->canPass = value;
+                const MP_Passability canPass = MP_GetPassability(luaL_checkstring(L, -1));
+                luaL_argcheck(L, canPass != MP_PASSABILITY_NONE, narg, "unknown 'passability' value");
+                meta->canPass = canPass;
             }
 
         } else if (strcmp(key, "movespeed") == 0) {
@@ -232,7 +232,7 @@ static int tableToUnit(lua_State* L, MP_UnitMeta* meta, bool forDefaults) {
 
         } else if (strcmp(key, "angerjob") == 0) {
             const MP_JobMeta* job = MP_GetJobMetaByName(luaL_checkstring(L, -1));
-            luaL_argcheck(L, job, narg, "unknown 'angerjob' value");
+            luaL_argcheck(L, job != NULL, narg, "unknown 'angerjob' value");
             meta->satisfaction.angerJob = job;
 
         } else {
@@ -289,7 +289,7 @@ META_impl(MP_UnitMeta, Unit)
 
 int MP_Lua_UnitMetaDefaults(lua_State* L) {
     // Validate input.
-    luaL_argcheck(L, lua_gettop(L) == 1 && lua_istable(L, 1), 0, "must specify one table");
+    luaL_argcheck(L, lua_gettop(L) == 1 && lua_istable(L, 1), 0, "one 'table' expected");
 
     // Build the block meta using the given properties.
     tableToUnit(L, &gMetaDefaults, true /* for defaults */);
@@ -302,15 +302,15 @@ int MP_Lua_AddUnitMeta(lua_State* L) {
     MP_UnitMeta meta = gMetaDefaults;
 
     // Validate input.
-    luaL_argcheck(L, lua_gettop(L) == 1 && lua_istable(L, 1), 0, "must specify one table");
+    luaL_argcheck(L, lua_gettop(L) == 1 && lua_istable(L, 1), 0, "one 'table' expected");
 
     // Build the block meta using the given properties.
     tableToUnit(L, &meta, false /* not for defaults */);
 
     // We require for at least the name to be set.
-    luaL_argcheck(L, meta.name, 1, "'name' is required but not set");
-    luaL_argcheck(L, meta.canPass, 1, "'canpass' is required but not set");
-    luaL_argcheck(L, meta.jobCount, 1, "unit must have at least one job");
+    luaL_argcheck(L, meta.name != NULL, 1, "'name' is required but not set");
+    luaL_argcheck(L, meta.canPass != MP_PASSABILITY_NONE, 1, "'canpass' is required but not set");
+    luaL_argcheck(L, meta.jobCount > 0, 1, "unit must have at least one job");
 
     // All green, add the type.
     if (!MP_AddUnitMeta(&meta)) {

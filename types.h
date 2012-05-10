@@ -44,6 +44,8 @@ extern "C" {
      * be combined as a bit field.
      */
     typedef unsigned int MP_Passability;
+    
+#define MP_PASSABILITY_NONE 0
 
     /** ID for textures that are loaded via the LoadTexture facilities */
     typedef unsigned int MP_TextureID;

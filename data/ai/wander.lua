@@ -1,7 +1,7 @@
 -- Register the wander job for the newly added unit.
 function onUnitAdded(unit)
 	-- We target ourself.
-	addJob {name="wander", unit=unit}
+	Job.create {name="wander", unit=unit}
 end
 
 function run(unit)
@@ -14,8 +14,9 @@ function run(unit)
 	local WANDER_DELAY_VARIANCE = 2
 
     -- Just walk around dumbly.
-	local x = unit.position.x + WANDER_RANGE * (math.random() - 0.5)
-	local y = unit.position.y + WANDER_RANGE * (math.random() - 0.5)
+	local x, y = unit:getPosition()
+	x = x + WANDER_RANGE * (math.random() - 0.5)
+	y = y + WANDER_RANGE * (math.random() - 0.5)
 
     -- TODO Make sure the unit doesn't wander too close to a wall.
     --[[
@@ -34,9 +35,9 @@ function run(unit)
     ]]
 
     -- Check if the block is valid for the unit.
-    if isBlockPassableBy(getBlockAt(math.floor(x), math.floor(y)), unit) then
+    if Block.at(math.floor(x), math.floor(y)):isPassableBy(unit) then
         -- OK go.
-        moveTo(unit, x, y)
+        unit:move(x, y)
 
         -- Update delay. Wait some before wandering again.
         state.delay = WANDER_DELAY_MIN + (math.random() * WANDER_DELAY_VARIANCE)

@@ -30,16 +30,6 @@ extern "C" {
         unsigned int blockCount;
     };
 
-    ///////////////////////////////////////////////////////////////////////////
-    // Scripting
-    ///////////////////////////////////////////////////////////////////////////
-
-    void MP_Lua_RegisterRoom(lua_State* L);
-
-    void MP_Lua_pushroom(lua_State* L, MP_Room* room);
-
-    MP_Room* MP_Lua_checkroom(lua_State* L, int narg);
-
 #ifdef	__cplusplus
 }
 #endif

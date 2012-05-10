@@ -55,16 +55,6 @@ extern "C" {
 
     bool MP_IsBlockConvertible(const MP_Block* block);
 
-    ///////////////////////////////////////////////////////////////////////////
-    // Scripting
-    ///////////////////////////////////////////////////////////////////////////
-
-    void MP_Lua_RegisterBlock(lua_State* L);
-
-    void MP_Lua_pushblock(lua_State* L, MP_Block* block);
-
-    MP_Block* MP_Lua_checkblock(lua_State* L, int narg);
-
 #ifdef	__cplusplus
 }
 #endif

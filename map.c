@@ -986,6 +986,11 @@ static void onRender(void) {
     const MP_BlockMeta* meta;
     MP_Player owner;
 
+    // Cannot render if there are no block types.
+    if (!defaultMeta) {
+        return;
+    }
+    
     beginDraw();
 
 #define LN(x, y) glLoadName(((unsigned short) (y) << 16) | (unsigned short) (x))
@@ -1364,16 +1369,16 @@ void MP_InitMap(void) {
     MP_OnPostRender(renderSelectionOutline);
 }
 
-int MP_DamageBlock(MP_Block* block, unsigned int damage) {
+bool MP_DamageBlock(MP_Block* block, unsigned int damage) {
     // Already destroyed (nothing to do)?
     if (block->durability <= 0) {
-        return 1;
+        return true;
     }
 
     // Check if this is the final blow.
     if (block->durability > damage) {
         block->durability -= damage;
-        return 0;
+        return false;
     }
 
     // Block is destroyed.
@@ -1383,17 +1388,17 @@ int MP_DamageBlock(MP_Block* block, unsigned int damage) {
     // Update visual representation of the surroundings.
     updateBlock(block);
 
-    return 1;
+    return true;
 }
 
-int MP_ConvertBlock(MP_Block* block, unsigned int strength, MP_Player player) {
+bool MP_ConvertBlock(MP_Block* block, unsigned int strength, MP_Player player) {
 
     // First reduce any enemy influence.
     if (block->owner != player) {
         // Not this player's, reduce strength.
         if (block->strength > strength) {
             block->strength -= strength;
-            return 0;
+            return false;
         }
 
         // Block is completely converted.
@@ -1403,7 +1408,7 @@ int MP_ConvertBlock(MP_Block* block, unsigned int strength, MP_Player player) {
         const unsigned int max_strength = block->meta->strength;
         block->strength += strength;
         if (block->strength < max_strength) {
-            return 0;
+            return false;
         } else {
             // Get the actual coordinates.
             unsigned short x = 0, y = 0;
@@ -1416,7 +1421,7 @@ int MP_ConvertBlock(MP_Block* block, unsigned int strength, MP_Player player) {
             MP_FireBlockConverted(block, x, y);
         }
     }
-    return 1;
+    return true;
 }
 
 void MP_SetBlockMeta(MP_Block* block, const MP_BlockMeta* meta) {

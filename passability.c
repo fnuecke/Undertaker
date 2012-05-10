@@ -59,7 +59,7 @@ MP_Passability MP_GetPassability(const char* name) {
 
 int MP_Lua_AddPassability(lua_State* L) {
     // Validate input.
-    luaL_argcheck(L, lua_gettop(L) == 1 && lua_isstring(L, 1), 0, "must specify one string");
+    luaL_argcheck(L, lua_gettop(L) == 1 && lua_isstring(L, 1), 0, "one 'string' expected");
 
     // Get the name and store it.
     if (!MP_AddPassability(luaL_checkstring(L, 1))) {

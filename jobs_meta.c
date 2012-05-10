@@ -1,10 +1,12 @@
 #include "jobs_meta.h"
 
-#include "jobs_events.h"
 #include "jobs.h"
+#include "jobs_events.h"
 #include "block.h"
 #include "room.h"
+#include "script.h"
 #include "units.h"
+#include "lua/lualib.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Constants and globals
@@ -99,138 +101,80 @@ void MP_DisableRunMethod(const MP_JobMeta* meta) {
 // Lua callbacks
 ///////////////////////////////////////////////////////////////////////////////
 
-static int addJob(lua_State* L) {
-    MP_Job job = {NULL, NULL, NULL, NULL, NULL, {{0, 0}}};
-    const char* name;
-    // Keep track at which table entry we are.
-    int narg = 1;
-
-    // Validate input.
-    luaL_argcheck(L, lua_gettop(L) == 1 && lua_istable(L, 1), 0, "must specify one table");
-
-    // Get the name.
-    lua_getfield(L, -1, "name");
-    // -> table, table["name"]
-    luaL_argcheck(L, lua_type(L, -1) == LUA_TSTRING, narg, "no 'name' or not a string");
-    name = lua_tostring(L, -1);
-    lua_pop(L, 1);
-    // -> table
-
-    // Get job meta data.
-    job.meta = MP_GetJobMetaByName(name);
-    luaL_argcheck(L, job.meta, narg, "unknown job type");
-
-    // Now loop through the table. Push initial 'key' -- nil means start.
-    lua_pushnil(L);
-    // -> table, nil
-    while (lua_next(L, -2)) {
-        // -> table, key, value
-        // Get key as string.
-        const char* key;
-        luaL_argcheck(L, lua_type(L, -2) == LUA_TSTRING, narg, "keys must be strings");
-        key = lua_tostring(L, -2);
-
-        // See what we have.
-        if (strcmp(key, "name") == 0) {
-            // Silently skip it.
-
-        } else if (strcmp(key, "block") == 0) {
-            job.block = MP_Lua_checkblock(L, -1);
-
-        } else if (strcmp(key, "room") == 0) {
-            job.room = MP_Lua_checkroom(L, -1);
-
-        } else if (strcmp(key, "unit") == 0) {
-            job.unit = MP_Lua_checkunit(L, -1);
-
-        } else if (strcmp(key, "offset") == 0) {
-            // TODO
-
-        } else {
-            return luaL_argerror(L, narg, "unknown key");
-        }
-
-        lua_pop(L, 1);
-    }
-
-    return 0;
-}
-
-static int removeJob(lua_State* L) {
-    return 0;
-}
-
-static const luaL_Reg ailib[] = {
-    {"addJob", addJob},
-    {"removeJob", removeJob},
-    {NULL, NULL}
-};
-
-static unsigned int findEnv(lua_State* L) {
-    unsigned int i = 1;
-    const char* name;
-    while (1) {
-        name = lua_getupvalue(L, -1, i);
-        if (name == NULL) {
-            return 0;
-        }
-        lua_pop(L, 1);
-        if (strcmp(name, "_ENV") == 0) {
-            return i;
-        }
-    }
-
-    // We'll never get here, but suppress warnings for dump parsers...
-    return 0;
-}
-
-static int blockNewIndex(lua_State* L) {
-    lua_pushstring(L, "globals are disabled");
+static int throwError(lua_State* L) {
+    lua_pushstring(L, "not allowed to change global state");
     return lua_error(L);
 }
 
-static bool createEnv(lua_State* L) {
-    // Find _ENV upvalue to force a local, immutable environment.
-    const int n = findEnv(L);
-    if (!n) {
-        return false;
-    }
-
-    // Create environment.
+static void getImmutableProxy(lua_State* L) {
+    // Create proxy table and metatable.
     lua_newtable(L);
-    // -> f, env
-
-    // Create metatable.
     lua_newtable(L);
-    // -> f, env, meta
-    lua_pushvalue(L, -1);
-    // -> f, env, meta, meta
 
-    // Register API methods.
-    for (const luaL_Reg* l = ailib; l->name != NULL; ++l) {
-        lua_pushcfunction(L, l->func);
-        // -> f, env, meta, meta, function
-        lua_setfield(L, -2, l->name);
-        // -> f, env, meta, meta
-    }
-
-    // Make meta its own index.
+    // Make old table the index.
+    lua_pushvalue(L, -3);
     lua_setfield(L, -2, "__index");
-    // -> f, env, meta
 
-    // Disable adding new globals.
-    lua_pushcfunction(L, blockNewIndex);
-    // -> f, env, meta, function
+    // Disable writing (at least to unassigned indexes).
+    lua_pushcfunction(L, throwError);
     lua_setfield(L, -2, "__newindex");
-    // -> f, env, meta
 
-    // Set the meta table for our environment.
+    // Set the meta table for the value on the stack.
     lua_setmetatable(L, -2);
-    // -> f, env
 
-    // Apply the new environment.
+    // Replace original table with the proxy.
+    lua_replace(L, -2);
+}
+
+static void require(lua_State* L, const char *modname, lua_CFunction openf, bool mt) {
+    // Set up the library.
+    luaL_requiref(L, modname, openf, 0);
+
+    // Make it immutable (get an immutable proxy for it).
+    getImmutableProxy(L);
+
+    // Make it a meta table.
+    if (mt) {
+        lua_pushvalue(L, -1);
+        lua_setfield(L, LUA_REGISTRYINDEX, modname);
+    }
+
+    // Register it with the table on top before the call to this method.
+    lua_setfield(L, -2, modname);
+}
+
+static bool createEnv(lua_State* L) {
+    // Find _ENV upvalue index.
+    unsigned int n = 0;
+    while (1) {
+        const char* name = lua_getupvalue(L, -1, ++n);
+        if (name == NULL) {
+            // no _ENV upvalue
+            return false;
+        }
+        lua_pop(L, 1);
+        if (strcmp(name, "_ENV") == 0) {
+            break;
+        }
+    }
+
+    // Create table we use as an environment.
+    lua_newtable(L);
+
+    // Register types.
+    require(L, LUA_BITLIBNAME, luaopen_bit32, false);
+    require(L, LUA_MATHLIBNAME, luaopen_math, false);
+
+    require(L, LUA_BLOCKLIBNAME, luaopen_block, true);
+    require(L, LUA_JOBLIBNAME, luaopen_job, true);
+    require(L, LUA_ROOMLIBNAME, luaopen_room, true);
+    require(L, LUA_UNITLIBNAME, luaopen_unit, true);
+
+    // Make the environment immutable.
+    getImmutableProxy(L);
+
+    // Set it as the new environment.
     lua_setupvalue(L, -2, n);
-    // -> f
 
     return true;
 }
@@ -243,7 +187,7 @@ int MP_Lua_AddJobMeta(lua_State* L) {
     MP_JobMeta meta = gMetaDefaults;
 
     // Validate input.
-    luaL_argcheck(L, lua_gettop(L) == 1 && lua_isstring(L, 1), 0, "must specify one string");
+    luaL_argcheck(L, lua_gettop(L) == 1 && lua_isstring(L, 1), 0, "one 'string' expected");
 
     // Get name.
     meta.name = lua_tostring(L, 1);
@@ -319,11 +263,6 @@ int MP_Lua_AddJobMeta(lua_State* L) {
         return luaL_argerror(L, 1, "bad job meta");
     }
 
-    // OK, register metatables for types.
-    MP_Lua_RegisterBlock(meta.L);
-    MP_Lua_RegisterRoom(meta.L);
-    MP_Lua_RegisterUnit(meta.L);
-
     MP_log_info("Done parsing job file '%s'.\n", filename);
 
     return 0;
@@ -340,7 +279,7 @@ static void onUnitAdded(MP_JobMeta* meta, MP_Unit* unit) {
     lua_getglobal(L, eventName);
     if (lua_isfunction(L, -1)) {
         // Call it with the unit that was added as the parameter.
-        MP_Lua_pushunit(L, unit);
+        luaMP_pushunit(L, unit);
         if (lua_pcall(L, 1, 0, 0) == LUA_OK) {
             return;
         } else {

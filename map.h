@@ -60,14 +60,14 @@ extern "C" {
     void MP_SetBlockOwner(MP_Block* block, MP_Player player);
 
     /**
-     * Apply damage to a block (dirt, gold or gem); return 1 if destroyed.
+     * Apply damage to a block (dirt, gold or gem); return true if destroyed.
      */
-    int MP_DamageBlock(MP_Block* block, unsigned int damage);
+    bool MP_DamageBlock(MP_Block* block, unsigned int damage);
 
     /**
-     * Apply conversion to a block (dirt, wall, empty); return 1 if successful.
+     * Apply conversion to a block (dirt, wall, empty); return true if successful.
      */
-    int MP_ConvertBlock(MP_Block* block, unsigned int strength, MP_Player player);
+    bool MP_ConvertBlock(MP_Block* block, unsigned int strength, MP_Player player);
 
     ///////////////////////////////////////////////////////////////////////////
     // Initialization / Events

@@ -82,16 +82,6 @@ extern "C" {
     /** Initialize unit logic */
     void MP_InitUnits(void);
 
-    ///////////////////////////////////////////////////////////////////////////
-    // Scripting
-    ///////////////////////////////////////////////////////////////////////////
-
-    void MP_Lua_RegisterUnit(lua_State* L);
-
-    void MP_Lua_pushunit(lua_State* L, MP_Unit* unit);
-
-    MP_Unit* MP_Lua_checkunit(lua_State* L, int narg);
-
 #ifdef	__cplusplus
 }
 #endif

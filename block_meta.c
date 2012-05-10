@@ -58,7 +58,7 @@ static int tableToBlock(lua_State* L, MP_BlockMeta* meta, bool forDefaults) {
         luaL_argcheck(L, lua_type(L, -1) == LUA_TSTRING, narg, "no 'name' or not a string");
         name = lua_tostring(L, -1);
         lua_pop(L, 1);
-        luaL_argcheck(L, strlen(name), narg, "'name' must not be empty");
+        luaL_argcheck(L, strlen(name) > 0, narg, "'name' must not be empty");
 
         // Check if that type is already known (override).
         if ((existing = MP_GetBlockMetaByName(name))) {
@@ -89,7 +89,7 @@ static int tableToBlock(lua_State* L, MP_BlockMeta* meta, bool forDefaults) {
 
         } else if (strcmp(key, "level") == 0) {
             const char* level = luaL_checkstring(L, -1);
-            luaL_argcheck(L, level && strlen(level), narg, "'level' must not be empty");
+            luaL_argcheck(L, strlen(level) > 0, narg, "'level' must not be empty");
             if (strcmp(level, "pit") == 0) {
                 meta->level = MP_BLOCK_LEVEL_PIT;
             } else if (strcmp(level, "lowered") == 0) {
@@ -103,9 +103,9 @@ static int tableToBlock(lua_State* L, MP_BlockMeta* meta, bool forDefaults) {
             }
 
         } else if (strcmp(key, "passability") == 0) {
-            const MP_Passability value = MP_GetPassability(luaL_checkstring(L, -1));
-            luaL_argcheck(L, value, narg, "unknown 'passability' value");
-            meta->passability = value;
+            const MP_Passability passability = MP_GetPassability(luaL_checkstring(L, -1));
+            luaL_argcheck(L, passability != MP_PASSABILITY_NONE, narg, "unknown 'passability' value");
+            meta->passability = passability;
 
         } else if (strcmp(key, "durability") == 0) {
             meta->durability = luaL_checkunsigned(L, -1);
@@ -117,9 +117,9 @@ static int tableToBlock(lua_State* L, MP_BlockMeta* meta, bool forDefaults) {
             meta->gold = luaL_checkunsigned(L, -1);
 
         } else if (strcmp(key, "becomes") == 0) {
-            const MP_BlockMeta* value = MP_GetBlockMetaByName(luaL_checkstring(L, -1));
-            luaL_argcheck(L, value, narg, "unknown 'becomes' value");
-            meta->becomes = value;
+            const MP_BlockMeta* becomes = MP_GetBlockMetaByName(luaL_checkstring(L, -1));
+            luaL_argcheck(L, becomes != NULL, narg, "unknown 'becomes' value");
+            meta->becomes = becomes;
 
         } else {
             return luaL_argerror(L, narg, "unknown key");
@@ -235,7 +235,7 @@ META_impl(MP_BlockMeta, Block)
 
 int MP_Lua_BlockMetaDefaults(lua_State* L) {
     // Validate input.
-    luaL_argcheck(L, lua_gettop(L) == 1 && lua_istable(L, 1), 0, "must specify one table");
+    luaL_argcheck(L, lua_gettop(L) == 1 && lua_istable(L, 1), 0, "one 'table' expected");
 
     // Build the block meta using the given properties.
     tableToBlock(L, &gMetaDefaults, true /* for defaults */);
@@ -248,13 +248,13 @@ int MP_Lua_AddBlockMeta(lua_State* L) {
     MP_BlockMeta meta;
 
     // Validate input.
-    luaL_argcheck(L, lua_gettop(L) == 1 && lua_istable(L, 1), 0, "must specify one table");
+    luaL_argcheck(L, lua_gettop(L) == 1 && lua_istable(L, 1), 0, "one 'table' expected");
 
     // Build the block meta using the given properties.
     tableToBlock(L, &meta, false /* not for defaults */);
 
     // We require for at least the name to be set.
-    luaL_argcheck(L, meta.name, 1, "'name' is required but not set");
+    luaL_argcheck(L, meta.name != NULL, 1, "'name' is required but not set");
 
     // All green, add the type.
     if (!MP_AddBlockMeta(&meta)) {
