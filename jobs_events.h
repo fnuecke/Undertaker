@@ -12,13 +12,13 @@
 extern "C" {
 #endif
 
-    void MP_FireUnitAdded(MP_Unit* unit);
+    void MP_Lua_FireUnitAdded(MP_Unit* unit);
 
-    void MP_FireBlockSelectionChanged(MP_Block* block, unsigned short x, unsigned short y, bool selected);
+    void MP_Lua_FireBlockSelectionChanged(MP_Player player, MP_Block* block, unsigned short x, unsigned short y);
 
-    void MP_FireBlockDestroyed(MP_Block* block, unsigned short x, unsigned short y);
+    void MP_Lua_FireBlockDestroyed(MP_Block* block, unsigned short x, unsigned short y);
 
-    void MP_FireBlockConverted(MP_Block* block, unsigned short x, unsigned short y);
+    void MP_Lua_FireBlockConverted(MP_Block* block, unsigned short x, unsigned short y);
 
 #ifdef	__cplusplus
 }

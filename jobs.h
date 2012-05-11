@@ -83,25 +83,46 @@ extern "C" {
      * Deletes all jobs targeting the specified block. Same effects as for the
      * normal DeleteJob method apply.
      * @param player the player for whom to delete the jobs.
+     * @param meta the type of job to delete.
      * @param block the targeted block to check for.
      */
-    void MP_DeleteJobsTargetingBlock(MP_Player player, const MP_Block* block);
+    void MP_DeleteJobsTargetingBlock(MP_Player player, const MP_JobMeta* meta, const MP_Block* block);
 
     /**
      * Deletes all jobs targeting the specified room. Same effects as for the
      * normal DeleteJob method apply.
      * @param player the player for whom to delete the jobs.
+     * @param meta the type of job to delete.
      * @param room the targeted room to check for.
      */
-    void MP_DeleteJobsTargetingRoom(MP_Player player, const MP_Room* room);
+    void MP_DeleteJobsTargetingRoom(MP_Player player, const MP_JobMeta* meta, const MP_Room* room);
 
     /**
      * Deletes all jobs targeting the specified unit. Same effects as for the
      * normal DeleteJob method apply.
      * @param player the player for whom to delete the jobs.
+     * @param meta the type of job to delete.
      * @param unit the targeted unit to check for.
      */
-    void MP_DeleteJobsTargetingUnit(MP_Player player, const MP_Unit* unit);
+    void MP_DeleteJobsTargetingUnit(MP_Player player, const MP_JobMeta* meta, const MP_Unit* unit);
+
+    /**
+     * Get a list of all jobs of the specified type, as well as the size of that
+     * list.
+     * @param player the player to get the list for.
+     * @param type the job type to get the list for.
+     * @param count used to return the length of the list.
+     * @return the list of jobs.
+     */
+    MP_Job * const* MP_GetJobs(MP_Player player, const MP_JobMeta* type, unsigned int* count);
+
+    /**
+     * Get the actual position of a job, i.e. that of its target including the
+     * set offset.
+     * @param position the position of the job.
+     * @param job the job to check for.
+     */
+    void MP_GetJobPosition(vec2* position, const MP_Job* job);
 
     /**
      * Find the job of the specified type closest to the specified unit.

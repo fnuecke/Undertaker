@@ -62,8 +62,8 @@ int MP_Lua_AddPassability(lua_State* L) {
     luaL_argcheck(L, lua_gettop(L) == 1 && lua_isstring(L, 1), 0, "one 'string' expected");
 
     // Get the name and store it.
-    if (!MP_AddPassability(luaL_checkstring(L, 1))) {
-        luaL_argerror(L, 1, "invalid passability name or too many");
+    if (!MP_AddPassability(lua_tostring(L, 1))) {
+        luaL_argerror(L, 1, "invalid passability name or too many entries");
     }
 
     return 0;

@@ -104,12 +104,23 @@ void MP_DisableRunMethod(const MP_JobMeta* meta) {
 // Lua callbacks
 ///////////////////////////////////////////////////////////////////////////////
 
-static int throwError(lua_State* L) {
+static int throwErrorIndex(lua_State* L) {
+    lua_pushstring(L, "trying to access undefined global");
+    return lua_error(L);
+}
+
+static int throwErrorNewIndex(lua_State* L) {
     lua_pushstring(L, "not allowed to change global state");
     return lua_error(L);
 }
 
 static void getImmutableProxy(lua_State* L) {
+    // Make old table throw if indexing undefined entries.
+    lua_newtable(L);
+    lua_pushcfunction(L, throwErrorIndex);
+    lua_setfield(L, -2, "__index");
+    lua_setmetatable(L, -2);
+
     // Create proxy table and metatable.
     lua_newtable(L);
     lua_newtable(L);
@@ -119,7 +130,7 @@ static void getImmutableProxy(lua_State* L) {
     lua_setfield(L, -2, "__index");
 
     // Disable writing (at least to unassigned indexes).
-    lua_pushcfunction(L, throwError);
+    lua_pushcfunction(L, throwErrorNewIndex);
     lua_setfield(L, -2, "__newindex");
 
     // Set the meta table for the value on the stack.
@@ -229,8 +240,7 @@ int MP_Lua_AddJobMeta(lua_State* L) {
         lua_getglobal(meta.L, JOB_EVENT_NAME[jobEvent]);
         if (lua_isfunction(meta.L, -1)) {
             if (!isEnvSetup && !createEnv(meta.L)) {
-                lua_pushfstring(L, "failed setting up environment for '%s'", JOB_EVENT_NAME[jobEvent]);
-                return lua_error(L);
+                return luaL_error(L, "failed setting up environment for '%s'", JOB_EVENT_NAME[jobEvent]);
             }
             isEnvSetup = true;
             meta.handlesEvent[jobEvent] = true;
@@ -243,8 +253,7 @@ int MP_Lua_AddJobMeta(lua_State* L) {
     lua_getglobal(meta.L, "preference");
     if (lua_isfunction(meta.L, -1)) {
         if (!isEnvSetup && !createEnv(meta.L)) {
-            lua_pushfstring(L, "failed setting up environment for '%s'", "preference");
-            return lua_error(L);
+            luaL_error(L, "failed setting up environment for '%s'", "preference");
         }
         isEnvSetup = true;
         meta.hasDynamicPreference = true;
@@ -256,8 +265,7 @@ int MP_Lua_AddJobMeta(lua_State* L) {
     lua_getglobal(meta.L, "run");
     if (lua_isfunction(meta.L, -1)) {
         if (!isEnvSetup && !createEnv(meta.L)) {
-            lua_pushfstring(L, "failed setting up environment for '%s'", "run");
-            return lua_error(L);
+            luaL_error(L, "failed setting up environment for '%s'", "run");
         }
         isEnvSetup = true;
         meta.hasRunMethod = true;
@@ -280,85 +288,57 @@ int MP_Lua_AddJobMeta(lua_State* L) {
 // Events
 ///////////////////////////////////////////////////////////////////////////////
 
-static void onUnitAdded(MP_JobMeta* meta, MP_Unit* unit) {
-    const char* eventName = JOB_EVENT_NAME[MP_JOB_EVENT_UNIT_ADDED];
-    lua_State* L = meta->L;
+#define FIRE_EVENT(event, push, nargs) \
+{ \
+    const char* eventName = JOB_EVENT_NAME[event]; \
+    for (unsigned int metaId = 0; metaId < gMetaCount; ++metaId) { \
+        const MP_JobMeta* meta = &gMetas[metaId]; \
+        if (meta->handlesEvent[event]) { \
+            lua_State* L = meta->L; \
+            lua_getglobal(L, eventName); \
+            if (lua_isfunction(L, -1)) { \
+                push \
+                if (MP_Lua_pcall(L, nargs, 0) == LUA_OK) { \
+                    return; \
+                } else { \
+                    MP_log_error("In '%s' for job '%s': %s\n", eventName, meta->name, lua_tostring(L, -1)); \
+                } \
+            } else { \
+                MP_log_error("'%s' for job '%s' isn't a function anymore.\n", eventName, meta->name); \
+            } \
+            lua_pop(L, 1); \
+            MP_DisableJobEvent(meta, event); \
+        } \
+    } \
+}
 
-    // Try to get the callback.
-    lua_getglobal(L, eventName);
-    if (lua_isfunction(L, -1)) {
-        // Call it with the unit that was added as the parameter.
+void MP_Lua_FireUnitAdded(MP_Unit* unit) {
+    FIRE_EVENT(MP_JOB_EVENT_UNIT_ADDED,{
         luaMP_pushunit(L, unit);
-        if (MP_Lua_pcall(L, 1, 0) == LUA_OK) {
-            // OK, that's it, we're done.
-            return;
-        } else {
-            // Something went wrong.
-            MP_log_error("In '%s' for job '%s': %s\n", eventName, meta->name, lua_tostring(L, -1));
-        }
-    } else {
-        MP_log_error("'%s' for job '%s' isn't a function anymore.\n", eventName, meta->name);
-    }
-
-    // Pop function or error message.
-    lua_pop(L, 1);
-
-    // We get here only on failure. In that case disable the event callback,
-    // so we don't try this again.
-    MP_DisableJobEvent(meta, MP_JOB_EVENT_UNIT_ADDED);
+    }, 1);
 }
 
-void MP_FireUnitAdded(MP_Unit* unit) {
-    for (unsigned int metaId = 0; metaId < gMetaCount; ++metaId) {
-        if (gMetas[metaId].handlesEvent[MP_JOB_EVENT_UNIT_ADDED]) {
-            onUnitAdded(&gMetas[metaId], unit);
-        }
-    }
+void MP_Lua_FireBlockSelectionChanged(MP_Player player, MP_Block* block, unsigned short x, unsigned short y) {
+    FIRE_EVENT(MP_JOB_EVENT_BLOCK_SELECTION_CHANGED,{
+        lua_pushunsigned(L, player);
+        luaMP_pushblock(L, block);
+        lua_pushunsigned(L, x);
+        lua_pushunsigned(L, y);
+    }, 4);
 }
 
-void MP_FireBlockSelectionChanged(MP_Block* block, unsigned short x, unsigned short y, bool selected) {
-
+void MP_Lua_FireBlockDestroyed(MP_Block* block, unsigned short x, unsigned short y) {
+    FIRE_EVENT(MP_JOB_EVENT_BLOCK_DESTROYED,{
+        luaMP_pushblock(L, block);
+        lua_pushunsigned(L, x);
+        lua_pushunsigned(L, y);
+    }, 3);
 }
 
-void MP_FireBlockDestroyed(MP_Block* block, unsigned short x, unsigned short y) {
-
+void MP_Lua_FireBlockConverted(MP_Block* block, unsigned short x, unsigned short y) {
+    FIRE_EVENT(MP_JOB_EVENT_BLOCK_CONVERTED,{
+        luaMP_pushblock(L, block);
+        lua_pushunsigned(L, x);
+        lua_pushunsigned(L, y);
+    }, 3);
 }
-
-void MP_FireBlockConverted(MP_Block* block, unsigned short x, unsigned short y) {
-
-}
-
-/*
-static void MP_UpdateJobsForBlock(MP_Player player, unsigned short x, unsigned short y) {
-    MP_Block* block = MP_GetBlockAt(x, y);
-
-    // Remove all old jobs that had to do with this block.
-    for (unsigned int metaId = 0; metaId < gJobTypeCapacity[MP_PLAYER_ONE]; ++metaId) {
-        for (unsigned int number = gJobsCount[player][metaId]; number > 0; --number) {
-            MP_Job* job = gJobs[player][metaId][number - 1];
-            if (job->block == block) {
-                // Remove this one. Notify worker that it's no longer needed.
-                MP_StopJob(job);
-
-                // Free memory.
-                deleteJob(player, metaId, number - 1);
-            }
-        }
-    }
-
-    // Update / recreate jobs.
-    addJobOpenings(player, x, y);
-    if (x > 0) {
-        addJobOpenings(player, x - 1, y);
-    }
-    if (x < MP_GetMapSize() - 1) {
-        addJobOpenings(player, x + 1, y);
-    }
-    if (y > 0) {
-        addJobOpenings(player, x, y - 1);
-    }
-    if (y < MP_GetMapSize() - 1) {
-        addJobOpenings(player, x, y + 1);
-    }
-}
- */

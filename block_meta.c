@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "passability.h"
+#include "script.h"
 #include "textures.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -49,33 +50,25 @@ static int tableToBlock(lua_State* L, MP_BlockMeta* meta, bool forDefaults) {
 
     // What do we use for defaults?
     if (!forDefaults) {
-        const char* name;
         const MP_BlockMeta* existing;
 
         // Get the name.
         lua_getfield(L, -1, "name");
-        // -> table, table["name"]
-        luaL_argcheck(L, lua_type(L, -1) == LUA_TSTRING, narg, "no 'name' or not a string");
-        name = lua_tostring(L, -1);
-        lua_pop(L, 1);
-        luaL_argcheck(L, strlen(name) > 0, narg, "'name' must not be empty");
-
         // Check if that type is already known (override).
-        if ((existing = MP_GetBlockMetaByName(name))) {
+        if ((existing = MP_GetBlockMetaByName(luaL_checkstring(L, -1)))) {
             // Yes, this will be an override.
             *meta = *existing;
         } else {
             // New entry.
             *meta = gMetaDefaults;
-            meta->name = name;
+            meta->name = lua_tostring(L, -1); // must be string (checkstring)
         }
-    } // else meta already equals gMetaDefaults
+        lua_pop(L, 1); // pop name
+    } // else: meta already equals gMetaDefaults
 
     // Now loop through the table. Push initial 'key' -- nil means start.
     lua_pushnil(L);
-    // -> table, nil
     while (lua_next(L, -2)) {
-        // -> table, key, value
         // Get key as string.
         const char* key;
         luaL_argcheck(L, lua_type(L, -2) == LUA_TSTRING, narg, "keys must be strings");
@@ -85,53 +78,27 @@ static int tableToBlock(lua_State* L, MP_BlockMeta* meta, bool forDefaults) {
         if (strcmp(key, "name") == 0) {
             if (forDefaults) {
                 return luaL_argerror(L, narg, "'name' not allowed in defaults");
-            }
-
+            } // else: Silently skip.
         } else if (strcmp(key, "level") == 0) {
-            const char* level = luaL_checkstring(L, -1);
-            luaL_argcheck(L, strlen(level) > 0, narg, "'level' must not be empty");
-            if (strcmp(level, "pit") == 0) {
-                meta->level = MP_BLOCK_LEVEL_PIT;
-            } else if (strcmp(level, "lowered") == 0) {
-                meta->level = MP_BLOCK_LEVEL_LOWERED;
-            } else if (strcmp(level, "normal") == 0) {
-                meta->level = MP_BLOCK_LEVEL_NORMAL;
-            } else if (strcmp(level, "high") == 0) {
-                meta->level = MP_BLOCK_LEVEL_HIGH;
-            } else {
-                return luaL_argerror(L, narg, "unknown 'level' value");
-            }
-
+            meta->level = luaMP_checklevel(L, -1, narg);
         } else if (strcmp(key, "passability") == 0) {
-            const MP_Passability passability = MP_GetPassability(luaL_checkstring(L, -1));
-            luaL_argcheck(L, passability != MP_PASSABILITY_NONE, narg, "unknown 'passability' value");
-            meta->passability = passability;
-
+            meta->passability = luaMP_checkpassability(L, -1, narg);
         } else if (strcmp(key, "durability") == 0) {
             meta->durability = luaL_checkunsigned(L, -1);
-
         } else if (strcmp(key, "strength") == 0) {
             meta->strength = luaL_checkunsigned(L, -1);
-
         } else if (strcmp(key, "gold") == 0) {
             meta->gold = luaL_checkunsigned(L, -1);
-
         } else if (strcmp(key, "becomes") == 0) {
-            const MP_BlockMeta* becomes = MP_GetBlockMetaByName(luaL_checkstring(L, -1));
-            luaL_argcheck(L, becomes != NULL, narg, "unknown 'becomes' value");
-            meta->becomes = becomes;
-
+            meta->becomes = luaMP_checkblockmeta(L, -1, narg);
         } else {
             return luaL_argerror(L, narg, "unknown key");
         }
 
-        // Pop 'value', keep key to get next entry.
-        lua_pop(L, 1);
-        // -> table, key
+        lua_pop(L, 1); // pop value
 
         ++narg;
     }
-    // -> table
 
     return 0;
 }

@@ -35,8 +35,8 @@ MP_Room* luaMP_toroom(lua_State* L, int narg) {
     return *(MP_Room**) lua_touserdata(L, narg);
 }
 
-MP_Room* luaMP_checkroom(lua_State* L, int narg) {
+MP_Room* luaMP_checkroom(lua_State* L, int narg, int errarg) {
     void* ud = luaL_checkudata(L, narg, LUA_ROOMLIBNAME);
-    luaL_argcheck(L, ud != NULL, 1, "'" LUA_ROOMLIBNAME "' expected");
+    luaL_argcheck(L, ud != NULL, errarg, "'" LUA_ROOMLIBNAME "' expected");
     return *(MP_Room**) ud;
 }

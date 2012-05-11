@@ -22,9 +22,9 @@ These represent single AI states. For each state declared here, there must be a
 script file containing the actual logic for the state with the name of the job.
 --]]
 job "wander"
+job "dig"
 
 --[[
-job "dig"
 job "convert"
 
 job "deliver"

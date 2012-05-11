@@ -31,7 +31,7 @@ extern "C" {
     /**
      * Get the coordinates of the specified block.
      */
-    int MP_GetBlockCoordinates(unsigned short* x, unsigned short* y, const MP_Block* block);
+    bool MP_GetBlockCoordinates(unsigned short* x, unsigned short* y, const MP_Block* block);
 
     /**
      * Gets the block currently hovered by the mouse, and its coordinates.

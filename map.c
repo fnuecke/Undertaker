@@ -470,7 +470,7 @@ static void updateBlock(MP_Block* block) {
     // Deselect block and fire event for AI scripts.
     for (int i = 0; i < MP_PLAYER_COUNT; ++i) {
         MP_DeselectBlock(MP_PLAYER_NONE + i, x, y);
-        MP_FireBlockDestroyed(block, x, y);
+        MP_Lua_FireBlockDestroyed(block, x, y);
     }
 }
 
@@ -787,7 +787,7 @@ static void renderSelectionOutline(void) {
         int map_x = x - MP_MAP_BORDER / 2;
         for (int y = selection.startY; y <= selection.endY; ++y) {
             int map_y = y - MP_MAP_BORDER / 2;
-            if (!MP_IsBlockSelectable(MP_PLAYER_ONE, map_x, map_y)) {
+            if (!MP_IsBlockSelectable(MP_PLAYER_ONE, MP_GetBlockAt(map_x, map_y))) {
                 continue;
             }
 
@@ -1206,15 +1206,15 @@ MP_Block * MP_GetBlockAt(int x, int y) {
     return NULL;
 }
 
-int MP_GetBlockCoordinates(unsigned short* x, unsigned short* y, const MP_Block * block) {
+bool MP_GetBlockCoordinates(unsigned short* x, unsigned short* y, const MP_Block * block) {
     if (block) {
         unsigned int idx = block - gMap;
         *x = idx % gMapSize;
         *y = idx / gMapSize;
 
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 MP_Block * MP_GetBlockUnderCursor(int* x, int* y) {
@@ -1418,7 +1418,7 @@ bool MP_ConvertBlock(MP_Block* block, unsigned int strength, MP_Player player) {
             block->strength = max_strength;
 
             // Fire event for AI scripts.
-            MP_FireBlockConverted(block, x, y);
+            MP_Lua_FireBlockConverted(block, x, y);
         }
     }
     return true;

@@ -198,14 +198,18 @@ static float getDynamicPreference(MP_Unit* unit, MP_Job* job) {
 /** Computes additional job weight based on saturation */
 static float weightedPreference(float saturation, float preference, const MP_UnitJobSaturationMeta* meta) {
     // Map saturation to interval between unsatisfied and satisfied thresh so
-    // that unsatisfiedThreshold = 1 and satisfiedThreshold = 0 and ensure it's
-    // larger or equal to zero.
-    saturation = (meta->satisfiedThreshold - saturation) /
+    // that unsatisfiedThreshold = 1 and satisfiedThreshold = 0.
+    preference *= (meta->satisfiedThreshold - saturation) /
             (meta->satisfiedThreshold - meta->unsatisfiedThreshold);
-    if (saturation < 0.0f) {
-        saturation = 0.0f;
-    } // It's OK if it's larger than one, in that case the unit is unsatisfied.
-    return preference * saturation;
+    // Handle preference <= 0 as a special case where it's only considered
+    // if there's nothing else to do. We do this by adding half of the max
+    // value for floats, because we can probably pretty safely assume that
+    // such distances will never occur in 'normal' cases. This allows for
+    // proper relative distance comparison for all preference <= 0 jobs.
+    if (preference <= 0) {
+        preference = -FLT_MAX / 2;
+    }
+    return preference;
 }
 
 /** Looks for the most desirable job for the unit */

@@ -47,15 +47,17 @@ extern "C" {
 
     /**
      * Checks if the specified block is selectable by the specified player.
+     * @param player the player for whom to check.
+     * @param block the block for which to check.
      * @return whether the block is selectable (1) or not (0).
      */
-    int MP_IsBlockSelectable(MP_Player player, int x, int y);
+    bool MP_IsBlockSelectable(MP_Player player, const MP_Block* block);
 
     /**
      * Checks if the specified block is selected by the specified player.
      * @return whether the block is selected (1) or not (0).
      */
-    int MP_IsBlockSelected(MP_Player player, unsigned short x, unsigned short y);
+    bool MP_IsBlockSelected(MP_Player player, unsigned short x, unsigned short y);
 
     ///////////////////////////////////////////////////////////////////////////////
     // User area selection
@@ -67,13 +69,13 @@ extern "C" {
      * currently under the cursor is not selectable.
      * @return whether selection started (1) or not (0).
      */
-    int MP_BeginSelection(void);
+    bool MP_BeginSelection(void);
 
     /**
      * Cancel selecting. This will discard the current selection.
      * @return whether we were in select mode (1) or not (0).
      */
-    int MP_DiscardSelection(void);
+    bool MP_DiscardSelection(void);
 
     /**
      * Done selecting, uses currently hovered block as end. This will automatically

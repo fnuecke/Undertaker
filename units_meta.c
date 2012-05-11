@@ -2,6 +2,7 @@
 
 #include "jobs_meta.h"
 #include "passability.h"
+#include "script.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Constants / globals
@@ -33,35 +34,35 @@ static MP_UnitJobSaturationMeta* addOrGetJobSaturation(MP_UnitMeta* meta, const 
     return &meta->satisfaction.jobSaturation[meta->jobCount - 1];
 }
 
+static float luaMP_checkthreshold(lua_State* L, int narg) {
+    float value = luaL_checknumber(L, narg);
+    if (value < 0.0f) {
+        return 0.0f;
+    } else if (value > 1.0f) {
+        return 1.0f;
+    }
+    return value;
+}
+
 static int tableToJobInfo(lua_State* L, MP_UnitMeta* meta) {
     // Keep track at which table entry we are.
     int narg = 1;
 
     // What do we use for defaults?
-    const char* name;
     const MP_JobMeta* job;
     MP_UnitJobSaturationMeta* saturation;
 
-    // Get the name.
-    lua_getfield(L, -1, "name");
-    // -> table, table["name"]
-    luaL_argcheck(L, lua_type(L, -1) == LUA_TSTRING, narg, "no 'name' or not a string");
-    name = lua_tostring(L, -1);
-    lua_pop(L, 1);
-    // -> table
-
     // Get job meta data.
-    job = MP_GetJobMetaByName(name);
-    luaL_argcheck(L, job != NULL, narg, "unknown job type");
+    lua_getfield(L, -1, "name");
+    job = luaMP_checkjobmeta(L, -1, narg);
+    lua_pop(L, 1);
 
     // Get or add the job type to the list of jobs the unit can perform.
     saturation = addOrGetJobSaturation(meta, job);
 
     // Now loop through the table. Push initial 'key' -- nil means start.
     lua_pushnil(L);
-    // -> table, nil
     while (lua_next(L, -2)) {
-        // -> table, key, value
         // Get key as string.
         const char* key;
         luaL_argcheck(L, lua_type(L, -2) == LUA_TSTRING, narg, "keys must be strings");
@@ -81,52 +82,25 @@ static int tableToJobInfo(lua_State* L, MP_UnitMeta* meta) {
             saturation->notPerformingDelta = luaL_checknumber(L, -1);
 
         } else if (strcmp(key, "initial") == 0) {
-            float initialValue = luaL_checknumber(L, -1);
-            if (initialValue < 0.0f) {
-                initialValue = 0.0f;
-            } else if (initialValue > 1.0f) {
-                initialValue = 1.0f;
-            }
-            saturation->initialValue = initialValue;
+            saturation->initialValue = luaMP_checkthreshold(L, -1);
 
         } else if (strcmp(key, "unsatisfied") == 0) {
-            float unsatisfiedThreshold = luaL_checknumber(L, -1);
-            if (unsatisfiedThreshold < 0.0f) {
-                unsatisfiedThreshold = 0.0f;
-            } else if (unsatisfiedThreshold > 1.0f) {
-                unsatisfiedThreshold = 1.0f;
-            }
-            saturation->unsatisfiedThreshold = unsatisfiedThreshold;
+            saturation->unsatisfiedThreshold = luaMP_checkthreshold(L, -1);
 
         } else if (strcmp(key, "satisfied") == 0) {
-            float satisfiedThreshold = luaL_checknumber(L, -1);
-            if (satisfiedThreshold < 0.0f) {
-                satisfiedThreshold = 0.0f;
-            } else if (satisfiedThreshold > 1.0f) {
-                satisfiedThreshold = 1.0f;
-            }
-            saturation->satisfiedThreshold = satisfiedThreshold;
+            saturation->satisfiedThreshold = luaMP_checkthreshold(L, -1);
 
         } else if (strcmp(key, "bored") == 0) {
-            float boredThreshold = luaL_checknumber(L, -1);
-            if (boredThreshold < 0.0f) {
-                boredThreshold = 0.0f;
-            } else if (boredThreshold > 1.0f) {
-                boredThreshold = 1.0f;
-            }
-            saturation->boredThreshold = boredThreshold;
+            saturation->boredThreshold = luaMP_checkthreshold(L, -1);
 
         } else {
             return luaL_argerror(L, narg, "unknown key");
         }
 
-        // Pop 'value', keep key to get next entry.
-        lua_pop(L, 1);
-        // -> table, key
+        lua_pop(L, 1); // pop value
 
         ++narg;
     }
-    // -> table
 
     return 0;
 }
@@ -143,11 +117,9 @@ static int tableToUnit(lua_State* L, MP_UnitMeta* meta, bool forDefaults) {
 
         // Get the name.
         lua_getfield(L, -1, "name");
-        // -> table, table["name"]
         luaL_argcheck(L, lua_type(L, -1) == LUA_TSTRING, narg, "no 'name' or not a string");
         name = lua_tostring(L, -1);
         lua_pop(L, 1);
-        // -> table
         luaL_argcheck(L, strlen(name) > 0, narg, "'name' must not be empty");
 
         // Check if that type is already known (override).
@@ -163,9 +135,7 @@ static int tableToUnit(lua_State* L, MP_UnitMeta* meta, bool forDefaults) {
 
     // Now loop through the table. Push initial 'key' -- nil means start.
     lua_pushnil(L);
-    // -> table, nil
     while (lua_next(L, -2)) {
-        // -> table, key, value
 
         // Get key as string.
         const char* key;
@@ -184,21 +154,13 @@ static int tableToUnit(lua_State* L, MP_UnitMeta* meta, bool forDefaults) {
                 // It's a table. Loop through that table in turn.
                 meta->canPass = 0;
                 lua_pushnil(L);
-                // -> table, key, value=table, key
                 while (lua_next(L, -2)) {
-                    // -> table, key, value=table, key, value
-                    const MP_Passability canPass = MP_GetPassability(luaL_checkstring(L, -1));
-                    luaL_argcheck(L, canPass != MP_PASSABILITY_NONE, narg, "unknown 'passability' value");
-                    meta->canPass |= canPass;
-                    lua_pop(L, 1);
-                    // -> table, key, value=table, key
+                    meta->canPass |= luaMP_checkpassability(L, -1, narg);
+                    lua_pop(L, 1); // pop value
                 }
-                // -> table, key, value=table
             } else {
                 // Must be a single string in that case.
-                const MP_Passability canPass = MP_GetPassability(luaL_checkstring(L, -1));
-                luaL_argcheck(L, canPass != MP_PASSABILITY_NONE, narg, "unknown 'passability' value");
-                meta->canPass = canPass;
+                meta->canPass = luaMP_checkpassability(L, -1, narg);
             }
 
         } else if (strcmp(key, "movespeed") == 0) {
@@ -208,44 +170,29 @@ static int tableToUnit(lua_State* L, MP_UnitMeta* meta, bool forDefaults) {
             if (forDefaults) {
                 return luaL_argerror(L, narg, "'jobs' not allowed in defaults");
             } else {
-                luaL_argcheck(L, lua_istable(L, -1), narg, "'jobs' must be a table");
+                luaL_checktype(L, -1, LUA_TTABLE);
                 lua_pushnil(L);
-                // -> table, key, value=table, key
                 while (lua_next(L, -2)) {
-                    // -> table, key, value=table, key, value
-                    luaL_argcheck(L, lua_istable(L, -1), narg, "'jobs' entries must be tables");
+                    luaL_checktype(L, -1, LUA_TTABLE);
                     tableToJobInfo(L, meta);
-                    lua_pop(L, 1);
-                    // -> table, key, value=table, key
+                    lua_pop(L, 1); // pop value
                 }
-                // -> table, key, value=table
             }
 
         } else if (strcmp(key, "angrybelow") == 0) {
-            float angerThreshold = luaL_checknumber(L, -1);
-            if (angerThreshold < 0.0f) {
-                angerThreshold = 0.0f;
-            } else if (angerThreshold > 1.0f) {
-                angerThreshold = 1.0f;
-            }
-            meta->satisfaction.angerThreshold = angerThreshold;
+            meta->satisfaction.angerThreshold = luaMP_checkthreshold(L, -1);
 
         } else if (strcmp(key, "angerjob") == 0) {
-            const MP_JobMeta* job = MP_GetJobMetaByName(luaL_checkstring(L, -1));
-            luaL_argcheck(L, job != NULL, narg, "unknown 'angerjob' value");
-            meta->satisfaction.angerJob = job;
+            meta->satisfaction.angerJob = luaMP_checkjobmeta(L, -1, narg);
 
         } else {
             return luaL_argerror(L, narg, "unknown key");
         }
 
-        // Pop 'value', keep key to get next entry.
-        lua_pop(L, 1);
-        // -> table, key
+        lua_pop(L, 1); // pop value
 
         ++narg;
     }
-    // -> table
 
     return 0;
 }

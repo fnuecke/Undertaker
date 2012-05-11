@@ -96,65 +96,76 @@ MP_Job* MP_NewJob(MP_Player player, const MP_JobMeta* meta) {
     return gJobs[player][meta->id][gJobsCount[player][meta->id]++] = job;
 }
 
+static void deleteJob(MP_Player player, unsigned int metaId, unsigned int number) {
+    // Remove this one. Notify worker that it's no longer needed.
+    MP_StopJob(gJobs[player][metaId][number]);
+
+    // Free the actual memory.
+    free(gJobs[player][metaId][number]);
+
+    // Move up the list entries to close the gap.
+    --gJobsCount[player][metaId];
+    memmove(&gJobs[player][metaId][number], &gJobs[player][metaId][number + 1], (gJobsCount[player][metaId] - number) * sizeof (MP_Job*));
+}
+
 /** Delete a job that is no longer used */
 void MP_DeleteJob(MP_Player player, MP_Job* job) {
     if (!job) {
         return;
     }
 
-    assert(job->meta->id < gJobTypeCapacity[player]);
+    if (job->meta->id >= gJobTypeCapacity[player]) {
+        return;
+    }
 
     // Find the job.
     for (unsigned int number = 0; number < gJobsCount[player][job->meta->id]; ++number) {
         if (gJobs[player][job->meta->id][number] == job) {
-            // Remove this one. Notify worker that it's no longer needed.
-            MP_StopJob(job);
-
-            // Free the actual memory.
-            free(gJobs[player][job->meta->id][number]);
-
-            // Move up the list entries to close the gap.
-            --gJobsCount[player][job->meta->id];
-            memmove(&gJobs[player][job->meta->id][number], &gJobs[player][job->meta->id][number + 1], (gJobsCount[player][job->meta->id] - number) * sizeof (MP_Job*));
-
-            // And we're done.
+            // Found it.
+            deleteJob(player, job->meta->id, number);
             return;
         }
     }
 }
 
-void MP_DeleteJobsTargetingBlock(MP_Player player, const MP_Block* block) {
-    for (unsigned int metaId = 0; metaId < gJobTypeCapacity[player]; ++metaId) {
-        // Run back to front so that deletions don't matter.
-        for (unsigned int number = gJobsCount[player][metaId]; number > 0; --number) {
-            MP_Job* job = gJobs[player][metaId][number - 1];
-            if (job->block == block) {
-                MP_DeleteJob(player, job);
-            }
+void MP_DeleteJobsTargetingBlock(MP_Player player, const MP_JobMeta* meta, const MP_Block* block) {
+    if (meta->id >= gJobTypeCapacity[player]) {
+        return;
+    }
+
+    // Run back to front so that deletions don't matter.
+    for (unsigned int number = gJobsCount[player][meta->id]; number > 0; --number) {
+        MP_Job* job = gJobs[player][meta->id][number - 1];
+        if (job->block == block) {
+            deleteJob(player, job->meta->id, number - 1);
         }
     }
 }
 
-void MP_DeleteJobsTargetingRoom(MP_Player player, const MP_Room* room) {
-    for (unsigned int metaId = 0; metaId < gJobTypeCapacity[player]; ++metaId) {
-        // Run back to front so that deletions don't matter.
-        for (unsigned int number = gJobsCount[player][metaId]; number > 0; --number) {
-            MP_Job* job = gJobs[player][metaId][number - 1];
-            if (job->room == room) {
-                MP_DeleteJob(player, job);
-            }
+void MP_DeleteJobsTargetingRoom(MP_Player player, const MP_JobMeta* meta, const MP_Room* room) {
+    if (meta->id >= gJobTypeCapacity[player]) {
+        return;
+    }
+
+    // Run back to front so that deletions don't matter.
+    for (unsigned int number = gJobsCount[player][meta->id]; number > 0; --number) {
+        MP_Job* job = gJobs[player][meta->id][number - 1];
+        if (job->room == room) {
+            deleteJob(player, job->meta->id, number - 1);
         }
     }
 }
 
-void MP_DeleteJobsTargetingUnit(MP_Player player, const MP_Unit* unit) {
-    for (unsigned int metaId = 0; metaId < gJobTypeCapacity[player]; ++metaId) {
-        // Run back to front so that deletions don't matter.
-        for (unsigned int number = gJobsCount[player][metaId]; number > 0; --number) {
-            MP_Job* job = gJobs[player][metaId][number - 1];
-            if (job->unit == unit) {
-                MP_DeleteJob(player, job);
-            }
+void MP_DeleteJobsTargetingUnit(MP_Player player, const MP_JobMeta* meta, const MP_Unit* unit) {
+    if (meta->id >= gJobTypeCapacity[player]) {
+        return;
+    }
+
+    // Run back to front so that deletions don't matter.
+    for (unsigned int number = gJobsCount[player][meta->id]; number > 0; --number) {
+        MP_Job* job = gJobs[player][meta->id][number - 1];
+        if (job->unit == unit) {
+            deleteJob(player, job->meta->id, number - 1);
         }
     }
 }
@@ -163,12 +174,13 @@ void MP_DeleteJobsTargetingUnit(MP_Player player, const MP_Unit* unit) {
 // Utility
 ///////////////////////////////////////////////////////////////////////////////
 
-static void getJobPosition(vec2* position, const MP_Job* job) {
+void MP_GetJobPosition(vec2* position, const MP_Job* job) {
     if (job->block) {
         unsigned short x, y;
-        MP_GetBlockCoordinates(&x, &y, job->block);
-        position->d.x = x + 0.5f;
-        position->d.y = y + 0.5f;
+        if (MP_GetBlockCoordinates(&x, &y, job->block)) {
+            position->d.x = x + 0.5f;
+            position->d.y = y + 0.5f;
+        }
     } else if (job->room) {
         // TODO
     } else if (job->unit) {
@@ -235,7 +247,7 @@ static void onRender(void) {
                 glBegin(GL_QUADS);
                 {
                     vec2 position;
-                    getJobPosition(&position, job);
+                    MP_GetJobPosition(&position, job);
                     glVertex3f((position.d.x - 0.1f) * MP_BLOCK_SIZE, (position.d.y - 0.1f) * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT + 0.1f);
                     glVertex3f((position.d.x + 0.1f) * MP_BLOCK_SIZE, (position.d.y - 0.1f) * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT + 0.1f);
                     glVertex3f((position.d.x + 0.1f) * MP_BLOCK_SIZE, (position.d.y + 0.1f) * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT + 0.1f);
@@ -250,6 +262,12 @@ static void onRender(void) {
 ///////////////////////////////////////////////////////////////////////////////
 // Accessors
 ///////////////////////////////////////////////////////////////////////////////
+
+MP_Job * const* MP_GetJobs(MP_Player player, const MP_JobMeta* type, unsigned int* count) {
+    ensureJobTypeListSize(player, type->id);
+    *count = gJobsCount[player][type->id];
+    return gJobs[player][type->id];
+}
 
 MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobMeta* type, float* distance) {
     MP_Job* closestJob = NULL;
@@ -268,7 +286,7 @@ MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobMeta* type, float* distance)
         MP_Job* job = gJobs[unit->owner][type->id][number];
 
         // Based on the job type we use the target's position.
-        getJobPosition(&position, job);
+        MP_GetJobPosition(&position, job);
 
         // Test direct distance; if that's longer than our best we
         // can safely skip this one.

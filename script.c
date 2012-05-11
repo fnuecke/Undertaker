@@ -1,5 +1,13 @@
 #include "script.h"
 
+#include <string.h>
+
+#include "block_meta.h"
+#include "jobs_meta.h"
+#include "passability.h"
+#include "room_meta.h"
+#include "units_meta.h"
+
 static lua_State *getthread(lua_State *L, int *arg) {
     if (lua_isthread(L, 1)) {
         *arg = 1;
@@ -39,4 +47,55 @@ int MP_Lua_pcall(lua_State* L, int nargs, int nresults) {
         lua_remove(L, -2);
     }
     return result;
+}
+
+MP_Passability luaMP_checkpassability(lua_State* L, int narg, int errarg) {
+    const MP_Passability passability = MP_GetPassability(luaL_checkstring(L, narg));
+    luaL_argcheck(L, passability != MP_PASSABILITY_NONE, errarg, "invalid 'passability' value");
+    return passability;
+}
+
+MP_Player luaMP_checkplayer(lua_State* L, int narg, int errarg) {
+    const MP_Player player = luaL_checkunsigned(L, narg);
+    luaL_argcheck(L, player != MP_PLAYER_NONE && player < MP_PLAYER_COUNT, errarg, "invalid 'player' value");
+    return player;
+}
+
+MP_BlockLevel luaMP_checklevel(lua_State* L, int narg, int errarg) {
+    const char* level = luaL_checkstring(L, narg);
+    if (strcmp(level, "pit") == 0) {
+        return MP_BLOCK_LEVEL_PIT;
+    } else if (strcmp(level, "lowered") == 0) {
+        return MP_BLOCK_LEVEL_LOWERED;
+    } else if (strcmp(level, "normal") == 0) {
+        return MP_BLOCK_LEVEL_NORMAL;
+    } else if (strcmp(level, "high") == 0) {
+        return MP_BLOCK_LEVEL_HIGH;
+    }
+
+    return luaL_argerror(L, errarg, "invalid 'level' value");
+}
+
+const MP_BlockMeta* luaMP_checkblockmeta(lua_State* L, int narg, int errarg) {
+    const MP_BlockMeta* meta = MP_GetBlockMetaByName(luaL_checkstring(L, narg));
+    luaL_argcheck(L, meta != NULL, errarg, "invalid block type");
+    return meta;
+}
+
+const MP_JobMeta* luaMP_checkjobmeta(lua_State* L, int narg, int errarg) {
+    const MP_JobMeta* meta = MP_GetJobMetaByName(luaL_checkstring(L, narg));
+    luaL_argcheck(L, meta != NULL, errarg, "invalid job type");
+    return meta;
+}
+
+const MP_RoomMeta* luaMP_checkroommeta(lua_State* L, int narg, int errarg) {
+    const MP_RoomMeta* meta = MP_GetRoomMetaByName(luaL_checkstring(L, narg));
+    luaL_argcheck(L, meta != NULL, errarg, "invalid room type");
+    return meta;
+}
+
+const MP_UnitMeta* luaMP_checkunitmeta(lua_State* L, int narg, int errarg) {
+    const MP_UnitMeta* meta = MP_GetUnitMetaByName(luaL_checkstring(L, narg));
+    luaL_argcheck(L, meta != NULL, errarg, "invalid unit type");
+    return meta;
 }

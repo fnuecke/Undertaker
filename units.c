@@ -233,7 +233,7 @@ int MP_AddUnit(MP_Player player, const MP_UnitMeta* meta, const vec2* position) 
     ++gUnitCount[player];
 
     // Send event to AI scripts.
-    MP_FireUnitAdded(unit);
+    MP_Lua_FireUnitAdded(unit);
 
     return 1;
 }

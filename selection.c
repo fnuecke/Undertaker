@@ -98,13 +98,12 @@ MP_Selection MP_GetSelection(void) {
     return currentSelection;
 }
 
-int MP_IsBlockSelectable(MP_Player player, int x, int y) {
-    const MP_Block* block = MP_GetBlockAt(x, y);
+bool MP_IsBlockSelectable(MP_Player player, const MP_Block* block) {
     return MP_IsBlockDestructible(block) &&
             (block->owner == MP_PLAYER_NONE || block->owner == player);
 }
 
-int MP_IsBlockSelected(MP_Player player, unsigned short x, unsigned short y) {
+bool MP_IsBlockSelected(MP_Player player, unsigned short x, unsigned short y) {
     return BS_Test(gPlayerSelection[player], y * MP_GetMapSize() + x);
 }
 
@@ -112,30 +111,30 @@ int MP_IsBlockSelected(MP_Player player, unsigned short x, unsigned short y) {
 // User area selection
 ///////////////////////////////////////////////////////////////////////////////
 
-int MP_BeginSelection(void) {
+bool MP_BeginSelection(void) {
     if (gMode == MODE_NONE) {
-        if (MP_IsBlockSelectable(gLocalPlayer, gCurrentSelection.startX, gCurrentSelection.startY)) {
+        if (MP_IsBlockSelectable(gLocalPlayer, MP_GetBlockAt(gCurrentSelection.startX, gCurrentSelection.startY))) {
             // OK, if it's selectable, start selection.
             if (MP_IsBlockSelected(gLocalPlayer, gCurrentSelection.startX, gCurrentSelection.startY)) {
                 gMode = MODE_DESELECT;
             } else {
                 gMode = MODE_SELECT;
             }
-            return 1;
+            return true;
         }
     }
-    return 0;
+    return false;
 }
 
-int MP_DiscardSelection(void) {
+bool MP_DiscardSelection(void) {
     if (gMode != MODE_NONE) {
         // Reset mode.
         gMode = MODE_NONE;
         gCurrentSelection.startX = gCurrentSelection.endX;
         gCurrentSelection.startY = gCurrentSelection.endY;
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 void MP_ConfirmSelection(void) {
@@ -164,14 +163,14 @@ void MP_ConfirmSelection(void) {
 ///////////////////////////////////////////////////////////////////////////////
 
 void MP_SelectBlock(MP_Player player, int x, int y) {
-    if (MP_IsBlockSelectable(player, x, y)) {
+    if (MP_IsBlockSelectable(player, MP_GetBlockAt(x, y))) {
         const unsigned int idx = y * MP_GetMapSize() + x;
 
         // Only update if something changed.
         if (!BS_Test(gPlayerSelection[player], idx)) {
             BS_Set(gPlayerSelection[player], idx);
             // Send event to AI scripts.
-            MP_FireBlockSelectionChanged(MP_GetBlockAt(x, y), x, y, true);
+            MP_Lua_FireBlockSelectionChanged(player, MP_GetBlockAt(x, y), x, y);
         }
     }
 }
@@ -184,7 +183,7 @@ void MP_DeselectBlock(MP_Player player, int x, int y) {
         if (BS_Test(gPlayerSelection[player], idx)) {
             BS_Unset(gPlayerSelection[player], idx);
             // Send event to AI scripts.
-            MP_FireBlockSelectionChanged(MP_GetBlockAt(x, y), x, y, false);
+            MP_Lua_FireBlockSelectionChanged(player, MP_GetBlockAt(x, y), x, y);
         }
     }
 }
