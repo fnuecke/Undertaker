@@ -160,42 +160,6 @@ static void popCanceled(MP_Unit* unit) {
     }
 }
 
-/** Get preference value from AI script */
-static float getDynamicPreference(MP_Unit* unit, MP_Job* job) {
-    lua_State* L = job->meta->L;
-
-    // Try to get the callback.
-    lua_getglobal(L, "preference");
-    if (lua_isfunction(L, -1)) {
-        // Call it.
-        luaMP_pushunit(L, unit);
-        if (MP_Lua_pcall(L, 1, 1) == LUA_OK) {
-            // OK, try to get the result as a float.
-            if (lua_isnumber(L, -1)) {
-                float preference = lua_tonumber(L, -1);
-                lua_pop(L, 1);
-                return preference;
-            } else {
-                MP_log_error("'preference' for job '%s' returned something that's not a number.\n", job->meta->name);
-            }
-        } else {
-            // Something went wrong.
-            MP_log_error("In 'preference' for job '%s': %s\n", job->meta->name, lua_tostring(L, -1));
-        }
-    } else {
-        MP_log_error("'preference' for job '%s' isn't a function anymore.\n", job->meta->name);
-    }
-
-    // Pop function or error message or result.
-    lua_pop(L, 1);
-
-    // We get here only on failure. In that case disable the dynamic preference,
-    // so we don't try this again.
-    MP_DisableDynamicPreference(job->meta);
-
-    return 0;
-}
-
 /** Computes additional job weight based on saturation */
 static float weightedPreference(float saturation, float preference, const MP_UnitJobSaturationMeta* meta) {
     // Map saturation to interval between unsatisfied and satisfied thresh so
@@ -269,7 +233,7 @@ static void findJob(MP_Unit* unit) {
 
         // Weigh the distance based on the saturation and preference.
         if (job->meta->hasDynamicPreference) {
-            distance -= weightedPreference(state->jobSaturation[number], getDynamicPreference(unit, job), &meta->jobSaturation[number]);
+            distance -= weightedPreference(state->jobSaturation[number], MP_Lua_GetDynamicPreference(unit, job), &meta->jobSaturation[number]);
         } else {
             distance -= weightedPreference(state->jobSaturation[number], meta->jobSaturation[number].preference, &meta->jobSaturation[number]);
         }

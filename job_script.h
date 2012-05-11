@@ -62,6 +62,8 @@ extern "C" {
 
     unsigned int MP_Lua_RunJob(MP_Unit* unit, MP_Job* job);
 
+    float MP_Lua_GetDynamicPreference(MP_Unit* unit, MP_Job* job);
+
     void MP_Lua_OnUnitAdded(MP_Unit* unit);
     void MP_Lua_OnBlockSelectionChanged(MP_Player player, MP_Block* block, unsigned short x, unsigned short y);
     void MP_Lua_OnBlockMetaChanged(MP_Block* block, unsigned short x, unsigned short y);

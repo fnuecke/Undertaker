@@ -5,6 +5,7 @@
 #include "block.h"
 #include "job.h"
 #include "job_script.h"
+#include "job_script_eventnames.h"
 #include "room.h"
 #include "unit.h"
 
@@ -58,7 +59,7 @@ void MP_DisableJobEvent(const MP_JobMeta* meta, MP_JobEvent event) {
             if (gMetas[i].id == meta->id) {
                 // Modify.
                 gMetas[i].handlesEvent[event] = false;
-                MP_log_info("Disabling event callback '%s' for job '%s'.\n", JOB_EVENT_NAME[event], meta->name);
+                MP_log_info("Disabling '%s' for job '%s'.\n", JOB_EVENT_NAME[event], meta->name);
                 return;
             }
         }
@@ -72,7 +73,7 @@ void MP_DisableDynamicPreference(const MP_JobMeta* meta) {
             if (gMetas[i].id == meta->id) {
                 // Modify.
                 gMetas[i].hasDynamicPreference = false;
-                MP_log_info("Disabling dynamic preference for '%s'.\n", meta->name);
+                MP_log_info("Disabling 'preference' for job '%s'.\n", meta->name);
                 return;
             }
         }
@@ -86,7 +87,7 @@ void MP_DisableRunMethod(const MP_JobMeta* meta) {
             if (gMetas[i].id == meta->id) {
                 // Modify.
                 gMetas[i].hasRunMethod = false;
-                MP_log_info("Disabling run method for job '%s'.\n", meta->name);
+                MP_log_info("Disabling 'run' for job '%s'.\n", meta->name);
                 return;
             }
         }
@@ -98,7 +99,7 @@ void MP_DisableRunMethod(const MP_JobMeta* meta) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static int throwErrorIndex(lua_State* L) {
-    lua_pushstring(L, "trying to access undefined global");
+    lua_pushstring(L, "trying to access undefined global or member");
     return lua_error(L);
 }
 

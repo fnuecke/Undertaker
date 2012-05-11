@@ -112,17 +112,6 @@ extern "C" {
         MP_PLAYER_COUNT
     } MP_Player;
 
-    ///////////////////////////////////////////////////////////////////////////
-    // Names
-    ///////////////////////////////////////////////////////////////////////////
-
-    static const char* JOB_EVENT_NAME[MP_JOB_EVENT_COUNT] = {
-        [MP_JOB_EVENT_UNIT_ADDED] = "onUnitAdded",
-        [MP_JOB_EVENT_BLOCK_SELECTION_CHANGED] = "onBlockSelectionChanged",
-        [MP_JOB_EVENT_BLOCK_META_CHANGED] = "onBlockMetaChanged",
-        [MP_JOB_EVENT_BLOCK_OWNER_CHANGED] = "onBlockOwnerChanged"
-    };
-
 #ifdef	__cplusplus
 }
 #endif
