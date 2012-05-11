@@ -60,6 +60,16 @@ static void onMapChange(void) {
 // Render
 ///////////////////////////////////////////////////////////////////////////////
 
+/** Catmull-rom interpolation */
+static float cr(float p0, float p1, float p2, float p3, float t) {
+    const float m1 = MP_AI_CATMULL_ROM_T * (p2 - p0);
+    const float m2 = MP_AI_CATMULL_ROM_T * (p3 - p1);
+    return (2 * p1 - 2 * p2 + m1 + m2) * t * t * t +
+            (-3 * p1 + 3 * p2 - 2 * m1 - m2) * t * t +
+            m1 * t +
+            p1;
+}
+
 static void onRender(void) {
     MP_Material material;
 
@@ -130,18 +140,16 @@ static void onRender(void) {
             {
                 unsigned int j = 0;
                 glVertex3f(path[1].d.x * MP_BLOCK_SIZE, path[1].d.y * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT);
-                /*
-                                for (j = 2; j <= depth; ++j) {
-                                    // Somewhere in the middle, smooth the path.
-                                    for (unsigned int k = 1; k < 20; ++k) {
-                                        const float t = k / 20.0f;
-                                        const float x = catmull_rom(path[j - 2].d.x, path[j - 1].d.x, path[j].d.x, path[j + 1].d.x, t);
-                                        const float y = catmull_rom(path[j - 2].d.y, path[j - 1].d.y, path[j].d.y, path[j + 1].d.y, t);
-                                        glVertex3f(x * MP_BLOCK_SIZE, y * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT);
-                                        glVertex3f(x * MP_BLOCK_SIZE, y * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT);
-                                    }
-                                }
-                 */
+                for (j = 2; j <= depth; ++j) {
+                    // Somewhere in the middle, smooth the path.
+                    for (unsigned int k = 1; k < 20; ++k) {
+                        const float t = k / 20.0f;
+                        const float x = cr(path[j - 2].d.x, path[j - 1].d.x, path[j].d.x, path[j + 1].d.x, t);
+                        const float y = cr(path[j - 2].d.y, path[j - 1].d.y, path[j].d.y, path[j + 1].d.y, t);
+                        glVertex3f(x * MP_BLOCK_SIZE, y * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT);
+                        glVertex3f(x * MP_BLOCK_SIZE, y * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT);
+                    }
+                }
                 glVertex3f(path[j - 1].d.x * MP_BLOCK_SIZE, path[j - 1].d.y * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT);
             }
             glEnd();
@@ -167,7 +175,7 @@ static void onRender(void) {
 ///////////////////////////////////////////////////////////////////////////////
 
 bool MP_IsUnitMoving(const MP_Unit* unit) {
-    return unit->ai->pathing.index < unit->ai->pathing.depth;
+    return unit->ai->pathing.index <= unit->ai->pathing.depth;
 }
 
 int MP_AddUnit(MP_Player player, const MP_UnitMeta* meta, const vec2* position) {
@@ -198,17 +206,21 @@ int MP_AddUnit(MP_Player player, const MP_UnitMeta* meta, const vec2* position) 
     // OK, allocate AI data, if necessary.
     if (!unit->ai && !(unit->ai = calloc(1, sizeof (MP_AI_Info)))) {
         MP_log_fatal("Out of memory while allocating AI info.\n");
+    } else {
+        memset(unit->ai, 0, sizeof (MP_AI_Info));
     }
+
+    // Set the pointer past the lower stack bound, so we know we have to
+    // find something to do.
+    unit->ai->current = &unit->ai->stack[MP_AI_STACK_DEPTH];
+    // Disable movement initially.
+    unit->ai->pathing.index = 1;
 
     // Allocate job saturation memory.
     if (!unit->satisfaction.jobSaturation &&
             !(unit->satisfaction.jobSaturation = calloc(unit->meta->jobCount, sizeof (float)))) {
         MP_log_fatal("Out of memory while allocating job saturation.\n");
     }
-
-    // Set the pointer past the lower stack bound, so we know we have to
-    // find something to do.
-    unit->ai->current = &unit->ai->stack[MP_AI_STACK_DEPTH];
 
     // Set initial job saturations.
     for (unsigned int number = 0; number < unit->meta->jobCount; ++number) {

@@ -1,4 +1,5 @@
 #include "units_ai.h"
+#include "script.h"
 
 #include <assert.h>
 #include <float.h>
@@ -30,21 +31,22 @@ static void updateMove(MP_Unit* unit) {
     AI_Path* path = &unit->ai->pathing;
 
     // Are we even moving?
-    if (path->index >= path->depth) {
+    if (!MP_IsUnitMoving(unit)) {
         return;
     }
 
     // AI is moving. Apply movement.
-    path->traveled += unit->meta->moveSpeed;
+    path->traveled += unit->meta->moveSpeed / MP_FRAMERATE;
 
-    // Test if we reached the way point.
-    if (path->traveled > path->distance) {
+    // Test if we reached the way point. Do this in a loop to allow skipping
+    // way points when moving really fast.
+    while (path->traveled > path->distance) {
         // Yes, try to advance to the next one.
         ++path->index;
-        if (path->index > path->depth) {
+        if (!MP_IsUnitMoving(unit)) {
             // Reached final node, we're done.
-            unit->position.d.x = path->nodes[path->index - 1].d.x;
-            unit->position.d.y = path->nodes[path->index - 1].d.y;
+            unit->position.d.x = path->nodes[path->depth].d.x;
+            unit->position.d.y = path->nodes[path->depth].d.y;
             return;
         } else {
             // Subtract length of previous to carry surplus movement.
@@ -160,33 +162,34 @@ static void popCanceled(MP_Unit* unit) {
 /** Get preference value from AI script */
 static float getDynamicPreference(MP_Unit* unit, MP_Job* job) {
     lua_State* L = job->meta->L;
+
     // Try to get the callback.
     lua_getglobal(L, "preference");
     if (lua_isfunction(L, -1)) {
         // Call it.
-        // TODO parameters; at least the unit this concerns.
-        if (lua_pcall(L, 0, 1, 0) == LUA_OK) {
+        luaMP_pushunit(L, unit);
+        if (lua_pcall(L, 1, 1, 0) == LUA_OK) {
             // OK, try to get the result as a float.
             if (lua_isnumber(L, -1)) {
                 float preference = lua_tonumber(L, -1);
                 lua_pop(L, 1);
                 return preference;
             } else {
-                lua_pop(L, 1);
-                MP_log_error("Dynamic preference for '%s' returned something that's not a number.\n", job->meta->name);
+                MP_log_error("'preference' for job '%s' returned something that's not a number.\n", job->meta->name);
             }
         } else {
             // Something went wrong.
-            MP_log_error("Something bad happened evaluating dynamic preference for '%s':\n%s\n", job->meta->name, lua_tostring(L, -1));
-            lua_pop(L, 1);
+            MP_log_error("In 'preference' for job '%s':\n%s\n", job->meta->name, lua_tostring(L, -1));
         }
     } else {
-        MP_log_error("Dynamic preference function for '%s' isn't a function anymore.\n", job->meta->name);
+        MP_log_error("'preference' for job '%s' isn't a function anymore.\n", job->meta->name);
     }
+
+    // Pop function or error message or result.
+    lua_pop(L, 1);
 
     // We get here only on failure. In that case disable the dynamic preference,
     // so we don't try this again.
-    MP_log_info("INFO: Disabling dynamic preference for '%s'.\n", job->meta->name);
     MP_DisableDynamicPreference(job->meta);
 
     return 0;
@@ -290,18 +293,21 @@ static void findJob(MP_Unit* unit) {
 
 /** Runs job logic, if possible */
 static void updateJob(MP_Unit* unit) {
-    const MP_JobMeta* job = unit->meta->jobs[unit->ai->current->jobNumber];
-    // See if we have an update method for it or have to wait before running the
-    // job logic again.
-    if (!job->hasRunMethod) {
-        // Pop the state, it cannot execute.
-        ++unit->ai->current;
-    } else if (unit->ai->current->delay) {
-        // Wait some more.
-        --unit->ai->current->delay;
-    } else {
-        // Otherwise update the unit based on its current job.
-        MP_RunJob(unit, job);
+    // Only if we have a job.
+    if (unit->ai->current < &unit->ai->stack[MP_AI_STACK_DEPTH]) {
+        const MP_JobMeta* job = unit->meta->jobs[unit->ai->current->jobNumber];
+        // See if we have an update method for it or have to wait before running the
+        // job logic again.
+        if (!job->hasRunMethod) {
+            // Pop the state, it cannot execute.
+            ++unit->ai->current;
+        } else if (unit->ai->current->delay) {
+            // Wait some more.
+            --unit->ai->current->delay;
+        } else {
+            // Otherwise update the unit based on its current job.
+            unit->ai->current->delay = MP_RunJob(unit, job);
+        }
     }
 }
 
@@ -317,7 +323,7 @@ bool MP_MoveTo(const MP_Unit* unit, const vec2* position) {
     unsigned int depth = MP_AI_PATH_DEPTH;
     if (MP_AStar(unit, position, &pathing->nodes[1], &depth, NULL)) {
         pathing->depth = depth;
-        pathing->index = 0;
+        pathing->index = 1;
         pathing->distance = 0;
         pathing->traveled = 0;
 

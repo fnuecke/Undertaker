@@ -127,6 +127,14 @@ void luaMP_pushblock(lua_State* L, MP_Block* block) {
     luaL_setmetatable(L, LUA_BLOCKLIBNAME);
 }
 
+bool luaMP_isblock(lua_State* L, int narg) {
+    return luaL_checkudata(L, narg, LUA_BLOCKLIBNAME) != NULL;
+}
+
+MP_Block* luaMP_toblock(lua_State* L, int narg) {
+    return *(MP_Block**) lua_touserdata(L, narg);
+}
+
 MP_Block* luaMP_checkblock(lua_State* L, int narg) {
     void* ud = luaL_checkudata(L, narg, LUA_BLOCKLIBNAME);
     luaL_argcheck(L, ud != NULL, 1, "'" LUA_BLOCKLIBNAME "' expected");

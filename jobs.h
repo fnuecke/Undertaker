@@ -62,6 +62,48 @@ extern "C" {
     };
 
     /**
+     * Allocates a new job that will be tracked and can be found via the
+     * FindJob method.
+     * @param player the player for whom to create the job.
+     * @param meta the type of the job to create.
+     * @return the newly created job.
+     */
+    MP_Job* MP_NewJob(MP_Player player, const MP_JobMeta* meta);
+
+    /**
+     * Deletes a job. This frees the memory the job occupies, so all pointers to
+     * it will be invalid after calling this. It will also tell any units
+     * working on this job to stop doing so.
+     * @param player the player to whom the job belongs.
+     * @param job the job to delete.
+     */
+    void MP_DeleteJob(MP_Player player, MP_Job* job);
+
+    /**
+     * Deletes all jobs targeting the specified block. Same effects as for the
+     * normal DeleteJob method apply.
+     * @param player the player for whom to delete the jobs.
+     * @param block the targeted block to check for.
+     */
+    void MP_DeleteJobsTargetingBlock(MP_Player player, const MP_Block* block);
+
+    /**
+     * Deletes all jobs targeting the specified room. Same effects as for the
+     * normal DeleteJob method apply.
+     * @param player the player for whom to delete the jobs.
+     * @param room the targeted room to check for.
+     */
+    void MP_DeleteJobsTargetingRoom(MP_Player player, const MP_Room* room);
+
+    /**
+     * Deletes all jobs targeting the specified unit. Same effects as for the
+     * normal DeleteJob method apply.
+     * @param player the player for whom to delete the jobs.
+     * @param unit the targeted unit to check for.
+     */
+    void MP_DeleteJobsTargetingUnit(MP_Player player, const MP_Unit* unit);
+
+    /**
      * Find the job of the specified type closest to the specified unit.
      * @param unit the unit to find the job for.
      * @param type the type of job we're looking for.
@@ -73,7 +115,7 @@ extern "C" {
     /**
      * Run a job's script for the specified unit.
      */
-    void MP_RunJob(MP_Unit* unit, const MP_JobMeta* job);
+    unsigned int MP_RunJob(MP_Unit* unit, const MP_JobMeta* job);
 
     /**
      * Clear all job lists and free all additional memory.

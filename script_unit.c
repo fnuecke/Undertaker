@@ -3,6 +3,7 @@
 #include "units.h"
 #include "units_meta.h"
 #include "units_ai.h"
+#include "jobs_meta.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Getters
@@ -65,6 +66,14 @@ void luaMP_pushunit(lua_State* L, MP_Unit* unit) {
     MP_Unit** ud = (MP_Unit**) lua_newuserdata(L, sizeof (MP_Unit*));
     *ud = unit;
     luaL_setmetatable(L, LUA_UNITLIBNAME);
+}
+
+bool luaMP_isunit(lua_State* L, int narg) {
+    return luaL_checkudata(L, narg, LUA_UNITLIBNAME) != NULL;
+}
+
+MP_Unit* luaMP_tounit(lua_State* L, int narg) {
+    return *(MP_Unit**) lua_touserdata(L, narg);
 }
 
 MP_Unit* luaMP_checkunit(lua_State* L, int narg) {

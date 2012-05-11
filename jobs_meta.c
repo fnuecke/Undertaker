@@ -65,6 +65,7 @@ void MP_DisableJobEvent(const MP_JobMeta* meta, MP_JobEvent event) {
             if (gMetas[i].id == meta->id) {
                 // Modify.
                 gMetas[i].handlesEvent[event] = false;
+                MP_log_info("Disabling event callback '%s' for job '%s'.\n", JOB_EVENT_NAME[event], meta->name);
                 return;
             }
         }
@@ -78,6 +79,7 @@ void MP_DisableDynamicPreference(const MP_JobMeta* meta) {
             if (gMetas[i].id == meta->id) {
                 // Modify.
                 gMetas[i].hasDynamicPreference = false;
+                MP_log_info("Disabling dynamic preference for '%s'.\n", meta->name);
                 return;
             }
         }
@@ -91,6 +93,7 @@ void MP_DisableRunMethod(const MP_JobMeta* meta) {
             if (gMetas[i].id == meta->id) {
                 // Modify.
                 gMetas[i].hasRunMethod = false;
+                MP_log_info("Disabling run method for job '%s'.\n", meta->name);
                 return;
             }
         }
@@ -130,14 +133,17 @@ static void require(lua_State* L, const char *modname, lua_CFunction openf, bool
     // Set up the library.
     luaL_requiref(L, modname, openf, 0);
 
-    // Make it immutable (get an immutable proxy for it).
-    getImmutableProxy(L);
-
     // Make it a meta table.
     if (mt) {
+        // Make it its own index, then register it.
+        lua_pushvalue(L, -1);
+        lua_setfield(L, -2, "__index");
         lua_pushvalue(L, -1);
         lua_setfield(L, LUA_REGISTRYINDEX, modname);
     }
+
+    // Make it immutable (get an immutable proxy for it).
+    getImmutableProxy(L);
 
     // Register it with the table on top before the call to this method.
     lua_setfield(L, -2, modname);
@@ -275,25 +281,28 @@ int MP_Lua_AddJobMeta(lua_State* L) {
 static void onUnitAdded(MP_JobMeta* meta, MP_Unit* unit) {
     const char* eventName = JOB_EVENT_NAME[MP_JOB_EVENT_UNIT_ADDED];
     lua_State* L = meta->L;
+
     // Try to get the callback.
     lua_getglobal(L, eventName);
     if (lua_isfunction(L, -1)) {
         // Call it with the unit that was added as the parameter.
         luaMP_pushunit(L, unit);
         if (lua_pcall(L, 1, 0, 0) == LUA_OK) {
+            // OK, that's it, we're done.
             return;
         } else {
             // Something went wrong.
-            MP_log_error("Something bad happened in event handler '%s' for job '%s':\n%s\n", eventName, meta->name, lua_tostring(L, -1));
+            MP_log_error("In '%s' for job '%s':\n%s\n", eventName, meta->name, lua_tostring(L, -1));
         }
     } else {
-        lua_pop(L, 1);
-        MP_log_error("Event handler '%s' for job '%s' isn't a function anymore.\n", eventName, meta->name);
+        MP_log_error("'%s' for job '%s' isn't a function anymore.\n", eventName, meta->name);
     }
+
+    // Pop function or error message.
+    lua_pop(L, 1);
 
     // We get here only on failure. In that case disable the event callback,
     // so we don't try this again.
-    MP_log_info("Disabling event callback '%s' for job '%s'.\n", eventName, meta->name);
     MP_DisableJobEvent(meta, MP_JOB_EVENT_UNIT_ADDED);
 }
 

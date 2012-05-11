@@ -1,7 +1,7 @@
 -- Register the wander job for the newly added unit.
 function onUnitAdded(unit)
 	-- We target ourself.
-	Job.create {name="wander", unit=unit}
+	Job.create {player=unit:getOwner(), name="wander", unit=unit}
 end
 
 function run(unit)
@@ -34,12 +34,9 @@ function run(unit)
         }
     ]]
 
-    -- Check if the block is valid for the unit.
-    if Block.at(math.floor(x), math.floor(y)):isPassableBy(unit) then
-        -- OK go.
-        unit:move(x, y)
-
-        -- Update delay. Wait some before wandering again.
-        state.delay = WANDER_DELAY_MIN + (math.random() * WANDER_DELAY_VARIANCE)
-    end
+    -- Try to move.
+    if unit:move(x, y) then
+        -- OK, update delay. Wait some before wandering again.
+        return WANDER_DELAY_MIN + (math.random() * WANDER_DELAY_VARIANCE)
+    end -- else we'll try to find a better spot next round.
 end

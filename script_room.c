@@ -27,6 +27,14 @@ void luaMP_pushroom(lua_State* L, MP_Room* room) {
     luaL_setmetatable(L, LUA_ROOMLIBNAME);
 }
 
+bool luaMP_isroom(lua_State* L, int narg) {
+    return luaL_checkudata(L, narg, LUA_ROOMLIBNAME) != NULL;
+}
+
+MP_Room* luaMP_toroom(lua_State* L, int narg) {
+    return *(MP_Room**) lua_touserdata(L, narg);
+}
+
 MP_Room* luaMP_checkroom(lua_State* L, int narg) {
     void* ud = luaL_checkudata(L, narg, LUA_ROOMLIBNAME);
     luaL_argcheck(L, ud != NULL, 1, "'" LUA_ROOMLIBNAME "' expected");

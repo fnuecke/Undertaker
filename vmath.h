@@ -62,6 +62,18 @@ extern "C" {
         float m[16];
     } mat4;
 
+    static const vec2 ZERO_VEC2 = {
+        { 0, 0}
+    };
+
+    static const vec3 ZERO_VEC3 = {
+        { 0, 0, 0}
+    };
+
+    static const vec4 ZERO_VEC4 = {
+        { 0, 0, 0, 1}
+    };
+
     static const mat3 IDENTITY_MATRIX3 = {
         {
             1, 0, 0,

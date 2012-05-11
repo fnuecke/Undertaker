@@ -9,12 +9,13 @@
 #include "astar.h"
 #include "block.h"
 #include "config.h"
+#include "jobs_meta.h"
 #include "map.h"
 #include "render.h"
+#include "script.h"
 #include "selection.h"
 #include "units.h"
 #include "vmath.h"
-#include "jobs_meta.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
@@ -75,10 +76,12 @@ static void ensureJobTypeListSize(MP_Player player, unsigned int metaId) {
 }
 
 /** Allocate a job and track it in our list */
-static MP_Job* newJob(MP_Player player, const MP_JobMeta* meta) {
+MP_Job* MP_NewJob(MP_Player player, const MP_JobMeta* meta) {
     MP_Job* job;
 
-    assert(meta);
+    if (!meta) {
+        return NULL;
+    }
 
     // Ensure we have the capacity to add the job.
     ensureJobTypeListSize(player, meta->id);
@@ -94,16 +97,66 @@ static MP_Job* newJob(MP_Player player, const MP_JobMeta* meta) {
 }
 
 /** Delete a job that is no longer used */
-static void deleteJob(MP_Player player, unsigned int metaId, unsigned int number) {
-    assert(gJobsCount[player][metaId] > number);
-    assert(gJobs[player][metaId][number]);
+void MP_DeleteJob(MP_Player player, MP_Job* job) {
+    if (!job) {
+        return;
+    }
 
-    // Free the actual memory.
-    free(gJobs[player][metaId][number]);
+    assert(job->meta->id < gJobTypeCapacity[player]);
 
-    // Move up the list entries to close the gap.
-    --gJobsCount[player][metaId];
-    memmove(&gJobs[player][metaId][number], &gJobs[player][metaId][number + 1], (gJobsCount[player][metaId] - number) * sizeof (MP_Job*));
+    // Find the job.
+    for (unsigned int number = 0; number < gJobsCount[player][job->meta->id]; ++number) {
+        if (gJobs[player][job->meta->id][number] == job) {
+            // Remove this one. Notify worker that it's no longer needed.
+            MP_StopJob(job);
+
+            // Free the actual memory.
+            free(gJobs[player][job->meta->id][number]);
+
+            // Move up the list entries to close the gap.
+            --gJobsCount[player][job->meta->id];
+            memmove(&gJobs[player][job->meta->id][number], &gJobs[player][job->meta->id][number + 1], (gJobsCount[player][job->meta->id] - number) * sizeof (MP_Job*));
+
+            // And we're done.
+            return;
+        }
+    }
+}
+
+void MP_DeleteJobsTargetingBlock(MP_Player player, const MP_Block* block) {
+    for (unsigned int metaId = 0; metaId < gJobTypeCapacity[player]; ++metaId) {
+        // Run back to front so that deletions don't matter.
+        for (unsigned int number = gJobsCount[player][metaId]; number > 0; --number) {
+            MP_Job* job = gJobs[player][metaId][number - 1];
+            if (job->block == block) {
+                MP_DeleteJob(player, job);
+            }
+        }
+    }
+}
+
+void MP_DeleteJobsTargetingRoom(MP_Player player, const MP_Room* room) {
+    for (unsigned int metaId = 0; metaId < gJobTypeCapacity[player]; ++metaId) {
+        // Run back to front so that deletions don't matter.
+        for (unsigned int number = gJobsCount[player][metaId]; number > 0; --number) {
+            MP_Job* job = gJobs[player][metaId][number - 1];
+            if (job->room == room) {
+                MP_DeleteJob(player, job);
+            }
+        }
+    }
+}
+
+void MP_DeleteJobsTargetingUnit(MP_Player player, const MP_Unit* unit) {
+    for (unsigned int metaId = 0; metaId < gJobTypeCapacity[player]; ++metaId) {
+        // Run back to front so that deletions don't matter.
+        for (unsigned int number = gJobsCount[player][metaId]; number > 0; --number) {
+            MP_Job* job = gJobs[player][metaId][number - 1];
+            if (job->unit == unit) {
+                MP_DeleteJob(player, job);
+            }
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -259,8 +312,45 @@ MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobMeta* type, float* distance)
     return closestJob;
 }
 
-void MP_RunJob(MP_Unit* unit, const MP_JobMeta* job) {
+unsigned int MP_RunJob(MP_Unit* unit, const MP_JobMeta* meta) {
+    lua_State* L = meta->L;
 
+    // Try to get the callback.
+    lua_getglobal(L, "run");
+    if (lua_isfunction(L, -1)) {
+        // Call it with the unit that we want to execute the script for.
+        luaMP_pushunit(L, unit);
+        if (lua_pcall(L, 1, 1, 0) == LUA_OK) {
+            // We should have gotten a delay (in seconds) to wait.
+            float delay = 0;
+            if (lua_isnumber(L, -1)) {
+                delay = lua_tonumber(L, -1);
+            }
+            lua_pop(L, 1);
+
+            // Validate.
+            if (delay < 0) {
+                return 0;
+            }
+
+            // OK, multiply with frame rate to get tick count.
+            return (unsigned int) (MP_FRAMERATE * delay);
+        } else {
+            // Something went wrong.
+            MP_log_error("In 'run' for job '%s':\n%s\n", meta->name, lua_tostring(L, -1));
+        }
+    } else {
+        MP_log_error("'run' for job '%s' isn't a function anymore.\n", meta->name);
+    }
+
+    // Pop function or error message.
+    lua_pop(L, 1);
+
+    // We get here only on failure. In that case disable the run callback,
+    // so we don't try this again.
+    MP_DisableRunMethod(meta);
+
+    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

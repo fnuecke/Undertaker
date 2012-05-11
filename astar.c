@@ -346,34 +346,36 @@ static float computeLength(const PathNode* tail, const vec2* start, const vec2* 
     // Accumulate length of the path.
     float length = 0;
 
-    // Position of last waypoint (init with goal coordinates to get the actual
-    // distance to the goal position, not the last node).
-    float lx = goal->d.x;
-    float ly = goal->d.y;
+    if (tail->came_from) {
+        // Position of last waypoint (init with goal coordinates to get the
+        // actual distance to the goal position, not the last node).
+        float lx = goal->d.x;
+        float ly = goal->d.y;
 
-    // Skip last node, as it'll be replaced with the goal coordinates.
-    const PathNode* n = &gClosedSet[tail->came_from - 1];
+        // Skip last node, as it'll be replaced with the goal coordinates.
+        const PathNode* n = &gClosedSet[tail->came_from - 1];
 
-    // Run until we get to the start node (which we'll replace with the
-    // start coordinates).
-    while (n->came_from) {
-        // Compute distance.
-        const float nx = toMapSpace(n->x);
-        const float ny = toMapSpace(n->y);
-        const float dx = nx - lx;
-        const float dy = ny - ly;
-        length += sqrtf(dx * dx + dy * dy);
+        // Run until we get to the start node (which we'll replace with the
+        // start coordinates).
+        while (n->came_from) {
+            // Compute distance.
+            const float nx = toMapSpace(n->x);
+            const float ny = toMapSpace(n->y);
+            const float dx = nx - lx;
+            const float dy = ny - ly;
+            length += sqrtf(dx * dx + dy * dy);
 
-        // Store this position as the last one and move on to the next node.
-        lx = nx;
-        ly = ny;
-        n = &gClosedSet[n->came_from - 1];
-    }
-    // For the last node, use the start coordinates.
-    {
-        const float dx = start->d.x - lx;
-        const float dy = start->d.y - ly;
-        length += sqrtf(dx * dx + dy * dy);
+            // Store this position as the last one and move on to the next node.
+            lx = nx;
+            ly = ny;
+            n = &gClosedSet[n->came_from - 1];
+        }
+        // For the last node, use the start coordinates.
+        {
+            const float dx = start->d.x - lx;
+            const float dy = start->d.y - ly;
+            length += sqrtf(dx * dx + dy * dy);
+        }
     }
 
     return length;
