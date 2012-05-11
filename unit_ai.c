@@ -6,11 +6,12 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include "astar_mp.h"
 #include "block.h"
 #include "job.h"
 #include "map.h"
-#include "unit.h"
 #include "meta_job.h"
+#include "unit.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Utility methods

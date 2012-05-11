@@ -7,9 +7,6 @@
 #include <stdio.h>
 
 #include "bitset.h"
-#include "block.h"
-#include "config.h"
-#include "map.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Types
@@ -42,6 +39,7 @@ static const float SQRT2 = 1.41421356237309504880f;
 
 /** Number of cells in the grid used for our A* algorithm */
 static int gGridSize = 0;
+static int gGridCapacity = 0;
 
 /** Bitset for quick lookup of closed set in A* */
 static char* gClosedSetLookup = 0;
@@ -59,7 +57,7 @@ static unsigned int gOpenSetCount = 0;
 static unsigned int gClosedSetCount = 0;
 
 /** The unit we're currently checking for */
-static const MP_Unit* gUnit;
+static int(*gIsPassable)(float x, float y);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Allocation
@@ -71,7 +69,7 @@ static PathNode* newOpenNode(float key) {
 
     // Ensure we have the capacity to add the node.
     if (gOpenSetCount + 1 >= gOpenSetCapacity) {
-        gOpenSetCapacity = MP_ASTAR_CAPACITY_GROWTH(gOpenSetCapacity);
+        gOpenSetCapacity = gOpenSetCapacity * 2 + 8;
         if (!(gOpenSet = realloc(gOpenSet, gOpenSetCapacity * sizeof (PathNode)))) {
             fprintf(stderr, "Out of memory while resizing A* open queue.\n");
             exit(EXIT_FAILURE);
@@ -105,7 +103,7 @@ static PathNode* newOpenNode(float key) {
 static PathNode* popOpenNodeToClosedSet(void) {
     // Ensure we have the capacity to add the node.
     if (gClosedSetCount + 1 >= gClosedSetCapacity) {
-        gClosedSetCapacity = MP_ASTAR_CAPACITY_GROWTH(gClosedSetCapacity);
+        gClosedSetCapacity = gClosedSetCapacity * 2 + 8;
         if (!(gClosedSet = realloc(gClosedSet, gClosedSetCapacity * sizeof (PathNode)))) {
             fprintf(stderr, "Out of memory while resizing A* closed set.\n");
             exit(EXIT_FAILURE);
@@ -157,12 +155,12 @@ inline static float f(unsigned int x, unsigned int y, unsigned int goalX, unsign
 
 /** Converts local coordinates to map ones */
 inline static float toMapSpace(unsigned int coordinate) {
-    return (coordinate / (float) MP_ASTAR_GRANULARITY + (0.5f / MP_ASTAR_GRANULARITY));
+    return (coordinate / (float) ASTAR_GRANULARITY + (0.5f / ASTAR_GRANULARITY));
 }
 
 /** Checks if a block is passable, using local coordinates */
 inline static int isPassable(unsigned int x, unsigned int y) {
-    return MP_IsBlockPassableBy(MP_GetBlockAt(x / MP_ASTAR_GRANULARITY, y / MP_ASTAR_GRANULARITY), gUnit);
+    return gIsPassable(x / ASTAR_GRANULARITY, y / ASTAR_GRANULARITY);
 }
 
 /** Tests if a neighbor should be skipped due to it already having a better score */
@@ -468,21 +466,30 @@ static int isGoal(vec2* path, unsigned int* depth, float* length,
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-int MP_AStar(const MP_Unit* unit, const vec2* goal, vec2* path, unsigned int* depth, float* length) {
+int AStar(const vec2* start, const vec2* goal, int(*passable)(float x, float y), unsigned int bounds, vec2* path, unsigned int* depth, float* length) {
     unsigned int gx, gy, begin_x, begin_y, end_x, end_y, neighbor_x, neighbor_y;
     int x, y;
     float gscore, fscore;
     PathNode *current, *node;
-    const vec2* start = &unit->position;
 
     // Check if the start and target position are valid (passable).
-    if (!MP_IsBlockPassableBy(MP_GetBlockAt((int) floorf(start->v[0]), (int) floorf(start->v[1])), unit) ||
-            !MP_IsBlockPassableBy(MP_GetBlockAt((int) floorf(goal->v[0]), (int) floorf(goal->v[1])), unit)) {
+    if (!passable(start->v[0], start->v[1]) ||
+            !passable(goal->v[0], goal->v[1])) {
         return 0;
     }
 
-    // Remember we're working on this unit (passable checks).
-    gUnit = unit;
+    // Remember passability check method.
+    gIsPassable = passable;
+
+    // Set grid bounds.
+    gGridSize = bounds * ASTAR_GRANULARITY;
+
+    // Ensure size of lookup table is sufficient.
+    if (gGridSize > gGridCapacity) {
+        gGridCapacity = gGridSize;
+        BS_Delete(gClosedSetLookup);
+        gClosedSetLookup = BS_New(gGridCapacity * gGridCapacity);
+    }
 
     // Reset number of entries used in the open and closed set.
     gOpenSetCount = 0;
@@ -492,13 +499,13 @@ int MP_AStar(const MP_Unit* unit, const vec2* goal, vec2* path, unsigned int* de
     BS_Reset(gClosedSetLookup, gGridSize * gGridSize);
 
     // Get goal in local coordinates.
-    gx = (unsigned int) (goal->v[0] * MP_ASTAR_GRANULARITY);
-    gy = (unsigned int) (goal->v[1] * MP_ASTAR_GRANULARITY);
+    gx = (unsigned int) (goal->v[0] * ASTAR_GRANULARITY);
+    gy = (unsigned int) (goal->v[1] * ASTAR_GRANULARITY);
 
     // Initialize the first open node to the one we're starting from.
     current = newOpenNode(0);
-    current->x = (unsigned int) (start->v[0] * MP_ASTAR_GRANULARITY);
-    current->y = (unsigned int) (start->v[1] * MP_ASTAR_GRANULARITY);
+    current->x = (unsigned int) (start->v[0] * ASTAR_GRANULARITY);
+    current->y = (unsigned int) (start->v[1] * ASTAR_GRANULARITY);
     current->gscore = 0.0f;
     current->fscore = 0.0f;
     current->came_from = 0;
@@ -559,7 +566,7 @@ int MP_AStar(const MP_Unit* unit, const vec2* goal, vec2* path, unsigned int* de
                 // The actual node to be inspected.
                 x = neighbor_x, y = neighbor_y;
 
-#if MP_ASTAR_JPS
+#if ASTAR_JPS
                 // Try this direction using jump point search.
                 if (!jumpPointSearch(&x, &y, x - current->x, y - current->y, x, y, gx, gy)) {
                     // Failed, try next neighbor.
@@ -620,14 +627,4 @@ int MP_AStar(const MP_Unit* unit, const vec2* goal, vec2* path, unsigned int* de
     }
 
     return 0;
-}
-
-static void onMapChange(void) {
-    gGridSize = MP_GetMapSize() * MP_ASTAR_GRANULARITY;
-    BS_Delete(gClosedSetLookup);
-    gClosedSetLookup = BS_New(gGridSize * gGridSize);
-}
-
-void MP_InitAStar(void) {
-    MP_OnMapSizeChange(onMapChange);
 }

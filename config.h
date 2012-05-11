@@ -77,24 +77,6 @@ extern "C" {
 #define MP_JOB_CONVERT_WALL_PRIORITY 16
 
     ///////////////////////////////////////////////////////////////////////////////
-    // Path finding
-    ///////////////////////////////////////////////////////////////////////////////
-
-    /**
-     * How fine the overlayed block grid for A* is (higher = finer); also sets how
-     * many imps can work on one wall at a time */
-#define MP_ASTAR_GRANULARITY 2
-
-    /**
-     * Use jumps point search, skipping distances where possible.
-     * D. Harabor and A. Grastien. Online Graph Pruning for Pathfinding on Grid Maps.
-     * In National Conference on Artificial Intelligence (AAAI), 2011. */
-#define MP_ASTAR_JPS 1
-
-    /** Defines how capacity of lists grows when exceeded */
-#define MP_ASTAR_CAPACITY_GROWTH(old_capacity) (old_capacity * 2 + 16)
-
-    ///////////////////////////////////////////////////////////////////////////////
     // AI
     ///////////////////////////////////////////////////////////////////////////////
 

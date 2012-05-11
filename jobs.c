@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "astar.h"
+#include "astar_mp.h"
 #include "block.h"
 #include "config.h"
 #include "meta_job.h"

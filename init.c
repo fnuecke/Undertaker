@@ -89,7 +89,6 @@ void MP_Init(void) {
     // Set up event bindings.
     MP_InitGraphics();
 
-    MP_InitAStar();
     MP_InitCamera();
     MP_InitCursor();
     MP_InitSelection();
