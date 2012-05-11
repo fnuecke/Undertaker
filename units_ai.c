@@ -168,7 +168,7 @@ static float getDynamicPreference(MP_Unit* unit, MP_Job* job) {
     if (lua_isfunction(L, -1)) {
         // Call it.
         luaMP_pushunit(L, unit);
-        if (lua_pcall(L, 1, 1, 0) == LUA_OK) {
+        if (MP_Lua_pcall(L, 1, 1) == LUA_OK) {
             // OK, try to get the result as a float.
             if (lua_isnumber(L, -1)) {
                 float preference = lua_tonumber(L, -1);
@@ -179,7 +179,7 @@ static float getDynamicPreference(MP_Unit* unit, MP_Job* job) {
             }
         } else {
             // Something went wrong.
-            MP_log_error("In 'preference' for job '%s':\n%s\n", job->meta->name, lua_tostring(L, -1));
+            MP_log_error("In 'preference' for job '%s': %s\n", job->meta->name, lua_tostring(L, -1));
         }
     } else {
         MP_log_error("'preference' for job '%s' isn't a function anymore.\n", job->meta->name);

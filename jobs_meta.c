@@ -170,6 +170,8 @@ static bool createEnv(lua_State* L) {
     // Register types.
     require(L, LUA_BITLIBNAME, luaopen_bit32, false);
     require(L, LUA_MATHLIBNAME, luaopen_math, false);
+    require(L, LUA_STRLIBNAME, luaopen_string, false);
+    require(L, LUA_TABLIBNAME, luaopen_table, false);
 
     require(L, LUA_BLOCKLIBNAME, luaopen_block, true);
     require(L, LUA_JOBLIBNAME, luaopen_job, true);
@@ -287,12 +289,12 @@ static void onUnitAdded(MP_JobMeta* meta, MP_Unit* unit) {
     if (lua_isfunction(L, -1)) {
         // Call it with the unit that was added as the parameter.
         luaMP_pushunit(L, unit);
-        if (lua_pcall(L, 1, 0, 0) == LUA_OK) {
+        if (MP_Lua_pcall(L, 1, 0) == LUA_OK) {
             // OK, that's it, we're done.
             return;
         } else {
             // Something went wrong.
-            MP_log_error("In '%s' for job '%s':\n%s\n", eventName, meta->name, lua_tostring(L, -1));
+            MP_log_error("In '%s' for job '%s': %s\n", eventName, meta->name, lua_tostring(L, -1));
         }
     } else {
         MP_log_error("'%s' for job '%s' isn't a function anymore.\n", eventName, meta->name);

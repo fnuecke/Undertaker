@@ -320,7 +320,7 @@ unsigned int MP_RunJob(MP_Unit* unit, const MP_JobMeta* meta) {
     if (lua_isfunction(L, -1)) {
         // Call it with the unit that we want to execute the script for.
         luaMP_pushunit(L, unit);
-        if (lua_pcall(L, 1, 1, 0) == LUA_OK) {
+        if (MP_Lua_pcall(L, 1, 1) == LUA_OK) {
             // We should have gotten a delay (in seconds) to wait.
             float delay = 0;
             if (lua_isnumber(L, -1)) {
@@ -337,7 +337,7 @@ unsigned int MP_RunJob(MP_Unit* unit, const MP_JobMeta* meta) {
             return (unsigned int) (MP_FRAMERATE * delay);
         } else {
             // Something went wrong.
-            MP_log_error("In 'run' for job '%s':\n%s\n", meta->name, lua_tostring(L, -1));
+            MP_log_error("In 'run' for job '%s': %s\n", meta->name, lua_tostring(L, -1));
         }
     } else {
         MP_log_error("'run' for job '%s' isn't a function anymore.\n", meta->name);

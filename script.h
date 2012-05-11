@@ -49,6 +49,8 @@ extern "C" {
     MP_Unit* luaMP_tounit(lua_State* L, int narg);
     MP_Unit* luaMP_checkunit(lua_State* L, int narg);
 
+    int MP_Lua_pcall(lua_State* L, int nargs, int nresults);
+
 #ifdef	__cplusplus
 }
 #endif

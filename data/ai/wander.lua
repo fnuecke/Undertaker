@@ -2,6 +2,7 @@
 function onUnitAdded(unit)
 	-- We target ourself.
 	Job.create {player=unit:getOwner(), name="wander", unit=unit}
+	table.insert = 10
 end
 
 function run(unit)
