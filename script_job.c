@@ -9,14 +9,15 @@
 
 typedef struct JobIter {
     MP_Job * const* jobs;
-    unsigned int i, count;
+    unsigned int i;
 } JobIter;
 
 static int lua_JobIter(lua_State* L) {
     JobIter* iter = (JobIter*) lua_touserdata(L, lua_upvalueindex(1));
 
-    if (iter->i < iter->count) {
-        luaMP_pushjob(L, iter->jobs[iter->i++]);
+    // We iterate back to front, to allow deletion of current entry.
+    if (iter->i > 0) {
+        luaMP_pushjob(L, iter->jobs[--iter->i]);
         return 1;
     }
 
@@ -28,8 +29,7 @@ static int lua_GetByType(lua_State* L) {
     const MP_JobMeta* meta = luaMP_checkjobmeta(L, 2, 2);
 
     JobIter* iter = (JobIter*) lua_newuserdata(L, sizeof (JobIter));
-    iter->jobs = MP_GetJobs(player, meta, &iter->count);
-    iter->i = 0;
+    iter->jobs = MP_GetJobs(player, meta, &iter->i);
 
     lua_pushcclosure(L, lua_JobIter, 1);
     return 1;

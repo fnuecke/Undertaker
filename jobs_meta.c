@@ -15,8 +15,8 @@
 static const char* JOB_EVENT_NAME[MP_JOB_EVENT_COUNT] = {
     [MP_JOB_EVENT_UNIT_ADDED] = "onUnitAdded",
     [MP_JOB_EVENT_BLOCK_SELECTION_CHANGED] = "onBlockSelectionChanged",
-    [MP_JOB_EVENT_BLOCK_DESTROYED] = "onBlockDestroyed",
-    [MP_JOB_EVENT_BLOCK_CONVERTED] = "onBlockConverted"
+    [MP_JOB_EVENT_BLOCK_META_CHANGED] = "onBlockMetaChanged",
+    [MP_JOB_EVENT_BLOCK_OWNER_CHANGED] = "onBlockOwnerChanged"
 };
 
 META_globals(MP_JobMeta)
@@ -327,16 +327,16 @@ void MP_Lua_FireBlockSelectionChanged(MP_Player player, MP_Block* block, unsigne
     }, 4);
 }
 
-void MP_Lua_FireBlockDestroyed(MP_Block* block, unsigned short x, unsigned short y) {
-    FIRE_EVENT(MP_JOB_EVENT_BLOCK_DESTROYED,{
+void MP_Lua_FireBlockMetaChanged(MP_Block* block, unsigned short x, unsigned short y) {
+    FIRE_EVENT(MP_JOB_EVENT_BLOCK_META_CHANGED,{
         luaMP_pushblock(L, block);
         lua_pushunsigned(L, x);
         lua_pushunsigned(L, y);
     }, 3);
 }
 
-void MP_Lua_FireBlockConverted(MP_Block* block, unsigned short x, unsigned short y) {
-    FIRE_EVENT(MP_JOB_EVENT_BLOCK_CONVERTED,{
+void MP_Lua_FireBlockOwnerChanged(MP_Block* block, unsigned short x, unsigned short y) {
+    FIRE_EVENT(MP_JOB_EVENT_BLOCK_OWNER_CHANGED,{
         luaMP_pushblock(L, block);
         lua_pushunsigned(L, x);
         lua_pushunsigned(L, y);

@@ -470,7 +470,7 @@ static void updateBlock(MP_Block* block) {
     // Deselect block and fire event for AI scripts.
     for (int i = 0; i < MP_PLAYER_COUNT; ++i) {
         MP_DeselectBlock(MP_PLAYER_NONE + i, x, y);
-        MP_Lua_FireBlockDestroyed(block, x, y);
+        MP_Lua_FireBlockMetaChanged(block, x, y);
     }
 }
 
@@ -1418,7 +1418,7 @@ bool MP_ConvertBlock(MP_Block* block, unsigned int strength, MP_Player player) {
             block->strength = max_strength;
 
             // Fire event for AI scripts.
-            MP_Lua_FireBlockConverted(block, x, y);
+            MP_Lua_FireBlockOwnerChanged(block, x, y);
         }
     }
     return true;

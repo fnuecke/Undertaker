@@ -16,9 +16,9 @@ extern "C" {
 
     void MP_Lua_FireBlockSelectionChanged(MP_Player player, MP_Block* block, unsigned short x, unsigned short y);
 
-    void MP_Lua_FireBlockDestroyed(MP_Block* block, unsigned short x, unsigned short y);
+    void MP_Lua_FireBlockMetaChanged(MP_Block* block, unsigned short x, unsigned short y);
 
-    void MP_Lua_FireBlockConverted(MP_Block* block, unsigned short x, unsigned short y);
+    void MP_Lua_FireBlockOwnerChanged(MP_Block* block, unsigned short x, unsigned short y);
 
 #ifdef	__cplusplus
 }

@@ -3,10 +3,41 @@ AI describing logic for the 'dig' job.
 --]]
 
 --[[
-When a block is destroyed we want to destroy all jobs targeting it. We also want
-to update all neighboring blocks, because a dig slot might have become open.
+When a block is selected, mark it for digging, else unmark it.
 --]]
-function onBlockDestroyed(block, x, y)
+function onBlockSelectionChanged(player, block, x, y)
+	-- Delete all dig jobs for that block.
+	Job.deleteByTypeWhereTarget(player, "dig", block)
+
+	-- Check if the block is selected, if so create the dig jobs.
+	if block:isSelectedBy(player) then
+		-- Start digging if a neighboring tile is passable.
+		local job = {name="dig", player=player, block=block}
+		if Block.at(x, y + 1):isPassable() then
+			job.offset = {0, 0.7}
+			Job.create(job)
+		end
+		if Block.at(x, y - 1):isPassable() then
+			job.offset = {0, -0.7}
+			Job.create(job)
+		end
+		if Block.at(x + 1, y):isPassable() then
+			job.offset = {0.7, 0}
+			Job.create(job)
+		end
+		if Block.at(x - 1, y):isPassable() then
+			job.offset = {-0.7, 0}
+			Job.create(job)
+		end
+	end
+end
+
+--[[
+When a block's meta changes we want to destroy all jobs targeting it. We also
+want to update all neighboring blocks, because a dig slot might have become
+open (if our passability changed).
+--]]
+function onBlockMetaChanged(block, x, y)
 	for player = 1, 4 do
 		-- Delete jobs targeting this block.
 		Job.deleteByTypeWhereTarget(player, "dig", block)
@@ -75,34 +106,26 @@ function onBlockDestroyed(block, x, y)
 					Job.create(job)
 				end
 			end
+		else
+			-- No unpassable, clear all jobs targeting neighboring blocks.
+			for job in Job.getByType(player, "dig") do
+				local jx, jy = job:getPosition()
+				if jx > x and jx < x + 1 and jy > y and jy < y + 1 then
+					-- On this block, check where.
+					Job.delete(player, job)
+				end
+			end
 		end
 	end
 end
 
--- We want to be notified if the selection state of a block changed.
-function onBlockSelectionChanged(player, block, x, y)
-	-- Delete all dig jobs for that block.
-	Job.deleteByTypeWhereTarget(player, "dig", block)
-
-	-- Check if the block is selected, if so create the dig jobs.
-	if block:isSelectedBy(player) then
-		-- Start digging if a neighboring tile is passable.
-		local job = {name="dig", player=player, block=block}
-		if Block.at(x, y + 1):isPassable() then
-			job.offset = {0, 0.7}
-			Job.create(job)
-		end
-		if Block.at(x, y - 1):isPassable() then
-			job.offset = {0, -0.7}
-			Job.create(job)
-		end
-		if Block.at(x + 1, y):isPassable() then
-			job.offset = {0.7, 0}
-			Job.create(job)
-		end
-		if Block.at(x - 1, y):isPassable() then
-			job.offset = {-0.7, 0}
-			Job.create(job)
+--[[
+When the owner of a block changes, delete jobs for the block for all non-owners.
+--]]
+function onBlockOwnerChanged(block, x, y)
+	for player = 1, 4 do
+		if player ~= block:getOwner() then
+			Job.deleteByTypeWhereTarget(player, "dig", block)
 		end
 	end
 end
