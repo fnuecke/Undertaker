@@ -1,4 +1,4 @@
-#include "jobs.h"
+#include "job.h"
 
 #include <assert.h>
 #include <float.h>
@@ -9,12 +9,11 @@
 #include "astar.h"
 #include "block.h"
 #include "config.h"
-#include "jobs_meta.h"
+#include "meta_job.h"
 #include "map.h"
 #include "render.h"
-#include "script.h"
 #include "selection.h"
-#include "units.h"
+#include "unit.h"
 #include "vmath.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -328,47 +327,6 @@ MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobMeta* type, float* distance)
     }
 
     return closestJob;
-}
-
-unsigned int MP_RunJob(MP_Unit* unit, const MP_JobMeta* meta) {
-    lua_State* L = meta->L;
-
-    // Try to get the callback.
-    lua_getglobal(L, "run");
-    if (lua_isfunction(L, -1)) {
-        // Call it with the unit that we want to execute the script for.
-        luaMP_pushunit(L, unit);
-        if (MP_Lua_pcall(L, 1, 1) == LUA_OK) {
-            // We should have gotten a delay (in seconds) to wait.
-            float delay = 0;
-            if (lua_isnumber(L, -1)) {
-                delay = lua_tonumber(L, -1);
-            }
-            lua_pop(L, 1);
-
-            // Validate.
-            if (delay < 0) {
-                return 0;
-            }
-
-            // OK, multiply with frame rate to get tick count.
-            return (unsigned int) (MP_FRAMERATE * delay);
-        } else {
-            // Something went wrong.
-            MP_log_error("In 'run' for job '%s': %s\n", meta->name, lua_tostring(L, -1));
-        }
-    } else {
-        MP_log_error("'run' for job '%s' isn't a function anymore.\n", meta->name);
-    }
-
-    // Pop function or error message.
-    lua_pop(L, 1);
-
-    // We get here only on failure. In that case disable the run callback,
-    // so we don't try this again.
-    MP_DisableRunMethod(meta);
-
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

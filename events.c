@@ -7,9 +7,9 @@
 #include "cursor.h"
 #include "render.h"
 #include "selection.h"
-#include "units.h"
+#include "unit.h"
 #include "map.h"
-#include "block_meta.h"
+#include "meta_block.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Event handlers

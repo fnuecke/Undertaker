@@ -601,29 +601,9 @@ void miscale(mat4* m, float x, float y, float z) {
 }
 
 void mitranslate(mat4* mat, float tx, float ty, float tz) {
-    /*
-        mat4 translation = IDENTITY_MATRIX4;
-
-        translation.m[12] = tx;
-        translation.m[13] = ty;
-        translation.m[14] = tz;
-
-        mimulm(m, &translation);
-     */
-
     float* m = mat->m;
     m[12] = m[0] * tx + m[4] * ty + m[8] * tz + m[12];
     m[13] = m[1] * tx + m[5] * ty + m[9] * tz + m[13];
     m[14] = m[2] * tx + m[6] * ty + m[10] * tz + m[14];
     m[15] = m[3] * tx + m[7] * ty + m[11] * tz + m[15];
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Lua
-///////////////////////////////////////////////////////////////////////////////
-
-int luaopen_vmath(lua_State* L) {
-    luaopen_vec2(L);
-    luaopen_vec3(L);
-    return 1;
 }

@@ -1,16 +1,16 @@
 #include "map_loader.h"
 
-#include "block_meta.h"
+#include "meta_block.h"
 #include "config.h"
 #include "events.h"
-#include "jobs.h"
-#include "jobs_meta.h"
+#include "job.h"
+#include "meta_job.h"
 #include "log.h"
 #include "map.h"
 #include "meta.h"
-#include "room_meta.h"
+#include "meta_room.h"
 #include "textures.h"
-#include "units_meta.h"
+#include "meta_unit.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Save / Load methods

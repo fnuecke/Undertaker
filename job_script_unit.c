@@ -1,9 +1,9 @@
-#include "script.h"
+#include "job_script.h"
 
-#include "units.h"
-#include "units_meta.h"
-#include "units_ai.h"
-#include "jobs_meta.h"
+#include "unit.h"
+#include "meta_unit.h"
+#include "unit_ai.h"
+#include "meta_job.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Getters

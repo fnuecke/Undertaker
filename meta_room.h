@@ -5,8 +5,8 @@
  * Created on May 5, 2012, 5:27 PM
  */
 
-#ifndef ROOM_META_H
-#define	ROOM_META_H
+#ifndef META_ROOM_H
+#define	META_ROOM_H
 
 #include "meta.h"
 #include "types.h"
@@ -45,5 +45,5 @@ extern "C" {
 }
 #endif
 
-#endif	/* ROOM_META_H */
+#endif	/* META_ROOM_H */
 

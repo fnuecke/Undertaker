@@ -1,12 +1,12 @@
 /* 
- * File:   script.h
+ * File:   job_script.h
  * Author: fnuecke
  *
  * Created on May 10, 2012, 6:10 PM
  */
 
-#ifndef SCRIPT_H
-#define	SCRIPT_H
+#ifndef JOB_SCRIPT_H
+#define	JOB_SCRIPT_H
 
 #include "lua/lua.h"
 #include "lua/lauxlib.h"
@@ -59,8 +59,15 @@ extern "C" {
     const MP_RoomMeta* luaMP_checkroommeta(lua_State* L, int narg, int errarg);
     const MP_UnitMeta* luaMP_checkunitmeta(lua_State* L, int narg, int errarg);
 
+    unsigned int MP_Lua_RunJob(MP_Unit* unit, MP_Job* job);
+
+    void MP_Lua_OnUnitAdded(MP_Unit* unit);
+    void MP_Lua_OnBlockSelectionChanged(MP_Player player, MP_Block* block, unsigned short x, unsigned short y);
+    void MP_Lua_OnBlockMetaChanged(MP_Block* block, unsigned short x, unsigned short y);
+    void MP_Lua_OnBlockOwnerChanged(MP_Block* block, unsigned short x, unsigned short y);
+
 #ifdef	__cplusplus
 }
 #endif
 
-#endif	/* SCRIPT_H */
+#endif	/* JOB_SCRIPT_H */

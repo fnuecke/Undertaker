@@ -1,7 +1,7 @@
 #include "block.h"
 
 #include "room.h"
-#include "units.h"
+#include "unit.h"
 #include "map.h"
 
 MP_Passability MP_GetBlockPassability(const MP_Block* block) {

@@ -5,8 +5,8 @@
  * Created on May 7, 2012, 4:38 PM
  */
 
-#ifndef JOBS_META_H
-#define	JOBS_META_H
+#ifndef META_JOB_H
+#define	META_JOB_H
 
 #include "meta.h"
 #include "types.h"
@@ -59,5 +59,5 @@ extern "C" {
 }
 #endif
 
-#endif	/* JOBS_META_H */
+#endif	/* META_JOB_H */
 

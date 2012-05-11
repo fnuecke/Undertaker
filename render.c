@@ -11,12 +11,12 @@
 #include "config.h"
 #include "cursor.h"
 #include "graphics.h"
-#include "jobs.h"
+#include "job.h"
 #include "log.h"
 #include "map.h"
 #include "shader.h"
 #include "textures.h"
-#include "units.h"
+#include "unit.h"
 #include "vmath.h"
 
 ///////////////////////////////////////////////////////////////////////////////

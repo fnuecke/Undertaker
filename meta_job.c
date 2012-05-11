@@ -1,12 +1,12 @@
-#include "jobs_meta.h"
+#include "meta_job.h"
 
-#include "jobs.h"
-#include "jobs_events.h"
-#include "block.h"
-#include "room.h"
-#include "script.h"
-#include "units.h"
 #include "lua/lualib.h"
+
+#include "block.h"
+#include "job.h"
+#include "job_script.h"
+#include "room.h"
+#include "unit.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Constants and globals
@@ -312,13 +312,13 @@ int MP_Lua_AddJobMeta(lua_State* L) {
     } \
 }
 
-void MP_Lua_FireUnitAdded(MP_Unit* unit) {
+void MP_Lua_OnUnitAdded(MP_Unit* unit) {
     FIRE_EVENT(MP_JOB_EVENT_UNIT_ADDED,{
         luaMP_pushunit(L, unit);
     }, 1);
 }
 
-void MP_Lua_FireBlockSelectionChanged(MP_Player player, MP_Block* block, unsigned short x, unsigned short y) {
+void MP_Lua_OnBlockSelectionChanged(MP_Player player, MP_Block* block, unsigned short x, unsigned short y) {
     FIRE_EVENT(MP_JOB_EVENT_BLOCK_SELECTION_CHANGED,{
         lua_pushunsigned(L, player);
         luaMP_pushblock(L, block);
@@ -327,7 +327,7 @@ void MP_Lua_FireBlockSelectionChanged(MP_Player player, MP_Block* block, unsigne
     }, 4);
 }
 
-void MP_Lua_FireBlockMetaChanged(MP_Block* block, unsigned short x, unsigned short y) {
+void MP_Lua_OnBlockMetaChanged(MP_Block* block, unsigned short x, unsigned short y) {
     FIRE_EVENT(MP_JOB_EVENT_BLOCK_META_CHANGED,{
         luaMP_pushblock(L, block);
         lua_pushunsigned(L, x);
@@ -335,7 +335,7 @@ void MP_Lua_FireBlockMetaChanged(MP_Block* block, unsigned short x, unsigned sho
     }, 3);
 }
 
-void MP_Lua_FireBlockOwnerChanged(MP_Block* block, unsigned short x, unsigned short y) {
+void MP_Lua_OnBlockOwnerChanged(MP_Block* block, unsigned short x, unsigned short y) {
     FIRE_EVENT(MP_JOB_EVENT_BLOCK_OWNER_CHANGED,{
         luaMP_pushblock(L, block);
         lua_pushunsigned(L, x);

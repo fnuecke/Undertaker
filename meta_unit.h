@@ -5,8 +5,8 @@
  * Created on May 5, 2012, 5:18 PM
  */
 
-#ifndef UNITS_META_H
-#define	UNITS_META_H
+#ifndef META_UNIT_H
+#define	META_UNIT_H
 
 #include "meta.h"
 #include "types.h"
@@ -124,5 +124,5 @@ extern "C" {
 }
 #endif
 
-#endif	/* UNITS_META_H */
+#endif	/* META_UNIT_H */
 

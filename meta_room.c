@@ -1,4 +1,4 @@
-#include "room_meta.h"
+#include "meta_room.h"
 
 META_globals(MP_RoomMeta)
 

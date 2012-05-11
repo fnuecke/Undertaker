@@ -1,12 +1,13 @@
-#include "script.h"
+#include "job_script.h"
 
 #include <string.h>
 
-#include "block_meta.h"
-#include "jobs_meta.h"
+#include "job.h"
+#include "meta_block.h"
+#include "meta_job.h"
+#include "meta_room.h"
+#include "meta_unit.h"
 #include "passability.h"
-#include "room_meta.h"
-#include "units_meta.h"
 
 static lua_State *getthread(lua_State *L, int *arg) {
     if (lua_isthread(L, 1)) {
@@ -98,4 +99,46 @@ const MP_UnitMeta* luaMP_checkunitmeta(lua_State* L, int narg, int errarg) {
     const MP_UnitMeta* meta = MP_GetUnitMetaByName(luaL_checkstring(L, narg));
     luaL_argcheck(L, meta != NULL, errarg, "invalid unit type");
     return meta;
+}
+
+unsigned int MP_Lua_RunJob(MP_Unit* unit, MP_Job* job) {
+    lua_State* L = job->meta->L;
+
+    // Try to get the callback.
+    lua_getglobal(L, "run");
+    if (lua_isfunction(L, -1)) {
+        // Call it with the unit that we want to execute the script for.
+        luaMP_pushunit(L, unit);
+        luaMP_pushjob(L, job);
+        if (MP_Lua_pcall(L, 2, 1) == LUA_OK) {
+            // We should have gotten a delay (in seconds) to wait.
+            float delay = 0;
+            if (lua_isnumber(L, -1)) {
+                delay = lua_tonumber(L, -1);
+            }
+            lua_pop(L, 1);
+
+            // Validate.
+            if (delay < 0) {
+                return 0;
+            }
+
+            // OK, multiply with frame rate to get tick count.
+            return (unsigned int) (MP_FRAMERATE * delay);
+        } else {
+            // Something went wrong.
+            MP_log_error("In 'run' for job '%s': %s\n", job->meta->name, lua_tostring(L, -1));
+        }
+    } else {
+        MP_log_error("'run' for job '%s' isn't a function anymore.\n", job->meta->name);
+    }
+
+    // Pop function or error message.
+    lua_pop(L, 1);
+
+    // We get here only on failure. In that case disable the run callback,
+    // so we don't try this again.
+    MP_DisableRunMethod(job->meta);
+
+    return 0;
 }

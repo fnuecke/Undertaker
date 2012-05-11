@@ -1,12 +1,12 @@
 /* 
- * File:   block_meta.h
+ * File:   meta_block.h
  * Author: fnuecke
  *
  * Created on May 5, 2012, 5:15 PM
  */
 
-#ifndef BLOCK_META_H
-#define	BLOCK_META_H
+#ifndef META_BLOCK_H
+#define	META_BLOCK_H
 
 #include "meta.h"
 #include "types.h"
@@ -51,5 +51,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* BLOCK_META_H */
-
+#endif	/* META_BLOCK_H */

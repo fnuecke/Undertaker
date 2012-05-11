@@ -8,7 +8,7 @@
 #ifndef ASTAR_H
 #define	ASTAR_H
 
-#include "units.h"
+#include "unit.h"
 
 #ifdef	__cplusplus
 extern "C" {

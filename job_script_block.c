@@ -1,4 +1,4 @@
-#include "script.h"
+#include "job_script.h"
 
 #include "block.h"
 #include "map.h"

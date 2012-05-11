@@ -134,11 +134,6 @@ extern "C" {
     MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobMeta* type, float* distance);
 
     /**
-     * Run a job's script for the specified unit.
-     */
-    unsigned int MP_RunJob(MP_Unit* unit, const MP_JobMeta* job);
-
-    /**
      * Clear all job lists and free all additional memory.
      */
     void MP_ClearJobs(void);

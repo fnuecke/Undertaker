@@ -1,5 +1,4 @@
-#include "units.h"
-#include "jobs_events.h"
+#include "unit.h"
 
 #include <float.h>
 #include <math.h>
@@ -14,9 +13,10 @@
 #include "config.h"
 #include "graphics.h"
 #include "map.h"
-#include "jobs.h"
+#include "job.h"
+#include "job_script.h"
 #include "render.h"
-#include "units_ai.h"
+#include "unit_ai.h"
 #include "update.h"
 #include "vmath.h"
 
@@ -233,7 +233,7 @@ int MP_AddUnit(MP_Player player, const MP_UnitMeta* meta, const vec2* position) 
     ++gUnitCount[player];
 
     // Send event to AI scripts.
-    MP_Lua_FireUnitAdded(unit);
+    MP_Lua_OnUnitAdded(unit);
 
     return 1;
 }

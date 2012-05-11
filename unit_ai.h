@@ -84,11 +84,6 @@ extern "C" {
      */
     void MP_UpdateAI(MP_Unit* unit);
 
-    /**
-     * Lua interface for MP_MoveTo.
-     */
-    int MP_Lua_MoveTo(lua_State* L);
-
 #ifdef	__cplusplus
 }
 #endif

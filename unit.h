@@ -8,7 +8,7 @@
 #ifndef UNITS_H
 #define	UNITS_H
 
-#include "units_meta.h"
+#include "meta_unit.h"
 #include "vmath.h"
 
 #ifdef	__cplusplus

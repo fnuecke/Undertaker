@@ -253,24 +253,6 @@ extern "C" {
 
     void mitranslate(mat4* m, float tx, float ty, float tz);
 
-    ///////////////////////////////////////////////////////////////////////////
-    // Lua
-    ///////////////////////////////////////////////////////////////////////////
-
-    void lua_pushvec2(lua_State *L, vec2* v);
-
-    vec2* luaL_checkvec2(lua_State *L, int narg);
-
-    void lua_pushvec3(lua_State *L, vec3* v);
-
-    vec3* luaL_checkvec3(lua_State *L, int narg);
-
-    int luaopen_vec2(lua_State* L);
-
-    int luaopen_vec3(lua_State* L);
-
-    int luaopen_vmath(lua_State* L);
-
 #ifdef	__cplusplus
 }
 #endif

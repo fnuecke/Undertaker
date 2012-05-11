@@ -1,8 +1,8 @@
-#include "units_meta.h"
+#include "meta_unit.h"
 
-#include "jobs_meta.h"
+#include "meta_job.h"
 #include "passability.h"
-#include "script.h"
+#include "job_script.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Constants / globals

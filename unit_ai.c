@@ -1,5 +1,5 @@
-#include "units_ai.h"
-#include "script.h"
+#include "unit_ai.h"
+#include "job_script.h"
 
 #include <assert.h>
 #include <float.h>
@@ -7,10 +7,10 @@
 #include <stdlib.h>
 
 #include "block.h"
-#include "jobs.h"
+#include "job.h"
 #include "map.h"
-#include "units.h"
-#include "jobs_meta.h"
+#include "unit.h"
+#include "meta_job.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Utility methods
@@ -304,10 +304,9 @@ static void findJob(MP_Unit* unit) {
 static void updateJob(MP_Unit* unit) {
     // Only if we have a job.
     if (unit->ai->current < &unit->ai->stack[MP_AI_STACK_DEPTH]) {
-        const MP_JobMeta* job = unit->meta->jobs[unit->ai->current->jobNumber];
         // See if we have an update method for it or have to wait before running the
         // job logic again.
-        if (!job->hasRunMethod) {
+        if (!unit->ai->current->job->meta->hasRunMethod) {
             // Pop the state, it cannot execute.
             ++unit->ai->current;
         } else if (unit->ai->current->delay) {
@@ -315,7 +314,7 @@ static void updateJob(MP_Unit* unit) {
             --unit->ai->current->delay;
         } else {
             // Otherwise update the unit based on its current job.
-            unit->ai->current->delay = MP_RunJob(unit, job);
+            unit->ai->current->delay = MP_Lua_RunJob(unit, unit->ai->current->job);
         }
     }
 }
@@ -389,9 +388,4 @@ void MP_UpdateAI(MP_Unit* unit) {
 
     // Run job logic.
     updateJob(unit);
-}
-
-int MP_Lua_MoveTo(lua_State* L) {
-    // TODO implement
-    return 0;
 }

@@ -4,7 +4,7 @@ function onUnitAdded(unit)
 	Job.create {player=unit:getOwner(), name="wander", unit=unit}
 end
 
-function run(unit)
+function run(unit, job)
 	-- This is the maximum distance how far we may wander.
 	local WANDER_RANGE = 2
 	-- This is the minimum delay in seconds before wandering again.

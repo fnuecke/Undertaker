@@ -8,7 +8,7 @@
 #ifndef BLOCK_H
 #define	BLOCK_H
 
-#include "block_meta.h"
+#include "meta_block.h"
 
 #ifdef	__cplusplus
 extern "C" {

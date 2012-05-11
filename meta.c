@@ -1,10 +1,10 @@
 #include "meta.h"
 
-#include "block_meta.h"
+#include "meta_block.h"
 #include "passability.h"
-#include "jobs_meta.h"
-#include "room_meta.h"
-#include "units_meta.h"
+#include "meta_job.h"
+#include "meta_room.h"
+#include "meta_unit.h"
 
 bool MP_LoadMeta(const char* name) {
     char filename[128];

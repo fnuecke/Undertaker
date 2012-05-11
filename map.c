@@ -15,14 +15,14 @@
 #include "config.h"
 #include "cursor.h"
 #include "graphics.h"
-#include "jobs.h"
-#include "jobs_events.h"
+#include "job.h"
+#include "job_script.h"
 #include "picking.h"
 #include "render.h"
 #include "selection.h"
 #include "simplexnoise.h"
 #include "textures.h"
-#include "units.h"
+#include "unit.h"
 #include "vmath.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -470,7 +470,7 @@ static void updateBlock(MP_Block* block) {
     // Deselect block and fire event for AI scripts.
     for (int i = 0; i < MP_PLAYER_COUNT; ++i) {
         MP_DeselectBlock(MP_PLAYER_NONE + i, x, y);
-        MP_Lua_FireBlockMetaChanged(block, x, y);
+        MP_Lua_OnBlockMetaChanged(block, x, y);
     }
 }
 
@@ -1418,7 +1418,7 @@ bool MP_ConvertBlock(MP_Block* block, unsigned int strength, MP_Player player) {
             block->strength = max_strength;
 
             // Fire event for AI scripts.
-            MP_Lua_FireBlockOwnerChanged(block, x, y);
+            MP_Lua_OnBlockOwnerChanged(block, x, y);
         }
     }
     return true;

@@ -8,7 +8,7 @@
 #ifndef ROOM_H
 #define	ROOM_H
 
-#include "room_meta.h"
+#include "meta_room.h"
 
 #ifdef	__cplusplus
 extern "C" {

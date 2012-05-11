@@ -1,9 +1,9 @@
-#include "block_meta.h"
+#include "meta_block.h"
 
 #include <stdio.h>
 
 #include "passability.h"
-#include "script.h"
+#include "job_script.h"
 #include "textures.h"
 
 ///////////////////////////////////////////////////////////////////////////////

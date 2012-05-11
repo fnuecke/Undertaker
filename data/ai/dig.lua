@@ -130,6 +130,7 @@ function onBlockOwnerChanged(block, x, y)
 	end
 end
 
-function run(unit)
-
+function run(unit, job)
+	-- See whether we're close enough.
+	
 end

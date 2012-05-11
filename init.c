@@ -16,11 +16,11 @@
 #include "render.h"
 #include "selection.h"
 #include "textures.h"
-#include "units.h"
+#include "unit.h"
 #include "camera.h"
 #include "cursor.h"
-#include "jobs.h"
-#include "room_meta.h"
+#include "job.h"
+#include "meta_room.h"
 
 static void shutdown(void) {
     MP_log_info("Game shutting down...\n");

@@ -1,11 +1,9 @@
 #include "selection.h"
 
-
-#include "jobs_events.h"
-
 #include "bitset.h"
 #include "block.h"
-#include "jobs.h"
+#include "job.h"
+#include "job_script.h"
 #include "map.h"
 #include "update.h"
 
@@ -170,7 +168,7 @@ void MP_SelectBlock(MP_Player player, int x, int y) {
         if (!BS_Test(gPlayerSelection[player], idx)) {
             BS_Set(gPlayerSelection[player], idx);
             // Send event to AI scripts.
-            MP_Lua_FireBlockSelectionChanged(player, MP_GetBlockAt(x, y), x, y);
+            MP_Lua_OnBlockSelectionChanged(player, MP_GetBlockAt(x, y), x, y);
         }
     }
 }
@@ -183,7 +181,7 @@ void MP_DeselectBlock(MP_Player player, int x, int y) {
         if (BS_Test(gPlayerSelection[player], idx)) {
             BS_Unset(gPlayerSelection[player], idx);
             // Send event to AI scripts.
-            MP_Lua_FireBlockSelectionChanged(player, MP_GetBlockAt(x, y), x, y);
+            MP_Lua_OnBlockSelectionChanged(player, MP_GetBlockAt(x, y), x, y);
         }
     }
 }
