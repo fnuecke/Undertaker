@@ -153,14 +153,19 @@ inline static float f(unsigned int x, unsigned int y, unsigned int goalX, unsign
     return SQRT2 * (dx > dy ? dx : dy);
 }
 
-/** Converts local coordinates to map ones */
-inline static float toMapSpace(unsigned int coordinate) {
-    return (coordinate / (float) ASTAR_GRANULARITY + (0.5f / ASTAR_GRANULARITY));
+/** Converts local coordinates to global ones */
+inline static float toGlobal(unsigned int coordinate) {
+    return (coordinate + 0.5f) / (float) ASTAR_GRANULARITY;
+}
+
+/** Converts global coordinates to local ones */
+inline static float toLocal(float coordinate) {
+    return (unsigned int) floorf(coordinate * ASTAR_GRANULARITY);
 }
 
 /** Checks if a block is passable, using local coordinates */
 inline static int isPassable(unsigned int x, unsigned int y) {
-    return gIsPassable(x / ASTAR_GRANULARITY, y / ASTAR_GRANULARITY);
+    return gIsPassable(toGlobal(x), toGlobal(y));
 }
 
 /** Tests if a neighbor should be skipped due to it already having a better score */
@@ -357,8 +362,8 @@ static float computeLength(const PathNode* tail, const vec2* start, const vec2* 
         // start coordinates).
         while (n->came_from) {
             // Compute distance.
-            const float nx = toMapSpace(n->x);
-            const float ny = toMapSpace(n->y);
+            const float nx = toGlobal(n->x);
+            const float ny = toGlobal(n->y);
             const float dx = nx - lx;
             const float dy = ny - ly;
             length += sqrtf(dx * dx + dy * dy);
@@ -407,8 +412,8 @@ static unsigned int writePath(vec2* path, unsigned int depth,
     // make it forward work order).
     for (int i = realDepth - 2; i > 0; --i, tail = &gClosedSet[tail->came_from - 1]) {
         vec2* waypoint = &path[i];
-        waypoint->d.x = toMapSpace(tail->x);
-        waypoint->d.y = toMapSpace(tail->y);
+        waypoint->d.x = toGlobal(tail->x);
+        waypoint->d.y = toGlobal(tail->y);
     }
 
     return realDepth;
@@ -472,6 +477,11 @@ int AStar(const vec2* start, const vec2* goal, int(*passable)(float x, float y),
     float gscore, fscore;
     PathNode *current, *node;
 
+    // We need a passability method.
+    if (!passable) {
+        return 0;
+    }
+
     // Check if the start and target position are valid (passable).
     if (!passable(start->v[0], start->v[1]) ||
             !passable(goal->v[0], goal->v[1])) {
@@ -499,13 +509,13 @@ int AStar(const vec2* start, const vec2* goal, int(*passable)(float x, float y),
     BS_Reset(gClosedSetLookup, gGridSize * gGridSize);
 
     // Get goal in local coordinates.
-    gx = (unsigned int) (goal->v[0] * ASTAR_GRANULARITY);
-    gy = (unsigned int) (goal->v[1] * ASTAR_GRANULARITY);
+    gx = toLocal(goal->v[0]);
+    gy = toLocal(goal->v[1]);
 
     // Initialize the first open node to the one we're starting from.
     current = newOpenNode(0);
-    current->x = (unsigned int) (start->v[0] * ASTAR_GRANULARITY);
-    current->y = (unsigned int) (start->v[1] * ASTAR_GRANULARITY);
+    current->x = toLocal(start->v[0]);
+    current->y = toLocal(start->v[1]);
     current->gscore = 0.0f;
     current->fscore = 0.0f;
     current->came_from = 0;

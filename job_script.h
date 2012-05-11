@@ -49,6 +49,7 @@ extern "C" {
     MP_Unit* luaMP_tounit(lua_State* L, int narg);
     MP_Unit* luaMP_checkunit(lua_State* L, int narg, int errarg);
 
+    /** Same as lua_pcall, just that it produces a stack trace */
     int MP_Lua_pcall(lua_State* L, int nargs, int nresults);
 
     MP_Passability luaMP_checkpassability(lua_State* L, int narg, int errarg);

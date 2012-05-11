@@ -44,7 +44,7 @@ extern "C" {
      * be combined as a bit field.
      */
     typedef unsigned int MP_Passability;
-    
+
 #define MP_PASSABILITY_NONE 0
 
     /** ID for textures that are loaded via the LoadTexture facilities */
@@ -111,6 +111,17 @@ extern "C" {
         MP_PLAYER_FIVE,
         MP_PLAYER_COUNT
     } MP_Player;
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Names
+    ///////////////////////////////////////////////////////////////////////////
+
+    static const char* JOB_EVENT_NAME[MP_JOB_EVENT_COUNT] = {
+        [MP_JOB_EVENT_UNIT_ADDED] = "onUnitAdded",
+        [MP_JOB_EVENT_BLOCK_SELECTION_CHANGED] = "onBlockSelectionChanged",
+        [MP_JOB_EVENT_BLOCK_META_CHANGED] = "onBlockMetaChanged",
+        [MP_JOB_EVENT_BLOCK_OWNER_CHANGED] = "onBlockOwnerChanged"
+    };
 
 #ifdef	__cplusplus
 }

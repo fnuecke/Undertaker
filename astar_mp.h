@@ -24,7 +24,7 @@ extern "C" {
      * @param length the length of the found path.
      * @return 1 if a path was found, 0 if there was no path to the target.
      */
-    int MP_AStar(const MP_Unit* unit, const vec2* goal,
+    bool MP_AStar(const MP_Unit* unit, const vec2* goal,
             vec2* path, unsigned int* depth, float* length);
 
 #ifdef	__cplusplus

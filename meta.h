@@ -152,6 +152,7 @@ META_storeName \
 META_findByName(TYPE) \
 META_getById(TYPE, NAME) \
 META_getByName(TYPE, NAME) \
+META_getCount(TYPE, NAME) \
 META_add(TYPE, NAME) \
 META_clear(NAME)
 
