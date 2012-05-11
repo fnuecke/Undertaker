@@ -476,8 +476,8 @@ int MP_AStar(const MP_Unit* unit, const vec2* goal, vec2* path, unsigned int* de
     const vec2* start = &unit->position;
 
     // Check if the start and target position are valid (passable).
-    if (!MP_IsBlockPassableBy(MP_GetBlockAt((int) start->v[0], (int) start->v[1]), unit) ||
-            !MP_IsBlockPassableBy(MP_GetBlockAt((int) goal->v[0], (int) goal->v[1]), unit)) {
+    if (!MP_IsBlockPassableBy(MP_GetBlockAt((int) floorf(start->v[0]), (int) floorf(start->v[1])), unit) ||
+            !MP_IsBlockPassableBy(MP_GetBlockAt((int) floorf(goal->v[0]), (int) floorf(goal->v[1])), unit)) {
         return 0;
     }
 
