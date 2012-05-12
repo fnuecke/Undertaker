@@ -16,6 +16,17 @@
 // Save / Load methods
 ///////////////////////////////////////////////////////////////////////////////
 
+static void clear(void) {
+    // Unload resources.
+    MP_UnloadTextures();
+
+    // Clear meta information.
+    MP_ClearBlockMeta();
+    MP_ClearJobMeta();
+    MP_ClearRoomMeta();
+    MP_ClearUnitMeta();
+}
+
 void MP_LoadMap(const char* mapname) {
     if (!mapname) {
         return;
@@ -27,17 +38,12 @@ void MP_LoadMap(const char* mapname) {
     // Kill remaining jobs.
     MP_ClearJobs();
 
-    // Unload resources.
-    MP_UnloadTextures();
-
-    // Clear meta information.
-    MP_ClearBlockMeta();
-    MP_ClearJobMeta();
-    MP_ClearRoomMeta();
-    MP_ClearUnitMeta();
+    clear();
 
     // Load new meta information for the map.
     if (!MP_LoadMeta(mapname)) {
+        // Remove anything we might have parsed.
+        clear();
         return;
     }
 

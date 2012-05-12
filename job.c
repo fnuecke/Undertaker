@@ -193,6 +193,28 @@ void MP_GetJobPosition(vec2* position, const MP_Job* job) {
 // Rendering
 ///////////////////////////////////////////////////////////////////////////////
 
+static const vec4 colors[] = {
+    {
+        {1, 0, 0, 1}},
+    {
+        {0, 1, 0, 1}},
+    {
+        {0, 0, 1, 1}},
+    {
+        {0.9f, 0.3f, 0.3f, 1}},
+    {
+        {0.3f, 0.9f, 0.3f, 1}},
+    {
+        {0.3f, 0.3f, 0.9f, 1}},
+    {
+        {0.8f, 0.5f, 0.5f, 1}},
+    {
+        {0.5f, 0.8f, 0.5f, 1}},
+    {
+        {0.5f, 0.5f, 0.8f, 1}},
+};
+static const unsigned int colorCount = sizeof (colors) / sizeof (vec4);
+
 /** Debug rendering of where jobs are */
 static void onRender(void) {
     if (MP_d_draw_jobs) {
@@ -205,9 +227,7 @@ static void onRender(void) {
                 const MP_Job* job = gJobs[MP_PLAYER_ONE][metaId][number];
 
                 // Pick a color for the job.
-                material.diffuseColor.c.r = 0.4f;
-                material.diffuseColor.c.g = 0.4f;
-                material.diffuseColor.c.b = 0.4f;
+                material.diffuseColor = colors[metaId % colorCount];
                 /*
                                 switch (type) {
                                     case MP_JOB_DIG:

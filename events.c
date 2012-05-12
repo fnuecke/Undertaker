@@ -87,6 +87,9 @@ static void key_down(const SDL_Event* e) {
             MP_d_draw_light_volumes = 1 - MP_d_draw_light_volumes;
             break;
 
+        case SDLK_BACKQUOTE:
+            MP_SetBlockOwner(MP_GetBlockUnderCursor(NULL, NULL), MP_PLAYER_ONE);
+            break;
         case SDLK_1:
             MP_SetBlockMeta(MP_GetBlockUnderCursor(NULL, NULL), MP_GetBlockMeta(1));
             break;

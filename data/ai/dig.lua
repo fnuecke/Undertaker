@@ -35,6 +35,7 @@ local function onBlockMetaChanged(block, x, y)
 		local function validateTarget(block)
 			return block:isSelectedBy(player)
 		end
+		addJobsForBlockAt(player, block, x, y, "dig", validateLocation, validateTarget)
 		if not addJobsForBlocksSurrounding(player, block, x, y, "dig", validateLocation, validateTarget) then
 			-- Invalid location, clear all jobs targeting neighboring blocks.
 			for job in Job.getByType(player, "dig") do

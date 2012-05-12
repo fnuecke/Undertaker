@@ -101,14 +101,16 @@ static int lua_BlockAt(lua_State* L) {
 
 static int lua_ConvertBlock(lua_State* L) {
     lua_pushboolean(L, MP_ConvertBlock(
-            luaMP_checkblock(L, 1, 1), luaL_checknumber(L, 2),
-            luaL_checkunsigned(L, 3)));
+            luaMP_checkblock(L, 1, 1),
+            luaL_checkunsigned(L, 2),
+            luaL_checknumber(L, 3)));
     return 1;
 }
 
 static int lua_DamageBlock(lua_State* L) {
     lua_pushboolean(L, MP_DamageBlock(
-            luaMP_checkblock(L, 1, 1), luaL_checknumber(L, 2)));
+            luaMP_checkblock(L, 1, 1),
+            luaL_checknumber(L, 2)));
     return 1;
 }
 

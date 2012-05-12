@@ -511,7 +511,8 @@ static void autoConvert(MP_Block* block, MP_Player player) {
                         block->meta->level < MP_BLOCK_LEVEL_HIGH &&
                         (block = MP_GetBlockAt(x + nx, y)) &&
                         block->owner == MP_PLAYER_NONE &&
-                        block->meta->level == MP_BLOCK_LEVEL_HIGH
+                        block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+                        MP_IsBlockConvertible(block)
                         ) || (
                         // If it didn't work that way around, check the
                         // other way.
@@ -520,7 +521,8 @@ static void autoConvert(MP_Block* block, MP_Player player) {
                         block->meta->level < MP_BLOCK_LEVEL_HIGH &&
                         (block = MP_GetBlockAt(x, y + ny)) &&
                         block->owner == MP_PLAYER_NONE &&
-                        block->meta->level == MP_BLOCK_LEVEL_HIGH
+                        block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+                        MP_IsBlockConvertible(block)
                         ))) {
                     // All conditions are met for converting the block.
                     MP_SetBlockOwner(block, player);
@@ -1396,7 +1398,7 @@ bool MP_DamageBlock(MP_Block* block, unsigned int damage) {
     return true;
 }
 
-bool MP_ConvertBlock(MP_Block* block, unsigned int strength, MP_Player player) {
+bool MP_ConvertBlock(MP_Block* block, MP_Player player, unsigned int strength) {
     // Skip if the block is invalid.
     if (!block) {
         return false;

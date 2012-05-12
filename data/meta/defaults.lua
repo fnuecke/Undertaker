@@ -23,6 +23,7 @@ script file containing the actual logic for the state with the name of the job.
 --]]
 job "wander"
 job "dig"
+job "convert_wall"
 
 --[[
 job "convert"
@@ -151,7 +152,8 @@ unitdefaults {canpass={"land", "water"}}
 unit {name="imp", movespeed=1.8,
 		jobs={
 			{name="wander", satisfied=0},
-			{name="dig", preference=1}
+			{name="dig", preference=20},
+			{name="convert_wall", preference=1}
 		}}
 
 --[[

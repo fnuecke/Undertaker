@@ -215,7 +215,7 @@ float MP_Lua_GetDynamicPreference(MP_Unit* unit, const MP_JobMeta* meta) {
             if (lua_isfunction(L, -1)) { \
                 push \
                 if (MP_Lua_pcall(L, nargs, 0) == LUA_OK) { \
-                    return; \
+                    continue; \
                 } else { \
                     MP_log_error("In '%s' for job '%s': %s\n", eventName, meta->name, lua_tostring(L, -1)); \
                 } \
