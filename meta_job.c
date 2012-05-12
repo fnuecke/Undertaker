@@ -100,16 +100,30 @@ void MP_DisableRunMethod(const MP_JobMeta* meta) {
 
 static int lua_Export(lua_State* L) {
     const char* name = luaL_checkstring(L, 1);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+
+    // Ignore empty names.
     if (strlen(name) < 1) {
+        MP_log_warning("Ignoring empty name for 'export'.\n");
         return 0;
     }
 
-    luaL_checktype(L, 2, LUA_TFUNCTION);
+    // Don't allow overwriting import and export methods.
+    if (strcmp(name, "import") == 0 || strcmp(name, "export") == 0) {
+        return luaL_argerror(L, 1, "'import' nor 'export' methods can be overridden");
+    }
 
     // Get the backing environment table (not the proxy!)
     lua_pushglobaltable(L); // proxy
     lua_getmetatable(L, -1); // proxy's meta
     lua_getfield(L, -1, "__index"); // actual globals table
+
+    // Check if there already is such a field.
+    lua_getfield(L, -1, name);
+    if (lua_isfunction(L, -1)) {
+        MP_log_warning("Overriding already exported method '%s'.\n", name);
+    }
+    lua_pop(L, 1);
 
     // Bring function to top and register it in the globals table.
     lua_pushvalue(L, 2);
