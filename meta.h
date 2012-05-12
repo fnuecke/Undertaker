@@ -54,20 +54,21 @@ int MP_Lua_Add##NAME##Meta(lua_State* L); \
 void MP_Clear##NAME##Meta(void)
 
 #define META_globals(TYPE) \
-static TYPE* gMetas = 0; \
+static TYPE** gMetas = 0; \
 static char** gMetaNames = 0; \
 static unsigned int gMetaCount = 0; \
-static unsigned int gMetaCapacity = 0; \
 static TYPE gMetaDefaults;
 
 #define META_getNextFreeEntry(TYPE) \
 static TYPE* getNextFreeEntry(void) { \
-    if (gMetaCount >= gMetaCapacity) { \
-        gMetaCapacity = gMetaCapacity * 2 + 1; \
-        gMetas = realloc(gMetas, gMetaCapacity * sizeof (TYPE)); \
-        gMetaNames = realloc(gMetaNames, gMetaCapacity * sizeof (char*)); \
+    ++gMetaCount; \
+    gMetas = realloc(gMetas, gMetaCount * sizeof (TYPE*)); \
+    gMetaNames = realloc(gMetaNames, gMetaCount * sizeof (char*)); \
+    if (!(gMetas[gMetaCount - 1] = calloc(1, sizeof(TYPE)))) { \
+        MP_log_fatal("Out of memory while allocating meta data.\n"); \
     } \
-    return &gMetas[gMetaCount++]; \
+    gMetaNames[gMetaCount - 1] = NULL; \
+    return gMetas[gMetaCount - 1]; \
 }
 
 #define META_storeName \
@@ -83,8 +84,8 @@ static TYPE* findByName(const char* name) { \
         return NULL; \
     } \
     for (unsigned int id = 0; id < gMetaCount; ++id) { \
-        if (strcmp(name, gMetas[id].name) == 0) { \
-            return &gMetas[id]; \
+        if (strcmp(name, gMetas[id]->name) == 0) { \
+            return gMetas[id]; \
         } \
     } \
     return NULL; \
@@ -93,7 +94,7 @@ static TYPE* findByName(const char* name) { \
 #define META_getById(TYPE, NAME) \
 const TYPE* MP_Get##NAME##Meta(unsigned int id) { \
     if (id > 0 && id - 1 < gMetaCount) { \
-        return &gMetas[id - 1]; \
+        return gMetas[id - 1]; \
     } \
     return NULL; \
 }
@@ -137,11 +138,14 @@ bool MP_Add##NAME##Meta(const TYPE* meta) { \
 #define META_clear(NAME) \
 void MP_Clear##NAME##Meta(void) { \
     for (unsigned int i = 0; i < gMetaCount; ++i) { \
-        deleteMeta(&gMetas[i]); \
+        deleteMeta(gMetas[i]); \
+        free(gMetas[i]); \
+        gMetas[i] = NULL; \
         free(gMetaNames[i]); \
         gMetaNames[i] = NULL; \
-        gMetas[i].name = NULL; \
     } \
+    free(gMetas); \
+    gMetas = 0; \
     gMetaCount = 0; \
     resetDefaults(); \
 }

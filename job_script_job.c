@@ -35,14 +35,14 @@ static int lua_GetByType(lua_State* L) {
     return 1;
 }
 
-static int luaGetOffset(lua_State* L) {
+static int lua_GetOffset(lua_State* L) {
     MP_Job* job = luaMP_checkjob(L, 1, 1);
     lua_pushnumber(L, job->offset.d.x);
     lua_pushnumber(L, job->offset.d.y);
     return 2;
 }
 
-static int luaGetPosition(lua_State* L) {
+static int lua_GetPosition(lua_State* L) {
     MP_Job* job = luaMP_checkjob(L, 1, 1);
     vec2 p;
     MP_GetJobPosition(&p, job);
@@ -195,8 +195,8 @@ static int lua_DeleteJobWhereTarget(lua_State* L) {
 
 static const luaL_Reg lib[] = {
     {"getByType", lua_GetByType},
-    {"getOffset", luaGetOffset},
-    {"getPosition", luaGetPosition},
+    {"getOffset", lua_GetOffset},
+    {"getPosition", lua_GetPosition},
     {"getTargetBlock", lua_GetTargetBlock},
     {"getTargetRoom", lua_GetTargetRoom},
     {"getTargetUnit", lua_GetTargetUnit},

@@ -109,11 +109,7 @@ static void deleteJob(MP_Player player, unsigned int metaId, unsigned int number
 
 /** Delete a job that is no longer used */
 void MP_DeleteJob(MP_Player player, MP_Job* job) {
-    if (!job) {
-        return;
-    }
-
-    if (job->meta->id >= gJobTypeCapacity[player]) {
+    if (!job || !job->meta || job->meta->id >= gJobTypeCapacity[player]) {
         return;
     }
 

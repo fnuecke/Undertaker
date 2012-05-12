@@ -990,7 +990,7 @@ static void onRender(void) {
     if (!defaultMeta) {
         return;
     }
-    
+
     beginDraw();
 
 #define LN(x, y) glLoadName(((unsigned short) (y) << 16) | (unsigned short) (x))
@@ -1370,6 +1370,11 @@ void MP_InitMap(void) {
 }
 
 bool MP_DamageBlock(MP_Block* block, unsigned int damage) {
+    // Skip if the block is invalid.
+    if (!block) {
+        return false;
+    }
+
     // Already destroyed (nothing to do)?
     if (block->durability <= 0) {
         return true;
@@ -1392,6 +1397,10 @@ bool MP_DamageBlock(MP_Block* block, unsigned int damage) {
 }
 
 bool MP_ConvertBlock(MP_Block* block, unsigned int strength, MP_Player player) {
+    // Skip if the block is invalid.
+    if (!block) {
+        return false;
+    }
 
     // First reduce any enemy influence.
     if (block->owner != player) {

@@ -1,10 +1,10 @@
 -- Register the wander job for the newly added unit.
-function onUnitAdded(unit)
+local function onUnitAdded(unit)
 	-- We target ourself.
 	Job.create {player=unit:getOwner(), name="wander", unit=unit}
 end
 
-function run(unit, job)
+local function run(unit, job)
 	-- This is the maximum distance how far we may wander.
 	local WANDER_RANGE = 2
 	-- This is the minimum delay in seconds before wandering again.
@@ -41,3 +41,6 @@ function run(unit, job)
         return eta + WANDER_DELAY_MIN + (math.random() * WANDER_DELAY_VARIANCE)
     end -- else we'll try to find a better spot next round.
 end
+
+export("onUnitAdded", onUnitAdded)
+export("run", run)
