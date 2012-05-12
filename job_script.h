@@ -60,9 +60,9 @@ extern "C" {
     const MP_RoomMeta* luaMP_checkroommeta(lua_State* L, int narg, int errarg);
     const MP_UnitMeta* luaMP_checkunitmeta(lua_State* L, int narg, int errarg);
 
-    unsigned int MP_Lua_RunJob(MP_Unit* unit, MP_Job* job);
+    bool MP_Lua_RunJob(MP_Unit* unit, MP_Job* job, unsigned int* delay);
 
-    float MP_Lua_GetDynamicPreference(MP_Unit* unit, MP_Job* job);
+    float MP_Lua_GetDynamicPreference(MP_Unit* unit, const MP_JobMeta* meta);
 
     void MP_Lua_OnUnitAdded(MP_Unit* unit);
     void MP_Lua_OnBlockSelectionChanged(MP_Player player, MP_Block* block, unsigned short x, unsigned short y);

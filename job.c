@@ -262,27 +262,27 @@ static void onRender(void) {
 // Accessors
 ///////////////////////////////////////////////////////////////////////////////
 
-MP_Job * const* MP_GetJobs(MP_Player player, const MP_JobMeta* type, unsigned int* count) {
-    ensureJobTypeListSize(player, type->id);
-    *count = gJobsCount[player][type->id];
-    return gJobs[player][type->id];
+MP_Job * const* MP_GetJobs(MP_Player player, const MP_JobMeta* meta, unsigned int* count) {
+    ensureJobTypeListSize(player, meta->id);
+    *count = gJobsCount[player][meta->id];
+    return gJobs[player][meta->id];
 }
 
-MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobMeta* type, float* distance) {
+MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobMeta* meta, float* distance) {
     MP_Job* closestJob = NULL;
     float closestDistance = FLT_MAX;
 
-    if (!unit || !type) {
+    if (!unit || !meta) {
         return NULL;
     }
 
-    ensureJobTypeListSize(unit->owner, type->id);
+    ensureJobTypeListSize(unit->owner, meta->id);
 
     // Loop through all jobs of the specified type for the owner of the unit.
-    for (unsigned int number = 0; number < gJobsCount[unit->owner][type->id]; ++number) {
+    for (unsigned int number = 0; number < gJobsCount[unit->owner][meta->id]; ++number) {
         float currentDistance;
         vec2 position;
-        MP_Job* job = gJobs[unit->owner][type->id][number];
+        MP_Job* job = gJobs[unit->owner][meta->id][number];
 
         // Based on the job type we use the target's position.
         MP_GetJobPosition(&position, job);
@@ -302,7 +302,7 @@ MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobMeta* type, float* distance)
                 // Got a new best. Check if it's occupied, and if so
                 // only take it if our path is better than the
                 // direct distance to the occupant.
-                if (job->worker) {
+                if (job->worker && job->worker != unit) {
                     // This is not fail-safe, e.g.  if we're on the other side
                     // of a very long wall, but it should be good enough in most
                     // cases, and at least guarantees that *when* we steal the

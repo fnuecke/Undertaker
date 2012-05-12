@@ -140,9 +140,9 @@ Field			Default		Info
 preference		= 0			how strongly to weigh the job when on job search
 performing		= 0			the delta per minute when performing the job
 notperforming	= 0			the delta per minute when not performing the job
-initial			= 1			initial satisfaction value
+initial			= 0			initial satisfaction value
 unsatisfied		= 0			the threshold below which a unit is unsatisfied
-satisfied		= 0			the threshold above which a unit is satisfied
+satisfied		= 1			the threshold above which a unit is satisfied
 bored			= 1			the threshold above which a unit is bored
 
 Not all these fields have to be set.
@@ -150,7 +150,8 @@ Not all these fields have to be set.
 unitdefaults {canpass={"land", "water"}}
 unit {name="imp", movespeed=1.8,
 		jobs={
-			{name="wander", preference=0}
+			{name="wander", satisfied=0},
+			{name="dig", preference=1}
 		}}
 
 --[[

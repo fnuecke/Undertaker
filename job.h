@@ -110,11 +110,11 @@ extern "C" {
      * Get a list of all jobs of the specified type, as well as the size of that
      * list.
      * @param player the player to get the list for.
-     * @param type the job type to get the list for.
+     * @param meta the job type to get the list for.
      * @param count used to return the length of the list.
      * @return the list of jobs.
      */
-    MP_Job * const* MP_GetJobs(MP_Player player, const MP_JobMeta* type, unsigned int* count);
+    MP_Job * const* MP_GetJobs(MP_Player player, const MP_JobMeta* meta, unsigned int* count);
 
     /**
      * Get the actual position of a job, i.e. that of its target including the

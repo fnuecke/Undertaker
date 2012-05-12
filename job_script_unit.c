@@ -39,7 +39,7 @@ static int lua_Move(lua_State* L) {
     vec2 position;
     position.d.x = luaL_checknumber(L, 2);
     position.d.y = luaL_checknumber(L, 3);
-    lua_pushboolean(L, MP_MoveTo(luaMP_checkunit(L, 1, 1), &position));
+    lua_pushnumber(L, MP_MoveTo(luaMP_checkunit(L, 1, 1), &position));
     return 1;
 }
 

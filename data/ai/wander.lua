@@ -35,8 +35,9 @@ function run(unit, job)
     ]]
 
     -- Try to move.
-    if unit:move(x, y) then
+	local eta = unit:move(x, y)
+    if eta > 0 then
         -- OK, update delay. Wait some before wandering again.
-        return WANDER_DELAY_MIN + (math.random() * WANDER_DELAY_VARIANCE)
+        return eta + WANDER_DELAY_MIN + (math.random() * WANDER_DELAY_VARIANCE)
     end -- else we'll try to find a better spot next round.
 end

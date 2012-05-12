@@ -25,11 +25,11 @@ static MP_UnitJobSaturationMeta* addOrGetJobSaturation(MP_UnitMeta* meta, const 
     meta->jobs[meta->jobCount - 1] = job;
     meta->satisfaction.jobSaturation = realloc(meta->satisfaction.jobSaturation, meta->jobCount * sizeof (MP_UnitJobSaturationMeta));
     meta->satisfaction.jobSaturation[meta->jobCount - 1].boredThreshold = 1;
-    meta->satisfaction.jobSaturation[meta->jobCount - 1].initialValue = 1;
+    meta->satisfaction.jobSaturation[meta->jobCount - 1].initialValue = 0;
     meta->satisfaction.jobSaturation[meta->jobCount - 1].notPerformingDelta = 0;
     meta->satisfaction.jobSaturation[meta->jobCount - 1].performingDelta = 0;
     meta->satisfaction.jobSaturation[meta->jobCount - 1].preference = 0;
-    meta->satisfaction.jobSaturation[meta->jobCount - 1].satisfiedThreshold = 0;
+    meta->satisfaction.jobSaturation[meta->jobCount - 1].satisfiedThreshold = 1;
     meta->satisfaction.jobSaturation[meta->jobCount - 1].unsatisfiedThreshold = 0;
     return &meta->satisfaction.jobSaturation[meta->jobCount - 1];
 }

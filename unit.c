@@ -210,9 +210,6 @@ int MP_AddUnit(MP_Player player, const MP_UnitMeta* meta, const vec2* position) 
         memset(unit->ai, 0, sizeof (MP_AI_Info));
     }
 
-    // Set the pointer past the lower stack bound, so we know we have to
-    // find something to do.
-    unit->ai->current = &unit->ai->stack[MP_AI_STACK_DEPTH];
     // Disable movement initially.
     unit->ai->pathing.index = 1;
 
@@ -240,24 +237,12 @@ int MP_AddUnit(MP_Player player, const MP_UnitMeta* meta, const vec2* position) 
 
 void MP_StopJob(MP_Job* job) {
     if (job && job->worker) {
-        // Traverse the AI stack, starting at the current node.
-        AI_State* state = job->worker->ai->current;
-        while (state < &job->worker->ai->stack[MP_AI_STACK_DEPTH]) {
-            // If we have a match, make it the current one and tell it to stop.
-            if (state->job == job) {
-                job->worker->ai->current = state;
-                job->worker = NULL;
-                state->job = NULL;
-                state->jobNumber = 0;
-                state->shouldCancel = true;
-
-                // And we're done.
-                return;
-            } else {
-                // Move on to the next.
-                ++state;
-            }
-        }
+        AI_State* state = &job->worker->ai->state;
+        state->job = NULL;
+        state->jobRunDelay = 0;
+        state->jobSearchDelay = 0;
+        state->active = false;
+        job->worker = NULL;
     }
 }
 

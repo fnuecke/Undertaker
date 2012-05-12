@@ -17,8 +17,25 @@
 // Utility methods
 ///////////////////////////////////////////////////////////////////////////////
 
+/** Computes additional job weight based on saturation */
+static float weightedPreference(float saturation, float preference, const MP_UnitJobSaturationMeta* meta) {
+    // Map saturation to interval between unsatisfied and satisfied thresh so
+    // that unsatisfiedThreshold = 1 and satisfiedThreshold = 0.
+    const float delta = meta->satisfiedThreshold - meta->unsatisfiedThreshold;
+    if (delta > 0.0f && preference > 0.0f) {
+        return preference * (meta->satisfiedThreshold - saturation) / delta;
+    }
+
+    // Handle preference <= 0 as a special case where it's only considered
+    // if there's nothing else to do. We do this by adding half of the max
+    // value for floats, because we can probably pretty safely assume that
+    // such distances will never occur in 'normal' cases. This allows for
+    // proper relative distance comparison for all preference <= 0 jobs.
+    return preference - FLT_MAX / 2;
+}
+
 /** Catmull-rom interpolation */
-static float cr(float p0, float p1, float p2, float p3, float t) {
+inline static float cr(float p0, float p1, float p2, float p3, float t) {
     const float m1 = MP_AI_CATMULL_ROM_T * (p2 - p0);
     const float m2 = MP_AI_CATMULL_ROM_T * (p3 - p1);
     return (2 * p1 - 2 * p2 + m1 + m2) * t * t * t +
@@ -107,179 +124,129 @@ static void updateMove(MP_Unit* unit) {
 
 /** Updates unit desire saturation based on currently performed job and such */
 static void updateSaturation(MP_Unit* unit) {
-    const MP_UnitSatisfactionMeta* meta = &unit->meta->satisfaction;
-    MP_UnitSatisfaction* state = &unit->satisfaction;
-    const AI_State* ai = unit->ai->current;
+    const AI_State* state = &unit->ai->state;
+    const MP_JobMeta* activeJob = state->active ? state->job->meta : NULL;
+    const MP_UnitJobSaturationMeta* metaSaturation = unit->meta->satisfaction.jobSaturation;
+    float* saturation = unit->satisfaction.jobSaturation;
 
-    // Update job saturation values. Remember if there are any jobs we're not
-    // satisfied with (except the one we're currently doing).
-    bool someUnsatisfied = false;
-    for (unsigned int number; number < unit->meta->jobCount; ++number) {
+    // Update job saturation values.
+    for (int number = unit->meta->jobCount - 1; number >= 0; --number) {
         // Yes, check it's currently performing it.
-        if (ai->jobNumber == number) {
-            // Yes, update for the respective delta.
-            state->jobSaturation[number] +=
-                    meta->jobSaturation[number].performingDelta;
+        if (state->active && activeJob == unit->meta->jobs[number]) {
+            // Yes, it's active, update for the respective delta.
+            saturation[number] += metaSaturation[number].performingDelta;
         } else {
-            // No, update for the respective delta.
-            state->jobSaturation[number] +=
-                    meta->jobSaturation[number].notPerformingDelta;
-
-            // Are we unsatisfied with this job?
-            if (state->jobSaturation[number] <
-                    meta->jobSaturation[number].unsatisfiedThreshold) {
-                someUnsatisfied = true;
-            }
+            // Inactive, update for the respective delta.
+            saturation[number] += metaSaturation[number].notPerformingDelta;
         }
 
         // Make sure it's in bounds.
-        if (state->jobSaturation[number] < 0) {
-            state->jobSaturation[number] = 0;
-        } else if (state->jobSaturation[number] > 1.0f) {
-            state->jobSaturation[number] = 1.0f;
+        if (saturation[number] < 0) {
+            saturation[number] = 0;
+        } else if (saturation[number] > 1.0f) {
+            saturation[number] = 1.0f;
         }
     }
-
-    // TODO check if unit is held in hand, apply delta if so.
-
-    // Check if we are not unsatisfied with our current job and there's another
-    // one we are. If so, cancel the current job to allow starting the one we're
-    // unsatisfied with.
-    if (someUnsatisfied && state->jobSaturation[ai->jobNumber] >=
-            meta->jobSaturation[ai->jobNumber].unsatisfiedThreshold) {
-        // Indeed, so pop the current job.
-        MP_StopJob(ai->job);
-    }
-}
-
-/** Pops until the top entry is no longer marked as canceled */
-static void popCanceled(MP_Unit* unit) {
-    while (unit->ai->current < &unit->ai->stack[MP_AI_STACK_DEPTH] &&
-            unit->ai->current->shouldCancel) {
-        ++unit->ai->current;
-    }
-}
-
-/** Computes additional job weight based on saturation */
-static float weightedPreference(float saturation, float preference, const MP_UnitJobSaturationMeta* meta) {
-    // Map saturation to interval between unsatisfied and satisfied thresh so
-    // that unsatisfiedThreshold = 1 and satisfiedThreshold = 0.
-    const float delta = meta->satisfiedThreshold - meta->unsatisfiedThreshold;
-    if (delta > 0.0f) {
-        preference *= (meta->satisfiedThreshold - saturation) / delta;
-    } else {
-        // Like preference == 0
-        return -FLT_MAX / 2;
-    }
-    // Handle preference <= 0 as a special case where it's only considered
-    // if there's nothing else to do. We do this by adding half of the max
-    // value for floats, because we can probably pretty safely assume that
-    // such distances will never occur in 'normal' cases. This allows for
-    // proper relative distance comparison for all preference <= 0 jobs.
-    if (preference <= 0) {
-        return -FLT_MAX / 2;
-    }
-    return preference;
 }
 
 /** Looks for the most desirable job for the unit */
-static void findJob(MP_Unit* unit) {
-    const MP_UnitSatisfactionMeta* meta;
-    const MP_UnitSatisfaction* state;
+static void updateCurrentJob(MP_Unit* unit) {
+    AI_State* state = &unit->ai->state;
+    const MP_JobMeta** jobs;
+    const MP_UnitJobSaturationMeta* metaSaturation;
+    const float* saturation;
+
     MP_Job* bestJob;
-    unsigned int bestNumber;
     float bestWeightedDistance;
-    bool someUnsatisfied;
+
+    // Make sure our job still has a run method.
+    if (state->job && !state->job->meta->hasRunMethod) {
+        MP_StopJob(state->job);
+    }
 
     // Skip if we already have a job.
-    if (unit->ai->current < &unit->ai->stack[MP_AI_STACK_DEPTH]) {
+    if (state->jobSearchDelay > 0) {
+        --state->jobSearchDelay;
         return;
     }
 
     // Initialize.
-    meta = &unit->meta->satisfaction;
-    state = &unit->satisfaction;
-    bestJob = NULL;
-    bestNumber = 0;
-    bestWeightedDistance = FLT_MAX;
-    someUnsatisfied = false;
+    jobs = unit->meta->jobs;
+    metaSaturation = unit->meta->satisfaction.jobSaturation;
+    saturation = unit->satisfaction.jobSaturation;
 
-    // Do a quick scan to see if the unit has any unsatisfied job desires.
-    for (unsigned int number = 0; number < unit->meta->jobCount; ++number) {
-        // Check if the unit is unsatisfied.
-        if (state->jobSaturation[number] <
-                meta->jobSaturation[number].unsatisfiedThreshold) {
-            someUnsatisfied = true;
-        }
-    }
+    bestJob = NULL;
+    bestWeightedDistance = FLT_MAX;
 
     // Find the closest job, weighted based on the unit's preferences.
-    for (unsigned int number = 0; number < unit->meta->jobCount; ++number) {
+    for (int number = unit->meta->jobCount - 1; number >= 0; --number) {
         float distance;
         MP_Job* job;
 
-        // Check if the unit is unsatisfied or doesn't have others unsatisfied.
-        if (someUnsatisfied && state->jobSaturation[number] >=
-                meta->jobSaturation[number].unsatisfiedThreshold) {
-            // Unit isn't unsatisfied with this job, but some other, so skip it.
+        // Skip jobs that cannot be executed.
+        if (!jobs[number]->hasRunMethod) {
             continue;
         }
 
         // Find closest job opening.
-        if (!(job = MP_FindJob(unit, unit->meta->jobs[number], &distance))) {
+        if (!(job = MP_FindJob(unit, jobs[number], &distance))) {
             // Didn't find a job of this type.
             continue;
         }
 
         // Weigh the distance based on the saturation and preference.
-        if (job->meta->hasDynamicPreference) {
-            distance -= weightedPreference(state->jobSaturation[number], MP_Lua_GetDynamicPreference(unit, job), &meta->jobSaturation[number]);
+        if (jobs[number]->hasDynamicPreference) {
+            distance -= weightedPreference(saturation[number],
+                    MP_Lua_GetDynamicPreference(unit, jobs[number]),
+                    &metaSaturation[number]);
         } else {
-            distance -= weightedPreference(state->jobSaturation[number], meta->jobSaturation[number].preference, &meta->jobSaturation[number]);
+            distance -= weightedPreference(saturation[number],
+                    metaSaturation[number].preference,
+                    &metaSaturation[number]);
         }
 
         // Better than other jobs we have found?
         if (distance < bestWeightedDistance) {
             bestJob = job;
-            bestNumber = number;
             bestWeightedDistance = distance;
         }
     }
 
-    // Check if we found something to do.
-    if (bestJob) {
+    // Check if we found something (else) to do.
+    if (bestJob && bestJob != state->job) {
         // Fire previous workers.
         MP_StopJob(bestJob);
 
-        // Push that job onto the stack.
-        {
-            AI_State* ai = --unit->ai->current;
-            ai->job = bestJob;
-            ai->jobNumber = bestNumber;
-            ai->delay = 0;
-            ai->shouldCancel = false;
-        }
+        // Make self stop the active job (if any).
+        MP_StopJob(state->job);
+
+        // Pursue that job now.
+        state->active = false;
+        state->job = bestJob;
+        state->jobRunDelay = 0;
 
         // We found work, reserve it for ourself.
         bestJob->worker = unit;
     }
+
+    // Wait a bit before looking for a new job again.
+    state->jobSearchDelay = MP_FRAMERATE;
 }
 
 /** Runs job logic, if possible */
 static void updateJob(MP_Unit* unit) {
+    AI_State* state = &unit->ai->state;
     // Only if we have a job.
-    if (unit->ai->current < &unit->ai->stack[MP_AI_STACK_DEPTH]) {
+    if (state->job) {
         // See if we have an update method for it or have to wait before running the
         // job logic again.
-        if (!unit->ai->current->job->meta->hasRunMethod) {
-            // Pop the state, it cannot execute.
-            ++unit->ai->current;
-        } else if (unit->ai->current->delay) {
+        if (state->jobRunDelay > 0) {
             // Wait some more.
-            --unit->ai->current->delay;
+            --state->jobRunDelay;
         } else {
             // Otherwise update the unit based on its current job.
-            unit->ai->current->delay = MP_Lua_RunJob(unit, unit->ai->current->job);
+            assert(state->job->meta->hasRunMethod);
+            state->active = MP_Lua_RunJob(unit, state->job, &state->jobRunDelay);
         }
     }
 }
@@ -288,13 +255,14 @@ static void updateJob(MP_Unit* unit) {
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-bool MP_MoveTo(const MP_Unit* unit, const vec2* position) {
+float MP_MoveTo(const MP_Unit* unit, const vec2* position) {
     AI_Path* pathing = &unit->ai->pathing;
 
     // Find a path to it. Use temporary output data to avoid
     // overriding existing path that may be shorter.
     unsigned int depth = MP_AI_PATH_DEPTH;
-    if (MP_AStar(unit, position, &pathing->nodes[1], &depth, NULL)) {
+    float distance = 0;
+    if (MP_AStar(unit, position, &pathing->nodes[1], &depth, &distance)) {
         pathing->depth = depth;
         pathing->index = 1;
         pathing->distance = 0;
@@ -327,11 +295,11 @@ bool MP_MoveTo(const MP_Unit* unit, const vec2* position) {
         }
 
         // Success.
-        return true;
+        return distance / unit->meta->moveSpeed;
     }
 
     // Could not find a path.
-    return false;
+    return -1.0f;
 }
 
 void MP_UpdateAI(MP_Unit* unit) {
@@ -345,11 +313,9 @@ void MP_UpdateAI(MP_Unit* unit) {
     // isn't with this one, yet).
     updateSaturation(unit);
 
-    // Pop until we reach a state that should not be canceled.
-    popCanceled(unit);
-
-    // Get a job if we don't have one.
-    findJob(unit);
+    // Update the job we're currently doing. Get a job if we don't have one,
+    // otherwise check if there's a better one.
+    updateCurrentJob(unit);
 
     // Run job logic.
     updateJob(unit);

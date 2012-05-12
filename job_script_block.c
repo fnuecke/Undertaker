@@ -83,9 +83,10 @@ static int lua_IsSelectedBy(lua_State* L) {
     const MP_Player player = luaMP_checkplayer(L, 2, 2);
     unsigned short x, y;
     if (!MP_GetBlockCoordinates(&x, &y, block)) {
-        return luaL_error(L, "invalid 'Block'");
+        lua_pushboolean(L, false);
+    } else {
+        lua_pushboolean(L, MP_IsBlockSelected(player, x, y));
     }
-    lua_pushboolean(L, MP_IsBlockSelected(player, x, y));
     return 1;
 }
 

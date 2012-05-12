@@ -132,5 +132,19 @@ end
 
 function run(unit, job)
 	-- See whether we're close enough.
-	
+	local ux, uy = unit:getPosition()
+	local jx, jy = job:getPosition()
+	local dx, dy = ux - jx, uy - jy
+	local dn = (dx * dx + dy * dy)
+	-- TODO replace with ability range^2
+	if dn < 0.01 then
+		-- In range, do our thing.
+		-- TODO replace with ability damage
+		job:getTargetBlock():damage(10)
+		-- TODO replace with ability cooldown
+		return 0.5
+	else
+		-- Not yet there, move and try again after getting there.
+		return unit:move(jx, jy)
+	end
 end

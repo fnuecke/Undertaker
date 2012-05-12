@@ -18,21 +18,17 @@ extern "C" {
 
     /** A single entry in a unit's AI stack */
     typedef struct {
-        /** The job this state performs */
-        MP_Job* job;
-
-        /** The number of the job the state performs (in the unit's job list) */
-        unsigned int jobNumber;
+        /** Updates to wait before performing the next job search */
+        unsigned int jobSearchDelay;
 
         /** Delay before re-evaluating the job's logic */
-        unsigned int delay;
+        unsigned int jobRunDelay;
 
-        /**
-         * Whether the job should be canceled. Jobs can only be popped by
-         * themselves, to avoid stack corruption regardless of the call chain,
-         * and this is how we notify them they should do just that.
-         */
-        bool shouldCancel;
+        /** The actual job (workplace) we are active at */
+        MP_Job* job;
+
+        /** Whether the job is active (saturation rises or sinks) */
+        bool active;
     } AI_State;
 
     /** Pathing information for traveling along a path */
@@ -59,11 +55,8 @@ extern "C" {
      * pop itself when complete.
      */
     struct MP_AI_Info {
-        /** AI info stack */
-        AI_State stack[MP_AI_STACK_DEPTH];
-
-        /** The current AI state (pointer into stack) */
-        AI_State* current;
+        /** The current AI state */
+        AI_State state;
 
         /** Current pathing, used when moving */
         AI_Path pathing;
@@ -74,9 +67,11 @@ extern "C" {
      * specified location.
      * @param unit the unit that should move.
      * @param position the position it should move to.
-     * @return whether the unit now moves to the specified position.
+     * @return the estimated time in seconds it takes the unit to reach the
+     * target position, or an unspecified negative value on failure to find a
+     * path.
      */
-    bool MP_MoveTo(const MP_Unit* unit, const vec2* position);
+    float MP_MoveTo(const MP_Unit* unit, const vec2* position);
 
     /**
      * Update AI logic for the specified unit.

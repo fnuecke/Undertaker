@@ -114,7 +114,7 @@ const MP_UnitMeta* luaMP_checkunitmeta(lua_State* L, int narg, int errarg) {
 // Run
 ///////////////////////////////////////////////////////////////////////////////
 
-unsigned int MP_Lua_RunJob(MP_Unit* unit, MP_Job* job) {
+bool MP_Lua_RunJob(MP_Unit* unit, MP_Job* job, unsigned int* delay) {
     lua_State* L = job->meta->L;
 
     // Try to get the callback.
@@ -123,21 +123,29 @@ unsigned int MP_Lua_RunJob(MP_Unit* unit, MP_Job* job) {
         // Call it with the unit that we want to execute the script for.
         luaMP_pushunit(L, unit);
         luaMP_pushjob(L, job);
-        if (MP_Lua_pcall(L, 2, 1) == LUA_OK) {
-            // We should have gotten a delay (in seconds) to wait.
-            float delay = 0;
-            if (lua_isnumber(L, -1)) {
-                delay = lua_tonumber(L, -1);
+        if (MP_Lua_pcall(L, 2, 2) == LUA_OK) {
+            // We may have gotten a delay (in seconds) to wait, and an
+            // indication of whether the job is active or not.
+            float timeToWait = 0;
+            bool active = false;
+            if (lua_isnumber(L, -2)) {
+                timeToWait = lua_tonumber(L, -2);
             }
-            lua_pop(L, 1);
-
-            // Validate.
-            if (delay < 0) {
-                return 0;
+            if (lua_isboolean(L, -1)) {
+                active = lua_toboolean(L, -1);
             }
+            lua_pop(L, 2); // pop results
 
-            // OK, multiply with frame rate to get tick count.
-            return (unsigned int) (MP_FRAMERATE * delay);
+            // Validate and return results.
+            if (delay) {
+                if (timeToWait < 0) {
+                    *delay = 0;
+                } else {
+                    // OK, multiply with frame rate to get tick count.
+                    *delay = (unsigned int) (MP_FRAMERATE * timeToWait);
+                }
+            }
+            return active;
         } else {
             // Something went wrong.
             MP_log_error("In 'run' for job '%s': %s\n", job->meta->name, lua_tostring(L, -1));
@@ -153,12 +161,12 @@ unsigned int MP_Lua_RunJob(MP_Unit* unit, MP_Job* job) {
     // so we don't try this again.
     MP_DisableRunMethod(job->meta);
 
-    return 0;
+    return false;
 }
 
 /** Get preference value from AI script */
-float MP_Lua_GetDynamicPreference(MP_Unit* unit, MP_Job* job) {
-    lua_State* L = job->meta->L;
+float MP_Lua_GetDynamicPreference(MP_Unit* unit, const MP_JobMeta* meta) {
+    lua_State* L = meta->L;
 
     // Try to get the callback.
     lua_getglobal(L, "preference");
@@ -172,14 +180,14 @@ float MP_Lua_GetDynamicPreference(MP_Unit* unit, MP_Job* job) {
                 lua_pop(L, 1);
                 return preference;
             } else {
-                MP_log_error("'preference' for job '%s' returned something that's not a number.\n", job->meta->name);
+                MP_log_error("'preference' for job '%s' returned something that's not a number.\n", meta->name);
             }
         } else {
             // Something went wrong.
-            MP_log_error("In 'preference' for job '%s': %s\n", job->meta->name, lua_tostring(L, -1));
+            MP_log_error("In 'preference' for job '%s': %s\n", meta->name, lua_tostring(L, -1));
         }
     } else {
-        MP_log_error("'preference' for job '%s' isn't a function anymore.\n", job->meta->name);
+        MP_log_error("'preference' for job '%s' isn't a function anymore.\n", meta->name);
     }
 
     // Pop function or error message or result.
@@ -187,7 +195,7 @@ float MP_Lua_GetDynamicPreference(MP_Unit* unit, MP_Job* job) {
 
     // We get here only on failure. In that case disable the dynamic preference,
     // so we don't try this again.
-    MP_DisableDynamicPreference(job->meta);
+    MP_DisableDynamicPreference(meta);
 
     return 0;
 }

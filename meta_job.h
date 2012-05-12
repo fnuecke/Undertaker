@@ -38,6 +38,16 @@ extern "C" {
     META_header(MP_JobMeta, Job);
 
     /**
+     * Get the preference of a unit for the specified job. This will return the
+     * fixed value if the meta has no dynamic callback, else get the value from
+     * the callback.
+     * @param unit the unit to get the preference for.
+     * @param meta the job type to get the preference for.
+     * @return the preference for the job.
+     */
+    float MP_GetJobPreference(const MP_Unit* unit, const MP_JobMeta* meta);
+    
+    /**
      * Utility method to disable a single event callback for a specific job meta.
      * @param meta the meta to modify.
      */
