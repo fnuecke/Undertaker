@@ -156,6 +156,7 @@ static int lua_Import(lua_State* L) {
     if (lua_toboolean(L, -1)) {
         // Already loaded.
         lua_pop(L, 2); // pop field and table
+        MP_log_info("Skipping already imported file '%s'.\n", filename);
         return 0;
     }
     lua_pop(L, 1); // pop field
