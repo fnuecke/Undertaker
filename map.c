@@ -444,57 +444,30 @@ static void updateNormalsAt(int x, int y) {
 // Map model updating: lights
 ///////////////////////////////////////////////////////////////////////////////
 
+static bool lightOnWall(const MP_Block* block, unsigned int i) {
+    return block && block->meta &&
+            block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+            block->meta->lightFrequency &&
+            i % (block->owner == MP_PLAYER_NONE
+            ? block->meta->lightFrequency
+            : block->meta->lightFrequency >> 1) == 0;
+}
+
 static void updateLightLocal(int x, int y) {
-    const unsigned int idx = y * gMapSize * 4 + x * 4;
     MP_Block* block = MP_GetBlockAt(x, y);
     if (block && block->meta && block->meta->level < MP_BLOCK_LEVEL_HIGH) {
         // Check for nearby walls.
-        if ((block = MP_GetBlockAt(x, y + 1)) && block->meta &&
-            block->meta->level == MP_BLOCK_LEVEL_HIGH &&
-            block->meta->lightFrequency &&
-            x % (block->owner == MP_PLAYER_NONE
-            ? block->meta->lightFrequency
-            : block->meta->lightFrequency >> 1) == 0) {
-            MP_AddLight(&gWallLights[idx + SIDE_NORTH]);
+        if (lightOnWall(MP_GetBlockAt(x, y + 1), x) ||
+            lightOnWall(MP_GetBlockAt(x, y - 1), x) ||
+            lightOnWall(MP_GetBlockAt(x + 1, y), y) ||
+            lightOnWall(MP_GetBlockAt(x - 1, y), y)) {
+            MP_AddLight(&gWallLights[y * gMapSize + x]);
         } else {
-            MP_RemoveLight(&gWallLights[idx + SIDE_NORTH]);
-        }
-        if ((block = MP_GetBlockAt(x, y - 1)) && block->meta &&
-            block->meta->level == MP_BLOCK_LEVEL_HIGH &&
-            block->meta->lightFrequency &&
-            x % (block->owner == MP_PLAYER_NONE
-            ? block->meta->lightFrequency
-            : block->meta->lightFrequency >> 1) == 0) {
-            MP_AddLight(&gWallLights[idx + SIDE_SOUTH]);
-        } else {
-            MP_RemoveLight(&gWallLights[idx + SIDE_SOUTH]);
-        }
-        if ((block = MP_GetBlockAt(x + 1, y)) && block->meta &&
-            block->meta->level == MP_BLOCK_LEVEL_HIGH &&
-            block->meta->lightFrequency &&
-            y % (block->owner == MP_PLAYER_NONE
-            ? block->meta->lightFrequency
-            : block->meta->lightFrequency >> 1) == 0) {
-            MP_AddLight(&gWallLights[idx + SIDE_EAST]);
-        } else {
-            MP_RemoveLight(&gWallLights[idx + SIDE_EAST]);
-        }
-        if ((block = MP_GetBlockAt(x - 1, y)) && block->meta &&
-            block->meta->level == MP_BLOCK_LEVEL_HIGH &&
-            block->meta->lightFrequency &&
-            y % (block->owner == MP_PLAYER_NONE
-            ? block->meta->lightFrequency
-            : block->meta->lightFrequency >> 1) == 0) {
-            MP_AddLight(&gWallLights[idx + SIDE_WEST]);
-        } else {
-            MP_RemoveLight(&gWallLights[idx + SIDE_WEST]);
+            MP_RemoveLight(&gWallLights[y * gMapSize + x]);
         }
     } else if (x >= 0 && x < gMapSize && y >= 0 && y < gMapSize) {
         // Invalid block for lights.
-        MP_RemoveLight(&gWallLights[idx + SIDE_NORTH]);
-        MP_RemoveLight(&gWallLights[idx + SIDE_SOUTH]);
-        MP_RemoveLight(&gWallLights[idx + SIDE_EAST]);
-        MP_RemoveLight(&gWallLights[idx + SIDE_WEST]);
+        MP_RemoveLight(&gWallLights[y * gMapSize + x]);
     }
 }
 
@@ -1340,13 +1313,13 @@ void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith) {
         }
 
         // Free old light data.
-        for (unsigned int i = 0; i < (unsigned int) gMapSize * gMapSize * 4; ++i) {
+        for (unsigned int i = 0; i < (unsigned int) gMapSize * gMapSize; ++i) {
             MP_RemoveLight(&gWallLights[i]);
         }
         free(gWallLights);
 
         // Allocate new light data.
-        if (!(gWallLights = calloc(size * size * 4, sizeof (MP_Light)))) {
+        if (!(gWallLights = calloc(size * size, sizeof (MP_Light)))) {
             MP_log_fatal("Out of memory while allocating map light data.\n");
         }
 
@@ -1442,43 +1415,23 @@ void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith) {
     }
 
     // Set light defaults.
-    for (unsigned int i = 0; i < (unsigned int) gMapSize * gMapSize * 4; ++i) {
+    for (unsigned int i = 0; i < (unsigned int) gMapSize * gMapSize; ++i) {
         gWallLights[i].diffuseColor.c.r = 1.0f;
         gWallLights[i].diffuseColor.c.g = 1.0f;
         gWallLights[i].diffuseColor.c.b = 1.0f;
-        gWallLights[i].diffusePower = 5.0f;
+        gWallLights[i].diffusePower = 8.0f;
         gWallLights[i].specularColor.c.r = 1.0f;
         gWallLights[i].specularColor.c.g = 1.0f;
         gWallLights[i].specularColor.c.b = 1.0f;
-        gWallLights[i].specularPower = 5.0f;
+        gWallLights[i].specularPower = 8.0f;
         gWallLights[i].position.d.z = MP_BLOCK_HEIGHT * 2 / 3;
     }
 
     // Compute light positions.
     for (unsigned int x = 0; x < gMapSize; ++x) {
         for (unsigned int y = 0; y < gMapSize; ++y) {
-            // For each cell lights are on the four edges:
-            // +-------+
-            // |   ^   |
-            // |<     >|
-            // |   v   |
-            // +-------+
-            const unsigned int idx = y * gMapSize * 4 + x * 4;
-            MP_Light* l;
-            l = &gWallLights[idx + SIDE_NORTH];
+            MP_Light* l = &gWallLights[y * gMapSize + x];
             l->position.d.x = (x + 0.5f) * MP_BLOCK_SIZE;
-            l->position.d.y = (y + 0.9f) * MP_BLOCK_SIZE;
-
-            l = &gWallLights[idx + SIDE_SOUTH];
-            l->position.d.x = (x + 0.5f) * MP_BLOCK_SIZE;
-            l->position.d.y = (y + 0.1f) * MP_BLOCK_SIZE;
-
-            l = &gWallLights[idx + SIDE_EAST];
-            l->position.d.x = (x + 0.9f) * MP_BLOCK_SIZE;
-            l->position.d.y = (y + 0.5f) * MP_BLOCK_SIZE;
-
-            l = &gWallLights[idx + SIDE_WEST];
-            l->position.d.x = (x + 0.1f) * MP_BLOCK_SIZE;
             l->position.d.y = (y + 0.5f) * MP_BLOCK_SIZE;
         }
     }
