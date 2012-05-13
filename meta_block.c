@@ -11,31 +11,25 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /** File name suffixes for textures */
-const char* BLOCK_LEVEL_SUFFIX[] = {
-    [MP_BLOCK_LEVEL_PIT] = "pit",
-    [MP_BLOCK_LEVEL_LOWERED] = "lowered",
-    [MP_BLOCK_LEVEL_NORMAL] = "normal",
-    [MP_BLOCK_LEVEL_HIGH] = "high"
-};
+const char* BLOCK_LEVEL_SUFFIX[] = {[MP_BLOCK_LEVEL_PIT] = "pit",
+                                    [MP_BLOCK_LEVEL_LOWERED] = "lowered",
+                                    [MP_BLOCK_LEVEL_NORMAL] = "normal",
+                                    [MP_BLOCK_LEVEL_HIGH] = "high"};
 
-const char* BLOCK_TEXTURE_SUFFIX_TOP[] = {
-    [MP_BLOCK_TEXTURE_TOP] = "top",
-    [MP_BLOCK_TEXTURE_TOP_OWNED_OVERLAY] = "top_o",
-    [MP_BLOCK_TEXTURE_TOP_N] = "top_on",
-    [MP_BLOCK_TEXTURE_TOP_NE] = "top_one",
-    [MP_BLOCK_TEXTURE_TOP_NS] = "top_ons",
-    [MP_BLOCK_TEXTURE_TOP_NES] = "top_ones",
-    [MP_BLOCK_TEXTURE_TOP_NESW] = "top_onesw",
-    [MP_BLOCK_TEXTURE_TOP_NE_CORNER] = "top_onec",
-    [MP_BLOCK_TEXTURE_TOP_NES_CORNER] = "top_onesc",
-    [MP_BLOCK_TEXTURE_TOP_NESW_CORNER] = "top_oneswc",
-    [MP_BLOCK_TEXTURE_TOP_NESWN_CORNER] = "top_oneswnc"
-};
+const char* BLOCK_TEXTURE_SUFFIX_TOP[] = {[MP_BLOCK_TEXTURE_TOP] = "top",
+                                          [MP_BLOCK_TEXTURE_TOP_OWNED_OVERLAY] = "top_o",
+                                          [MP_BLOCK_TEXTURE_TOP_N] = "top_on",
+                                          [MP_BLOCK_TEXTURE_TOP_NE] = "top_one",
+                                          [MP_BLOCK_TEXTURE_TOP_NS] = "top_ons",
+                                          [MP_BLOCK_TEXTURE_TOP_NES] = "top_ones",
+                                          [MP_BLOCK_TEXTURE_TOP_NESW] = "top_onesw",
+                                          [MP_BLOCK_TEXTURE_TOP_NE_CORNER] = "top_onec",
+                                          [MP_BLOCK_TEXTURE_TOP_NES_CORNER] = "top_onesc",
+                                          [MP_BLOCK_TEXTURE_TOP_NESW_CORNER] = "top_oneswc",
+                                          [MP_BLOCK_TEXTURE_TOP_NESWN_CORNER] = "top_oneswnc"};
 
-const char* BLOCK_TEXTURE_SUFFIX_SIDE[] = {
-    [MP_BLOCK_TEXTURE_SIDE] = "side",
-    [MP_BLOCK_TEXTURE_SIDE_OWNED_OVERLAY] = "side_o"
-};
+const char* BLOCK_TEXTURE_SUFFIX_SIDE[] = {[MP_BLOCK_TEXTURE_SIDE] = "side",
+                                           [MP_BLOCK_TEXTURE_SIDE_OWNED_OVERLAY] = "side_o"};
 
 META_globals(MP_BlockMeta)
 

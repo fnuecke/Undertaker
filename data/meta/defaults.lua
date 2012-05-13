@@ -24,6 +24,7 @@ script file containing the actual logic for the state with the name of the job.
 job "wander"
 job "dig"
 job "convert_wall"
+job "convert_floor"
 
 --[[
 job "convert"
@@ -153,6 +154,7 @@ unit {name="imp", movespeed=1.8,
 		jobs={
 			{name="wander", satisfied=0},
 			{name="dig", preference=20},
+			{name="convert_floor", preference=10},
 			{name="convert_wall", preference=1}
 		}}
 

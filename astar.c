@@ -89,7 +89,8 @@ static PathNode* newOpenNode(float key) {
 
     // Move everything above one up, if necessary.
     if (low < gOpenSetCount) {
-        memmove(&gOpenSet[low + 1], &gOpenSet[low], (gOpenSetCount - low) * sizeof (PathNode));
+        memmove(&gOpenSet[low + 1], &gOpenSet[low],
+                (gOpenSetCount - low) * sizeof (PathNode));
     }
 
     // Remember there's one more now.
@@ -140,14 +141,16 @@ inline static unsigned int clamp(int coordinate) {
 }
 
 /** Computes actual path costs */
-inline static float h(unsigned int fromX, unsigned int fromY, unsigned int toX, unsigned int toY) {
+inline static float h(unsigned int fromX, unsigned int fromY,
+                      unsigned int toX, unsigned int toY) {
     const int dx = toX - fromX;
     const int dy = toY - fromY;
     return sqrtf(dx * dx + dy * dy);
 }
 
 /** Computes the heuristic */
-inline static float f(unsigned int x, unsigned int y, unsigned int goalX, unsigned int goalY) {
+inline static float f(unsigned int x, unsigned int y,
+                      unsigned int goalX, unsigned int goalY) {
     const unsigned int dx = abs(x - goalX);
     const unsigned int dy = abs(y - goalY);
     return SQRT2 * (dx > dy ? dx : dy);
@@ -188,6 +191,8 @@ static int shouldSkip(unsigned int x, unsigned int y, float gscore) {
     return 0;
 }
 
+#if ASTAR_JPS
+
 /**
  * Performs a jump point search.
  * 
@@ -201,10 +206,11 @@ static int shouldSkip(unsigned int x, unsigned int y, float gscore) {
  * @param gy goal y coordinate (so we don't jump past it).
  * @return whether the jump was successful or not.
  */
-static int jumpPointSearch(int* jx, int* jy, int dx, int dy, int sx, int sy, unsigned int gx, unsigned int gy) {
+static int jumpPointSearch(int* jx, int* jy, int dx, int dy,
+                           int sx, int sy, unsigned int gx, unsigned int gy) {
     // Don't go out of bounds.
     if (sx < 0 || sx >= gGridSize ||
-            sy < 0 || sy >= gGridSize) {
+        sy < 0 || sy >= gGridSize) {
         return 0;
     }
 
@@ -216,7 +222,7 @@ static int jumpPointSearch(int* jx, int* jy, int dx, int dy, int sx, int sy, uns
     // Only continue if this block is passable and the two diagonal ones are.
     // Otherwise we hit an obstacle and thus failed.
     if (!isPassable(sx, sy) ||
-            (!isPassable(sx, sy - dy) && !isPassable(sx - dx, sy))) {
+        (!isPassable(sx, sy - dy) && !isPassable(sx - dx, sy))) {
         return 0;
     }
 
@@ -235,18 +241,18 @@ static int jumpPointSearch(int* jx, int* jy, int dx, int dy, int sx, int sy, uns
 
     // Do we have to evaluate neighbors here and end our jump?
     if (
-            // If we move along the x axis...
-            ((dx &&
-            // ... and there's an obstacle above, blocking a passable tile...
-            ((!isPassable(sx, sy - 1) && isPassable(sx + dx, sy - 1)) ||
-            // ... or below us, blocking a passable tile...
-            (!isPassable(sx, sy + 1) && isPassable(sx + dx, sy + 1)))) ||
-            // ... or we're moving along the y axis...
-            (dy &&
-            // ... and there's an obstacle to the left, blocking a passable tile...
-            ((!isPassable(sx - 1, sy) && isPassable(sx - 1, sy + dy)) ||
-            // ... or to the right of us, blocking a passable tile...
-            (!isPassable(sx + 1, sy) && isPassable(sx + 1, sy + dy)))))) {
+        // If we move along the x axis...
+        ((dx &&
+        // ... and there's an obstacle above, blocking a passable tile...
+        ((!isPassable(sx, sy - 1) && isPassable(sx + dx, sy - 1)) ||
+        // ... or below us, blocking a passable tile...
+        (!isPassable(sx, sy + 1) && isPassable(sx + dx, sy + 1)))) ||
+        // ... or we're moving along the y axis...
+        (dy &&
+        // ... and there's an obstacle to the left, blocking a passable tile...
+        ((!isPassable(sx - 1, sy) && isPassable(sx - 1, sy + dy)) ||
+        // ... or to the right of us, blocking a passable tile...
+        (!isPassable(sx + 1, sy) && isPassable(sx + 1, sy + dy)))))) {
         // ... then we have to inspect this tile, so we end our jump.
         return 1;
     }
@@ -265,6 +271,8 @@ static int jumpPointSearch(int* jx, int* jy, int dx, int dy, int sx, int sy, uns
     // Not invalidated yet, remember this position and move on ahead.
     return jumpPointSearch(jx, jy, dx, dy, sx + dx, sy + dy, gx, gy);
 }
+
+#endif
 
 /** Tests whether two nodes are visible to each other */
 static int isInLineOfSight(const PathNode* a, const PathNode* b) {
@@ -389,8 +397,8 @@ static float computeLength(const PathNode* tail, const vec2* start, const vec2* 
  * specified length.
  */
 static unsigned int writePath(vec2* path, unsigned int depth,
-        const PathNode* tail, unsigned int realDepth,
-        const vec2* start, const vec2* goal) {
+                              const PathNode* tail, unsigned int realDepth,
+                              const vec2* start, const vec2* goal) {
     // Follow the path until only as many nodes as we can fit into the
     // specified buffer remain.
     while (realDepth >= depth) {
@@ -432,8 +440,8 @@ static unsigned int writePath(vec2* path, unsigned int depth,
  * @return whether the goal was reached or not.
  */
 static int isGoal(vec2* path, unsigned int* depth, float* length,
-        PathNode* node, unsigned int gx, unsigned int gy,
-        const vec2* start, const vec2* goal) {
+                  PathNode* node, unsigned int gx, unsigned int gy,
+                  const vec2* start, const vec2* goal) {
     // Test whether node coordinates are goal coordinates.
     if (node->x == gx && node->y == gy) {
         // Prune the path based on line of sight (i.e. skip nodes that are only
@@ -471,7 +479,9 @@ static int isGoal(vec2* path, unsigned int* depth, float* length,
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-int AStar(const vec2* start, const vec2* goal, int(*passable)(float x, float y), unsigned int bounds, vec2* path, unsigned int* depth, float* length) {
+int AStar(const vec2* start, const vec2* goal,
+          int(*passable)(float x, float y), unsigned int bounds,
+          vec2* path, unsigned int* depth, float* length) {
     unsigned int gx, gy, begin_x, begin_y, end_x, end_y, neighbor_x, neighbor_y;
     int x, y;
     float gscore, fscore;
@@ -484,7 +494,7 @@ int AStar(const vec2* start, const vec2* goal, int(*passable)(float x, float y),
 
     // Check if the start and target position are valid (passable).
     if (!passable(start->v[0], start->v[1]) ||
-            !passable(goal->v[0], goal->v[1])) {
+        !passable(goal->v[0], goal->v[1])) {
         return 0;
     }
 
@@ -595,7 +605,7 @@ int AStar(const vec2* start, const vec2* goal, int(*passable)(float x, float y),
 
                 // Only if this block is passable and the two diagonal ones are.
                 if (!isPassable(x, y) ||
-                        (!isPassable(x, current->y) && !isPassable(current->x, y))) {
+                    (!isPassable(x, current->y) && !isPassable(current->x, y))) {
                     continue;
                 }
 #endif

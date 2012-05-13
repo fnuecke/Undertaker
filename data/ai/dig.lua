@@ -1,5 +1,9 @@
 --[[
-AI describing logic for the 'dig' job.
+This job makes units destroy selected blocks. If the unit is not close enough to
+the job, it will move there.
+
+The unit will need to have the 'dig' ability, which is used to determine
+dig strength and cooldown.
 --]]
 
 -- Get utility methods for creating jobs for block walls.
@@ -62,7 +66,7 @@ end
 --[[
 Check if we're in range for digging. If so, dig, else go there and wait until
 we reach the job's location.
-]]--
+--]]
 local function run(unit, job)
 	-- See whether we're close enough.
 	local ux, uy = unit:getPosition()

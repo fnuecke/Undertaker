@@ -336,7 +336,7 @@ int MP_EndLookAt(void) {
 ///////////////////////////////////////////////////////////////////////////////
 
 int MP_Project(float objx, float objy, float objz,
-        float *winx, float *winy, float *winz) {
+               float *winx, float *winy, float *winz) {
     vec4 in;
     vec4 out;
 
@@ -373,7 +373,7 @@ int MP_Project(float objx, float objy, float objz,
 }
 
 int MP_UnProject(float winx, float winy, float winz,
-        float *objx, float *objy, float *objz) {
+                 float *objx, float *objy, float *objz) {
     mat4 mvp = matrix.mvp;
     vec4 in;
     vec4 out;
@@ -419,11 +419,11 @@ void MP_InitGraphics(void) {
         matrix.view[i] = IDENTITY_MATRIX4;
         matrix.projection[i] = IDENTITY_MATRIX4;
     }
-    
+
     matrix.mv = IDENTITY_MATRIX4;
     matrix.mvp = IDENTITY_MATRIX4;
     matrix.normal = IDENTITY_MATRIX3;
-    
+
     stack.model = MATRIX_STACK_SIZE - 1;
     stack.projection = MATRIX_STACK_SIZE - 1;
     stack.view = MATRIX_STACK_SIZE - 1;

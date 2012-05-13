@@ -68,7 +68,9 @@ static void ensureJobTypeListSize(MP_Player player, unsigned int metaId) {
 
     if (gJobsCount[player][metaId] + 1 > gJobsCapacity[player][metaId]) {
         gJobsCapacity[player][metaId] = gJobsCapacity[player][metaId] * 2 + 1;
-        if (!(gJobs[player][metaId] = realloc(gJobs[player][metaId], gJobsCapacity[player][metaId] * sizeof (MP_Job**)))) {
+        if (!(gJobs[player][metaId] =
+            realloc(gJobs[player][metaId],
+                    gJobsCapacity[player][metaId] * sizeof (MP_Job**)))) {
             MP_log_fatal("Out of memory while resizing job list.\n");
         }
     }
@@ -104,7 +106,8 @@ static void deleteJob(MP_Player player, unsigned int metaId, unsigned int number
 
     // Move up the list entries to close the gap.
     --gJobsCount[player][metaId];
-    memmove(&gJobs[player][metaId][number], &gJobs[player][metaId][number + 1], (gJobsCount[player][metaId] - number) * sizeof (MP_Job*));
+    memmove(&gJobs[player][metaId][number], &gJobs[player][metaId][number + 1],
+            (gJobsCount[player][metaId] - number) * sizeof (MP_Job*));
 }
 
 /** Delete a job that is no longer used */
@@ -195,23 +198,32 @@ void MP_GetJobPosition(vec2* position, const MP_Job* job) {
 
 static const vec4 colors[] = {
     {
-        {1, 0, 0, 1}},
+        {1, 0, 0, 1}
+    },
     {
-        {0, 1, 0, 1}},
+        {0, 1, 0, 1}
+    },
     {
-        {0, 0, 1, 1}},
+        {0, 0, 1, 1}
+    },
     {
-        {0.9f, 0.3f, 0.3f, 1}},
+        {0.9f, 0.3f, 0.3f, 1}
+    },
     {
-        {0.3f, 0.9f, 0.3f, 1}},
+        {0.3f, 0.9f, 0.3f, 1}
+    },
     {
-        {0.3f, 0.3f, 0.9f, 1}},
+        {0.3f, 0.3f, 0.9f, 1}
+    },
     {
-        {0.8f, 0.5f, 0.5f, 1}},
+        {0.8f, 0.5f, 0.5f, 1}
+    },
     {
-        {0.5f, 0.8f, 0.5f, 1}},
+        {0.5f, 0.8f, 0.5f, 1}
+    },
     {
-        {0.5f, 0.5f, 0.8f, 1}},
+        {0.5f, 0.5f, 0.8f, 1}
+    },
 };
 static const unsigned int colorCount = sizeof (colors) / sizeof (vec4);
 
@@ -263,10 +275,18 @@ static void onRender(void) {
                 {
                     vec2 position;
                     MP_GetJobPosition(&position, job);
-                    glVertex3f((position.d.x - 0.1f) * MP_BLOCK_SIZE, (position.d.y - 0.1f) * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT + 0.1f);
-                    glVertex3f((position.d.x + 0.1f) * MP_BLOCK_SIZE, (position.d.y - 0.1f) * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT + 0.1f);
-                    glVertex3f((position.d.x + 0.1f) * MP_BLOCK_SIZE, (position.d.y + 0.1f) * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT + 0.1f);
-                    glVertex3f((position.d.x - 0.1f) * MP_BLOCK_SIZE, (position.d.y + 0.1f) * MP_BLOCK_SIZE, MP_D_DRAW_PATH_HEIGHT + 0.1f);
+                    glVertex3f((position.d.x - 0.1f) * MP_BLOCK_SIZE,
+                               (position.d.y - 0.1f) * MP_BLOCK_SIZE,
+                               MP_D_DRAW_PATH_HEIGHT + 0.1f);
+                    glVertex3f((position.d.x + 0.1f) * MP_BLOCK_SIZE,
+                               (position.d.y - 0.1f) * MP_BLOCK_SIZE,
+                               MP_D_DRAW_PATH_HEIGHT + 0.1f);
+                    glVertex3f((position.d.x + 0.1f) * MP_BLOCK_SIZE,
+                               (position.d.y + 0.1f) * MP_BLOCK_SIZE,
+                               MP_D_DRAW_PATH_HEIGHT + 0.1f);
+                    glVertex3f((position.d.x - 0.1f) * MP_BLOCK_SIZE,
+                               (position.d.y + 0.1f) * MP_BLOCK_SIZE,
+                               MP_D_DRAW_PATH_HEIGHT + 0.1f);
                 }
                 glEnd();
             }

@@ -1,5 +1,9 @@
 --[[
-AI describing logic for the 'convert' job.
+This job makes units convert unselected blocks to belong to their owner. If the
+unit is not close enough to the job, it will move there.
+
+The unit will need to have the 'convert' ability, which is used to determine
+conversion strength and cooldown.
 --]]
 
 -- Get utility methods for creating jobs for block walls.
@@ -15,7 +19,11 @@ local function onBlockSelectionChanged(player, block, x, y)
 		return block:isPassable() and block:getOwner() == player
 	end
 	local function validateTarget(block)
-		return block:isConvertible() and not block:isPassable() and not block:isSelectedBy(player) and block:getOwner() == 0
+		-- TODO allow repairs
+		return block:isConvertible() and
+				not block:isPassable() and
+				not block:isSelectedBy(player) and
+				block:getOwner() ~= player
 	end
 	addJobsForBlockAt(player, block, x, y, "convert_wall", validateLocation, validateTarget)
 end
@@ -25,7 +33,7 @@ When a block's meta changes we want to destroy all jobs targeting it. We also
 want to update all neighboring blocks, because a conversion slot might have
 become open (if our passability changed).
 --]]
-local function onBlockMetaChanged(block, x, y)
+local function onBlockChanged(block, x, y)
 	for player = 1, 4 do
 		Job.deleteByTypeWhereTarget(player, "convert_wall", block)
 
@@ -33,7 +41,11 @@ local function onBlockMetaChanged(block, x, y)
 			return block:isPassable() and block:getOwner() == player
 		end
 		local function validateTarget(block)
-			return block:isConvertible() and not block:isPassable() and not block:isSelectedBy(player) and block:getOwner() == 0
+			-- TODO allow repairs
+			return block:isConvertible() and
+					not block:isPassable() and
+					not block:isSelectedBy(player) and
+					block:getOwner() ~= player
 		end
 		addJobsForBlockAt(player, block, x, y, "convert_wall", validateLocation, validateTarget)
 		if not addJobsForBlocksSurrounding(player, block, x, y, "convert_wall", validateLocation, validateTarget) then
@@ -49,15 +61,9 @@ local function onBlockMetaChanged(block, x, y)
 end
 
 --[[
-When the owner of a block changes, delete all jobs if it's owned, otherwise
-create jobs for all players.
+Check if we're in range for converting. If so, convert, else go there and wait
+until we reach the job's location.
 --]]
-local function onBlockOwnerChanged(block, x, y)
-	for player = 1, 4 do
-		onBlockSelectionChanged(player, block, x, y)
-	end
-end
-
 local function run(unit, job)
 	-- See whether we're close enough.
 	local ux, uy = unit:getPosition()
@@ -78,6 +84,6 @@ local function run(unit, job)
 end
 
 export("onBlockSelectionChanged", onBlockSelectionChanged)
-export("onBlockMetaChanged", onBlockMetaChanged)
-export("onBlockOwnerChanged", onBlockOwnerChanged)
+export("onBlockMetaChanged", onBlockChanged)
+export("onBlockOwnerChanged", onBlockChanged)
 export("run", run)

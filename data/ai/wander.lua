@@ -1,9 +1,19 @@
--- Register the wander job for the newly added unit.
+--[[
+This job will make a unit walk around randomly every so often.
+--]]
+
+--[[
+Register the wander job for the newly added unit. The unit will target itself
+with the job, so it essentially "carries its job with it".
+--]]
 local function onUnitAdded(unit)
 	-- We target ourself.
 	Job.create {player=unit:getOwner(), name="wander", unit=unit}
 end
 
+--[[
+Roll a random location nearby and try to move there.
+--]]
 local function run(unit, job)
 	-- This is the maximum distance how far we may wander.
 	local WANDER_RANGE = 2

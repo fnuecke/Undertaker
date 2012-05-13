@@ -47,7 +47,7 @@ extern "C" {
      * event, which should invalidate all other map size dependent data (and
      * generally means that the old map has been unloaded -> cleanup).
      */
-    void MP_SetMapSize(unsigned short size,  const MP_BlockMeta* fillWith);
+    void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith);
 
     /**
      * Change the type of a block.

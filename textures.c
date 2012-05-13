@@ -71,12 +71,12 @@ static GLuint generateTexture(const SDL_Surface* surface) {
     glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
 
     glTexImage2D(GL_TEXTURE_2D, 0, surface->format->BytesPerPixel,
-            surface->w, surface->h, 0, (surface->format->Amask) ? GL_RGBA : GL_RGB,
-            GL_UNSIGNED_BYTE, surface->pixels);
+                 surface->w, surface->h, 0, (surface->format->Amask) ? GL_RGBA : GL_RGB,
+                 GL_UNSIGNED_BYTE, surface->pixels);
 #else
     gluBuild2DMipmaps(GL_TEXTURE_2D, surface->format->BytesPerPixel,
-            surface->w, surface->h, (surface->format->Amask) ? GL_RGBA : GL_RGB,
-            GL_UNSIGNED_BYTE, surface->pixels);
+                      surface->w, surface->h, (surface->format->Amask) ? GL_RGBA : GL_RGB,
+                      GL_UNSIGNED_BYTE, surface->pixels);
 #endif
 
     return texture;

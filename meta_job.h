@@ -46,7 +46,7 @@ extern "C" {
      * @return the preference for the job.
      */
     float MP_GetJobPreference(const MP_Unit* unit, const MP_JobMeta* meta);
-    
+
     /**
      * Utility method to disable a single event callback for a specific job meta.
      * @param meta the meta to modify.

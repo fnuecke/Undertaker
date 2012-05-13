@@ -215,7 +215,7 @@ int MP_AddUnit(MP_Player player, const MP_UnitMeta* meta, const vec2* position) 
 
     // Allocate job saturation memory.
     if (!unit->satisfaction.jobSaturation &&
-            !(unit->satisfaction.jobSaturation = calloc(unit->meta->jobCount, sizeof (float)))) {
+        !(unit->satisfaction.jobSaturation = calloc(unit->meta->jobCount, sizeof (float)))) {
         MP_log_fatal("Out of memory while allocating job saturation.\n");
     }
 

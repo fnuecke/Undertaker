@@ -317,7 +317,9 @@ static void initShaders(void) {
     const char* outGeometry[] = {"GBuffer0", "GBuffer1", "GBuffer2"};
     const char* outAmbientAndLight[1] = {"Color"};
 
-    gGeometryShader.program = MP_LoadProgram("data/shaders/deferredGeometryPass.vert", "data/shaders/deferredGeometryPass.frag", outGeometry, 3);
+    gGeometryShader.program = MP_LoadProgram("data/shaders/deferredGeometryPass.vert",
+                                             "data/shaders/deferredGeometryPass.frag",
+                                             outGeometry, 3);
     if (!gGeometryShader.program) {
         return;
     }
@@ -354,7 +356,9 @@ static void initShaders(void) {
             glGetUniformLocation(gGeometryShader.program, "Emissivity");
     EXIT_ON_OPENGL_ERROR();
 
-    gAmbientShader.program = MP_LoadProgram("data/shaders/deferredAmbientPass.vert", "data/shaders/deferredAmbientPass.frag", outAmbientAndLight, 1);
+    gAmbientShader.program = MP_LoadProgram("data/shaders/deferredAmbientPass.vert",
+                                            "data/shaders/deferredAmbientPass.frag",
+                                            outAmbientAndLight, 1);
     if (!gAmbientShader.program) {
         return;
     }
@@ -374,7 +378,9 @@ static void initShaders(void) {
             glGetUniformLocation(gAmbientShader.program, "AmbientLightPower");
     EXIT_ON_OPENGL_ERROR();
 
-    gLightShader.program = MP_LoadProgram("data/shaders/deferredLightPass.vert", "data/shaders/deferredLightPass.frag", outAmbientAndLight, 1);
+    gLightShader.program = MP_LoadProgram("data/shaders/deferredLightPass.vert",
+                                          "data/shaders/deferredLightPass.frag",
+                                          outAmbientAndLight, 1);
     if (!gLightShader.program) {
         return;
     }
@@ -516,9 +522,9 @@ static void onModelMatrixChanged(void) {
 
 static void geometryPass(void) {
     static const GLenum buffers[] = {
-        GL_COLOR_ATTACHMENT0,
-        GL_COLOR_ATTACHMENT1,
-        GL_COLOR_ATTACHMENT2
+                                     GL_COLOR_ATTACHMENT0,
+                                     GL_COLOR_ATTACHMENT1,
+                                     GL_COLOR_ATTACHMENT2
     };
 
     // Bind our frame buffer.
@@ -738,8 +744,8 @@ static void lightPass(void) {
     // in post-rendering (e.g. for lighting and selection outline).
     glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer.frameBuffer);
     glBlitFramebuffer(0, 0, MP_resolution_x, MP_resolution_y,
-            0, 0, MP_resolution_x, MP_resolution_y,
-            GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+                      0, 0, MP_resolution_x, MP_resolution_y,
+                      GL_DEPTH_BUFFER_BIT, GL_NEAREST);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
     // Figure out what to draw.
@@ -773,8 +779,8 @@ static void lightPass(void) {
     } else if (MP_d_draw_deferred == MP_D_DEPTH_BUFFER) {
         glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer.frameBuffer);
         glBlitFramebuffer(0, 0, MP_resolution_x, MP_resolution_y,
-                0, 0, MP_resolution_x, MP_resolution_y,
-                GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+                          0, 0, MP_resolution_x, MP_resolution_y,
+                          GL_DEPTH_BUFFER_BIT, GL_NEAREST);
         glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
         EXIT_ON_OPENGL_ERROR();
@@ -846,7 +852,7 @@ void MP_Render(void) {
     const vec3* cameraPosition = MP_GetCameraPosition();
     const vec3* cameraTarget = MP_GetCameraTarget();
     MP_BeginLookAt(cameraPosition->d.x, cameraPosition->d.y, cameraPosition->d.z,
-            cameraTarget->d.x, cameraTarget->d.y, cameraTarget->d.z);
+                   cameraTarget->d.x, cameraTarget->d.y, cameraTarget->d.z);
 
     // Set projection matrix.
     if (MP_d_draw_picking_mode) {
@@ -982,9 +988,9 @@ void MP_SetMaterial(const MP_Material* material) {
             EXIT_ON_OPENGL_ERROR();
         } else {
             glColor4f(material->diffuseColor.c.r,
-                    material->diffuseColor.c.g,
-                    material->diffuseColor.c.b,
-                    material->diffuseColor.c.a);
+                      material->diffuseColor.c.g,
+                      material->diffuseColor.c.b,
+                      material->diffuseColor.c.a);
 
             if (material->textureCount > 0) {
                 glActiveTexture(GL_TEXTURE0);
@@ -998,9 +1004,9 @@ void MP_SetMaterial(const MP_Material* material) {
         // Otherwise we're not really interested in shading stuff properly, just
         // set the color.
         glColor4f(material->diffuseColor.c.r,
-                material->diffuseColor.c.g,
-                material->diffuseColor.c.b,
-                material->diffuseColor.c.a);
+                  material->diffuseColor.c.g,
+                  material->diffuseColor.c.b,
+                  material->diffuseColor.c.a);
     }
 }
 

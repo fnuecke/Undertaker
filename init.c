@@ -31,7 +31,7 @@ void MP_Init(void) {
     SDL_Surface* screen;
 
     MP_load_config();
-    
+
     MP_log_info("Game starting up...\n");
 
     atexit(shutdown);

@@ -30,13 +30,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /** Base z coordinates for vertices, based on z index in vertex buffer. */
-static const float z_coords[5] = {
-    -MP_WATER_LEVEL,
-    -MP_WATER_LEVEL / 2.0f,
-    0,
-    MP_BLOCK_HEIGHT / 2.0f,
-    MP_BLOCK_HEIGHT
-};
+static const float z_coords[5] = {-MP_WATER_LEVEL,
+                                  -MP_WATER_LEVEL / 2.0f,
+                                  0,
+                                  MP_BLOCK_HEIGHT / 2.0f,
+                                  MP_BLOCK_HEIGHT};
 
 ///////////////////////////////////////////////////////////////////////////////
 // Internal variables
@@ -331,8 +329,8 @@ static void computeNormal(vec3* normal, const vec3* v0, const vec3* v1, const ve
  * Get an interpolated (smoothed) normal at v0, with the specified neighbors.
  */
 static void interpolateNormal(vec3* n, const vec3* v0,
-        const vec3* v1, const vec3* v2, const vec3* v3, const vec3* v4,
-        const vec3* v5, const vec3* v6, const vec3* v7, const vec3* v8) {
+                              const vec3* v1, const vec3* v2, const vec3* v3, const vec3* v4,
+                              const vec3* v5, const vec3* v6, const vec3* v7, const vec3* v8) {
     // Compute normals based on neighbors and accumulate.
     vec3 tmp;
     n->d.x = 0;
@@ -371,14 +369,14 @@ static void updateNormalsAt(int x, int y) {
 
         // Compute normals based on neighbors and accumulate.
         interpolateNormal(n, v0,
-                P(x, y - 1, z),
-                P(x + 1, y - 1, z),
-                P(x + 1, y, z),
-                P(x + 1, y + 1, z),
-                P(x, y + 1, z),
-                P(x - 1, y + 1, z),
-                P(x - 1, y, z),
-                P(x - 1, y - 1, z));
+                          P(x, y - 1, z),
+                          P(x + 1, y - 1, z),
+                          P(x + 1, y, z),
+                          P(x + 1, y + 1, z),
+                          P(x, y + 1, z),
+                          P(x - 1, y + 1, z),
+                          P(x - 1, y, z),
+                          P(x - 1, y - 1, z));
 
         // If we don't get out of bounds issues, compute x and y, too.
         if (z > 1 && z < 4) {
@@ -387,14 +385,14 @@ static void updateNormalsAt(int x, int y) {
 
             // Compute normals based on neighbors and accumulate.
             interpolateNormal(n, v0,
-                    P(x + 1, y, z + 1),
-                    P(x + 1, y, z),
-                    P(x + 1, y, z - 1),
-                    P(x, y, z - 1),
-                    P(x - 1, y, z - 1),
-                    P(x - 1, y, z),
-                    P(x - 1, y, z + 1),
-                    P(x, y, z + 1));
+                              P(x + 1, y, z + 1),
+                              P(x + 1, y, z),
+                              P(x + 1, y, z - 1),
+                              P(x, y, z - 1),
+                              P(x - 1, y, z - 1),
+                              P(x - 1, y, z),
+                              P(x - 1, y, z + 1),
+                              P(x, y, z + 1));
 
             // Other side is just the same, but with inverted direction.
             vert->normal[SIDE_SOUTH] = *n;
@@ -405,14 +403,14 @@ static void updateNormalsAt(int x, int y) {
 
             // Compute normals based on neighbors and accumulate.
             interpolateNormal(n, v0,
-                    P(x, y - 1, z + 1),
-                    P(x, y - 1, z),
-                    P(x, y - 1, z - 1),
-                    P(x, y, z - 1),
-                    P(x, y + 1, z - 1),
-                    P(x, y + 1, z),
-                    P(x, y + 1, z + 1),
-                    P(x, y, z + 1));
+                              P(x, y - 1, z + 1),
+                              P(x, y - 1, z),
+                              P(x, y - 1, z - 1),
+                              P(x, y, z - 1),
+                              P(x, y + 1, z - 1),
+                              P(x, y + 1, z),
+                              P(x, y + 1, z + 1),
+                              P(x, y, z + 1));
 
             // Other side is just the same, but with inverted direction.
             vert->normal[SIDE_WEST] = *n;
@@ -467,10 +465,9 @@ static void updateBlock(MP_Block* block) {
         }
     }
 
-    // Deselect block and fire event for AI scripts.
+    // Deselect block.
     for (int i = 0; i < MP_PLAYER_COUNT; ++i) {
         MP_DeselectBlock(MP_PLAYER_NONE + i, x, y);
-        MP_Lua_OnBlockMetaChanged(block, x, y);
     }
 }
 
@@ -500,30 +497,30 @@ static void autoConvert(MP_Block* block, MP_Player player) {
                 // This double loop gives us the coordinates of our diagonal
                 // neighbors, meaning they have to be owned blocks.
                 if ((block = MP_GetBlockAt(x + nx, y + ny)) &&
-                        block->owner == player &&
-                        block->meta->level == MP_BLOCK_LEVEL_HIGH &&
-                        // OK so far, now wee need to check if one of the
-                        // blocks completing the square is open and the
-                        // other un-owned.
-                        ((
-                        (block = MP_GetBlockAt(x, y + ny)) &&
-                        block->owner == player &&
-                        block->meta->level < MP_BLOCK_LEVEL_HIGH &&
-                        (block = MP_GetBlockAt(x + nx, y)) &&
-                        block->owner == MP_PLAYER_NONE &&
-                        block->meta->level == MP_BLOCK_LEVEL_HIGH &&
-                        MP_IsBlockConvertible(block)
-                        ) || (
-                        // If it didn't work that way around, check the
-                        // other way.
-                        (block = MP_GetBlockAt(x + nx, y)) &&
-                        block->owner == player &&
-                        block->meta->level < MP_BLOCK_LEVEL_HIGH &&
-                        (block = MP_GetBlockAt(x, y + ny)) &&
-                        block->owner == MP_PLAYER_NONE &&
-                        block->meta->level == MP_BLOCK_LEVEL_HIGH &&
-                        MP_IsBlockConvertible(block)
-                        ))) {
+                    block->owner == player &&
+                    block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+                    // OK so far, now wee need to check if one of the
+                    // blocks completing the square is open and the
+                    // other un-owned.
+                    ((
+                    (block = MP_GetBlockAt(x, y + ny)) &&
+                    block->owner == player &&
+                    block->meta->level < MP_BLOCK_LEVEL_HIGH &&
+                    (block = MP_GetBlockAt(x + nx, y)) &&
+                    block->owner == MP_PLAYER_NONE &&
+                    block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+                    MP_IsBlockConvertible(block)
+                    ) || (
+                    // If it didn't work that way around, check the
+                    // other way.
+                    (block = MP_GetBlockAt(x + nx, y)) &&
+                    block->owner == player &&
+                    block->meta->level < MP_BLOCK_LEVEL_HIGH &&
+                    (block = MP_GetBlockAt(x, y + ny)) &&
+                    block->owner == MP_PLAYER_NONE &&
+                    block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+                    MP_IsBlockConvertible(block)
+                    ))) {
                     // All conditions are met for converting the block.
                     MP_SetBlockOwner(block, player);
                 }
@@ -537,16 +534,16 @@ static void autoConvert(MP_Block* block, MP_Player player) {
                 // This double loop gives us the coordinates of our diagonal
                 // neighbors, meaning they have to be un-owned blocks.
                 if ((block = MP_GetBlockAt(x + nx, y + ny)) &&
-                        block->owner == MP_PLAYER_NONE &&
-                        block->meta->level == MP_BLOCK_LEVEL_HIGH &&
-                        // OK so far, now wee need to check if the blocks
-                        // completing the square are high and owned.
-                        (block = MP_GetBlockAt(x, y + ny)) &&
-                        block->owner == player &&
-                        block->meta->level == MP_BLOCK_LEVEL_HIGH &&
-                        (block = MP_GetBlockAt(x + nx, y)) &&
-                        block->owner == player &&
-                        block->meta->level == MP_BLOCK_LEVEL_HIGH) {
+                    block->owner == MP_PLAYER_NONE &&
+                    block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+                    // OK so far, now wee need to check if the blocks
+                    // completing the square are high and owned.
+                    (block = MP_GetBlockAt(x, y + ny)) &&
+                    block->owner == player &&
+                    block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+                    (block = MP_GetBlockAt(x + nx, y)) &&
+                    block->owner == player &&
+                    block->meta->level == MP_BLOCK_LEVEL_HIGH) {
                     // All conditions are met for converting the block.
                     MP_SetBlockOwner(block, player);
                 }
@@ -589,7 +586,7 @@ static void beginDraw(void) {
 
     // Set the pointers that don't change.
     glVertexAttribPointer(MP_GetPositionAttributeLocation(),
-            3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), 0);
+                          3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), 0);
 
     EXIT_ON_OPENGL_ERROR();
 }
@@ -616,9 +613,11 @@ static void drawTop(int x, int y, unsigned int z) {
     y = y * 2 + MP_MAP_BORDER;
 
     glVertexAttribPointer(MP_GetNormalAttributeLocation(),
-            3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), NORMAL(SIDE_TOP));
+                          3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex),
+                          NORMAL(SIDE_TOP));
     glVertexAttribPointer(MP_GetTextureCoordinateAttributeLocation(),
-            2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), TEXTURE(SIDE_TOP));
+                          2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex),
+                          TEXTURE(SIDE_TOP));
 
     indices[0] = fi(x, y + 2, z);
     indices[1] = fi(x, y + 1, z);
@@ -645,9 +644,11 @@ static void drawNorth(int x, int y, unsigned int z) {
     y = y * 2 + MP_MAP_BORDER;
 
     glVertexAttribPointer(MP_GetNormalAttributeLocation(),
-            3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), NORMAL(SIDE_NORTH));
+                          3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex),
+                          NORMAL(SIDE_NORTH));
     glVertexAttribPointer(MP_GetTextureCoordinateAttributeLocation(),
-            2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), TEXTURE(SIDE_NORTH));
+                          2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex),
+                          TEXTURE(SIDE_NORTH));
 
     indices[0] = fi(x + 2, y, z + 2);
     indices[1] = fi(x + 2, y, z + 1);
@@ -674,9 +675,11 @@ static void drawSouth(int x, int y, unsigned int z) {
     y = y * 2 + MP_MAP_BORDER;
 
     glVertexAttribPointer(MP_GetNormalAttributeLocation(),
-            3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), NORMAL(SIDE_SOUTH));
+                          3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex),
+                          NORMAL(SIDE_SOUTH));
     glVertexAttribPointer(MP_GetTextureCoordinateAttributeLocation(),
-            2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), TEXTURE(SIDE_SOUTH));
+                          2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex),
+                          TEXTURE(SIDE_SOUTH));
 
     indices[0] = fi(x, y, z + 2);
     indices[1] = fi(x, y, z + 1);
@@ -703,9 +706,11 @@ static void drawEast(int x, int y, unsigned int z) {
     y = y * 2 + MP_MAP_BORDER;
 
     glVertexAttribPointer(MP_GetNormalAttributeLocation(),
-            3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), NORMAL(SIDE_EAST));
+                          3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex),
+                          NORMAL(SIDE_EAST));
     glVertexAttribPointer(MP_GetTextureCoordinateAttributeLocation(),
-            2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), TEXTURE(SIDE_EAST));
+                          2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex),
+                          TEXTURE(SIDE_EAST));
 
     indices[0] = fi(x, y, z + 2);
     indices[1] = fi(x, y, z + 1);
@@ -732,9 +737,11 @@ static void drawWest(int x, int y, unsigned int z) {
     y = y * 2 + MP_MAP_BORDER;
 
     glVertexAttribPointer(MP_GetNormalAttributeLocation(),
-            3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), NORMAL(SIDE_WEST));
+                          3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex),
+                          NORMAL(SIDE_WEST));
     glVertexAttribPointer(MP_GetTextureCoordinateAttributeLocation(),
-            2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex), TEXTURE(SIDE_WEST));
+                          2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex),
+                          TEXTURE(SIDE_WEST));
 
     indices[0] = fi(x, y + 2, z + 2);
     indices[1] = fi(x, y + 2, z + 1);
@@ -774,9 +781,9 @@ static void renderSelectionOutline(void) {
     glLineWidth(3.0f + MP_GetCameraZoom() * 3.0f);
     MP_InitMaterial(&gMaterial);
     setDiffuseColor(MP_MAP_OUTLINE_COLOR_R,
-            MP_MAP_OUTLINE_COLOR_G,
-            MP_MAP_OUTLINE_COLOR_B,
-            MP_MAP_OUTLINE_COLOR_A);
+                    MP_MAP_OUTLINE_COLOR_G,
+                    MP_MAP_OUTLINE_COLOR_B,
+                    MP_MAP_OUTLINE_COLOR_A);
 
     // Paint on top of previous image data.
     glEnable(GL_BLEND);
@@ -795,7 +802,7 @@ static void renderSelectionOutline(void) {
 
             // Draw north outline.
             if (y == selection.endY ||
-                    isBlockOpen(MP_GetBlockAt(map_x, map_y + 1))) {
+                isBlockOpen(MP_GetBlockAt(map_x, map_y + 1))) {
                 indices[0] = fi(x * 2, y * 2 + 2, 4);
                 indices[1] = fi(x * 2 + 1, y * 2 + 2, 4);
                 indices[2] = fi(x * 2 + 2, y * 2 + 2, 4);
@@ -808,9 +815,9 @@ static void renderSelectionOutline(void) {
 
                 // Top-down lines?
                 if (x == selection.startX ||
-                        ((isBlockOpen(MP_GetBlockAt(map_x, map_y + 1)) ^
-                        isBlockOpen(MP_GetBlockAt(map_x - 1, map_y + 1))) ||
-                        isBlockOpen(MP_GetBlockAt(map_x - 1, map_y)))) {
+                    ((isBlockOpen(MP_GetBlockAt(map_x, map_y + 1)) ^
+                    isBlockOpen(MP_GetBlockAt(map_x - 1, map_y + 1))) ||
+                    isBlockOpen(MP_GetBlockAt(map_x - 1, map_y)))) {
                     // Draw north west top-to-bottom line.
                     indices[0] = fi(x * 2, y * 2 + 2, 4);
                     indices[1] = fi(x * 2, y * 2 + 2, 3);
@@ -818,9 +825,9 @@ static void renderSelectionOutline(void) {
                     glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
                 }
                 if (x == selection.endX ||
-                        ((isBlockOpen(MP_GetBlockAt(map_x, map_y + 1)) ^
-                        isBlockOpen(MP_GetBlockAt(map_x + 1, map_y + 1))) ||
-                        isBlockOpen(MP_GetBlockAt(map_x + 1, map_y)))) {
+                    ((isBlockOpen(MP_GetBlockAt(map_x, map_y + 1)) ^
+                    isBlockOpen(MP_GetBlockAt(map_x + 1, map_y + 1))) ||
+                    isBlockOpen(MP_GetBlockAt(map_x + 1, map_y)))) {
                     // Draw north east top-to-bottom line.
                     indices[0] = fi(x * 2 + 2, y * 2 + 2, 4);
                     indices[1] = fi(x * 2 + 2, y * 2 + 2, 3);
@@ -831,7 +838,7 @@ static void renderSelectionOutline(void) {
 
             // Draw south outline.
             if (y == selection.startY ||
-                    isBlockOpen(MP_GetBlockAt(map_x, map_y - 1))) {
+                isBlockOpen(MP_GetBlockAt(map_x, map_y - 1))) {
                 //MP_PushModelMatrix();
                 indices[0] = fi(x * 2, y * 2, 4);
                 indices[1] = fi(x * 2 + 1, y * 2, 4);
@@ -845,9 +852,9 @@ static void renderSelectionOutline(void) {
 
                 // Top-down lines?
                 if (x == selection.startX ||
-                        ((isBlockOpen(MP_GetBlockAt(map_x, map_y - 1)) ^
-                        isBlockOpen(MP_GetBlockAt(map_x - 1, map_y - 1))) ||
-                        isBlockOpen(MP_GetBlockAt(map_x - 1, map_y)))) {
+                    ((isBlockOpen(MP_GetBlockAt(map_x, map_y - 1)) ^
+                    isBlockOpen(MP_GetBlockAt(map_x - 1, map_y - 1))) ||
+                    isBlockOpen(MP_GetBlockAt(map_x - 1, map_y)))) {
                     // Draw south west top-to-bottom line.
                     indices[0] = fi(x * 2, y * 2, 4);
                     indices[1] = fi(x * 2, y * 2, 3);
@@ -855,9 +862,9 @@ static void renderSelectionOutline(void) {
                     glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
                 }
                 if (x == selection.endX ||
-                        ((isBlockOpen(MP_GetBlockAt(map_x, map_y - 1)) ^
-                        isBlockOpen(MP_GetBlockAt(map_x + 1, map_y - 1))) ||
-                        isBlockOpen(MP_GetBlockAt(map_x + 1, map_y)))) {
+                    ((isBlockOpen(MP_GetBlockAt(map_x, map_y - 1)) ^
+                    isBlockOpen(MP_GetBlockAt(map_x + 1, map_y - 1))) ||
+                    isBlockOpen(MP_GetBlockAt(map_x + 1, map_y)))) {
                     // Draw south east top-to-bottom line.
                     indices[0] = fi(x * 2 + 2, y * 2, 4);
                     indices[1] = fi(x * 2 + 2, y * 2, 3);
@@ -868,7 +875,7 @@ static void renderSelectionOutline(void) {
 
             // Draw east outline.
             if (x == selection.endX ||
-                    isBlockOpen(MP_GetBlockAt(map_x + 1, map_y))) {
+                isBlockOpen(MP_GetBlockAt(map_x + 1, map_y))) {
                 indices[0] = fi(x * 2 + 2, y * 2, 4);
                 indices[1] = fi(x * 2 + 2, y * 2 + 1, 4);
                 indices[2] = fi(x * 2 + 2, y * 2 + 2, 4);
@@ -882,7 +889,7 @@ static void renderSelectionOutline(void) {
 
             // Draw west outline.
             if (x == selection.startX ||
-                    isBlockOpen(MP_GetBlockAt(map_x - 1, map_y))) {
+                isBlockOpen(MP_GetBlockAt(map_x - 1, map_y))) {
                 indices[0] = fi(x * 2, y * 2, 4);
                 indices[1] = fi(x * 2, y * 2 + 1, 4);
                 indices[2] = fi(x * 2, y * 2 + 2, 4);
@@ -915,9 +922,9 @@ static void renderSelectionOverlay(void) {
     // Set up coloring.
     MP_InitMaterial(&gMaterial);
     setDiffuseColor(MP_MAP_SELECTED_COLOR_R,
-            MP_MAP_SELECTED_COLOR_G,
-            MP_MAP_SELECTED_COLOR_B,
-            MP_MAP_SELECTED_COLOR_A);
+                    MP_MAP_SELECTED_COLOR_G,
+                    MP_MAP_SELECTED_COLOR_B,
+                    MP_MAP_SELECTED_COLOR_A);
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
@@ -927,7 +934,7 @@ static void renderSelectionOverlay(void) {
         for (int y = y_begin; y < y_end; ++y) {
             // Selected by the local player?
             if (x >= 0 && y >= 0 && x < gMapSize && y < gMapSize &&
-                    MP_IsBlockSelected(MP_PLAYER_ONE, x, y)) {
+                MP_IsBlockSelected(MP_PLAYER_ONE, x, y)) {
                 MP_PushModelMatrix();
                 MP_TranslateModelMatrix(0, 0, MP_MAP_SELECTION_OFFSET);
 
@@ -1040,23 +1047,23 @@ static void onRender(void) {
                 Edges edges = EDGE_NONE;
                 MP_Block* b;
                 if ((b = MP_GetBlockAt(x, y + 1)) &&
-                        b->meta->id == meta->id &&
-                        b->owner == owner) {
+                    b->meta->id == meta->id &&
+                    b->owner == owner) {
                     edges |= EDGE_TOP;
                 }
                 if ((b = MP_GetBlockAt(x + 1, y)) &&
-                        b->meta->id == meta->id &&
-                        b->owner == owner) {
+                    b->meta->id == meta->id &&
+                    b->owner == owner) {
                     edges |= EDGE_RIGHT;
                 }
                 if ((b = MP_GetBlockAt(x, y - 1)) &&
-                        b->meta->id == meta->id &&
-                        b->owner == owner) {
+                    b->meta->id == meta->id &&
+                    b->owner == owner) {
                     edges |= EDGE_BOTTOM;
                 }
                 if ((b = MP_GetBlockAt(x - 1, y)) &&
-                        b->meta->id == meta->id &&
-                        b->owner == owner) {
+                    b->meta->id == meta->id &&
+                    b->owner == owner) {
                     edges |= EDGE_LEFT;
                 }
 
@@ -1389,11 +1396,8 @@ bool MP_DamageBlock(MP_Block* block, unsigned int damage) {
     }
 
     // Block is destroyed.
-    MP_SetBlockMeta(block, block->meta->becomes);
     block->owner = MP_PLAYER_NONE;
-
-    // Update visual representation of the surroundings.
-    updateBlock(block);
+    MP_SetBlockMeta(block, block->meta->becomes);
 
     return true;
 }
@@ -1427,16 +1431,15 @@ bool MP_ConvertBlock(MP_Block* block, MP_Player player, unsigned int strength) {
 
             // Completely repaired.
             block->strength = max_strength;
-
-            // Fire event for AI scripts.
-            MP_Lua_OnBlockOwnerChanged(block, x, y);
         }
     }
     return true;
 }
 
 void MP_SetBlockMeta(MP_Block* block, const MP_BlockMeta* meta) {
-    if (!block || !meta) {
+    unsigned short x, y;
+    if (!block || !MP_GetBlockCoordinates(&x, &y, block)) {
+        // Out of bounds, ignore.
         return;
     }
 
@@ -1448,10 +1451,17 @@ void MP_SetBlockMeta(MP_Block* block, const MP_BlockMeta* meta) {
     block->gold = block->meta->gold;
 
     updateBlock(block);
+
+    // Fire event for AI scripts.
+    for (int i = 0; i < MP_PLAYER_COUNT; ++i) {
+        MP_Lua_OnBlockMetaChanged(block, x, y);
+    }
 }
 
 void MP_SetBlockOwner(MP_Block* block, MP_Player player) {
-    if (!block) {
+    unsigned short x, y;
+    if (!block || !MP_GetBlockCoordinates(&x, &y, block)) {
+        // Out of bounds, ignore.
         return;
     }
 
@@ -1462,6 +1472,11 @@ void MP_SetBlockOwner(MP_Block* block, MP_Player player) {
     block->strength = block->meta->strength;
 
     updateBlock(block);
+
+    // Fire event for AI scripts.
+    for (int i = 0; i < MP_PLAYER_COUNT; ++i) {
+        MP_Lua_OnBlockOwnerChanged(block, x, y);
+    }
 
     autoConvert(block, player);
 }

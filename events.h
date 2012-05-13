@@ -66,7 +66,7 @@ extern "C" {
      * @param method
      */
     void MP_OnUnitAdded(callback method);
-    
+
 #ifdef	__cplusplus
 }
 #endif

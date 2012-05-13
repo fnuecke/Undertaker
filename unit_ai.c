@@ -89,13 +89,13 @@ static void updateMove(MP_Unit* unit) {
                 for (e = 1; e <= MP_AI_PATH_INTERPOLATION; ++e) {
                     const float t = e / (float) MP_AI_PATH_INTERPOLATION;
                     x = cr(path->nodes[path->index - 2].d.x,
-                            path->nodes[path->index - 1].d.x,
-                            path->nodes[path->index].d.x,
-                            path->nodes[path->index + 1].d.x, t);
+                           path->nodes[path->index - 1].d.x,
+                           path->nodes[path->index].d.x,
+                           path->nodes[path->index + 1].d.x, t);
                     y = cr(path->nodes[path->index - 2].d.y,
-                            path->nodes[path->index - 1].d.y,
-                            path->nodes[path->index].d.y,
-                            path->nodes[path->index + 1].d.y, t);
+                           path->nodes[path->index - 1].d.y,
+                           path->nodes[path->index].d.y,
+                           path->nodes[path->index + 1].d.y, t);
                     dx = x - lx;
                     dy = y - ly;
                     lx = x;
@@ -110,15 +110,15 @@ static void updateMove(MP_Unit* unit) {
     if (path->distance > 0) {
         const float t = path->traveled / path->distance;
         unit->position.d.x = cr(
-                path->nodes[path->index - 2].d.x,
-                path->nodes[path->index - 1].d.x,
-                path->nodes[path->index].d.x,
-                path->nodes[path->index + 1].d.x, t);
+                                path->nodes[path->index - 2].d.x,
+                                path->nodes[path->index - 1].d.x,
+                                path->nodes[path->index].d.x,
+                                path->nodes[path->index + 1].d.x, t);
         unit->position.d.y = cr(
-                path->nodes[path->index - 2].d.y,
-                path->nodes[path->index - 1].d.y,
-                path->nodes[path->index].d.y,
-                path->nodes[path->index + 1].d.y, t);
+                                path->nodes[path->index - 2].d.y,
+                                path->nodes[path->index - 1].d.y,
+                                path->nodes[path->index].d.y,
+                                path->nodes[path->index + 1].d.y, t);
     }
 }
 
@@ -196,13 +196,9 @@ static void updateCurrentJob(MP_Unit* unit) {
 
         // Weigh the distance based on the saturation and preference.
         if (jobs[number]->hasDynamicPreference) {
-            distance -= weightedPreference(saturation[number],
-                    MP_Lua_GetDynamicPreference(unit, jobs[number]),
-                    &metaSaturation[number]);
+            distance -= weightedPreference(saturation[number], MP_Lua_GetDynamicPreference(unit, jobs[number]), &metaSaturation[number]);
         } else {
-            distance -= weightedPreference(saturation[number],
-                    metaSaturation[number].preference,
-                    &metaSaturation[number]);
+            distance -= weightedPreference(saturation[number], metaSaturation[number].preference, &metaSaturation[number]);
         }
 
         // Better than other jobs we have found?

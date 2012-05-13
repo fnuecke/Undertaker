@@ -1,4 +1,8 @@
 --[[
+Helper methods for generating jobs targeting blocks.
+--]]
+
+--[[
 Utility method for finding jobs for a specified block, on its neighboring
 blocks. Uses validator methods to test block for job validity and neighbors
 for job location validity.

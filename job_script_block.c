@@ -3,6 +3,7 @@
 #include "block.h"
 #include "map.h"
 #include "selection.h"
+#include "job.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Getters
@@ -59,7 +60,8 @@ static int lua_IsPassable(lua_State* L) {
 }
 
 static int lua_IsPassableBy(lua_State* L) {
-    lua_pushboolean(L, MP_IsBlockPassableBy(luaMP_checkblock(L, 1, 1), luaMP_checkunit(L, 2, 2)));
+    lua_pushboolean(L, MP_IsBlockPassableBy(luaMP_checkblock(L, 1, 1),
+                                            luaMP_checkunit(L, 2, 2)));
     return 1;
 }
 
@@ -74,7 +76,8 @@ static int lua_IsConvertible(lua_State* L) {
 }
 
 static int lua_IsSelectable(lua_State* L) {
-    lua_pushboolean(L, MP_IsBlockSelectable(luaMP_checkplayer(L, 2, 2), luaMP_checkblock(L, 1, 1)));
+    lua_pushboolean(L, MP_IsBlockSelectable(luaMP_checkplayer(L, 2, 2),
+                                            luaMP_checkblock(L, 1, 1)));
     return 1;
 }
 
@@ -90,6 +93,22 @@ static int lua_IsSelectedBy(lua_State* L) {
     return 1;
 }
 
+static int lua_IsTargetOfJobByType(lua_State* L) {
+    const MP_Block* block = luaMP_checkblock(L, 1, 1);
+    const MP_Player player = luaMP_checkplayer(L, 2, 2);
+    const MP_JobMeta* meta = luaMP_checkjobmeta(L, 3, 3);
+    unsigned int count;
+    MP_Job * const* jobs = MP_GetJobs(player, meta, &count);
+    for (unsigned int i = 0; i < count; ++i) {
+        if (jobs[i]->block == block) {
+            lua_pushboolean(L, true);
+            return 1;
+        }
+    }
+    lua_pushboolean(L, false);
+    return 1;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Methods
 ///////////////////////////////////////////////////////////////////////////////
@@ -100,17 +119,15 @@ static int lua_BlockAt(lua_State* L) {
 }
 
 static int lua_ConvertBlock(lua_State* L) {
-    lua_pushboolean(L, MP_ConvertBlock(
-            luaMP_checkblock(L, 1, 1),
-            luaL_checkunsigned(L, 2),
-            luaL_checknumber(L, 3)));
+    lua_pushboolean(L, MP_ConvertBlock(luaMP_checkblock(L, 1, 1),
+                                       luaL_checkunsigned(L, 2),
+                                       luaL_checknumber(L, 3)));
     return 1;
 }
 
 static int lua_DamageBlock(lua_State* L) {
-    lua_pushboolean(L, MP_DamageBlock(
-            luaMP_checkblock(L, 1, 1),
-            luaL_checknumber(L, 2)));
+    lua_pushboolean(L, MP_DamageBlock(luaMP_checkblock(L, 1, 1),
+                                      luaL_checknumber(L, 2)));
     return 1;
 }
 
@@ -133,6 +150,7 @@ static const luaL_Reg lib[] = {
     {"isConvertible", lua_IsConvertible},
     {"isSelectable", lua_IsSelectable},
     {"isSelectedBy", lua_IsSelectedBy},
+    {"isTargetOfJobByType", lua_IsTargetOfJobByType},
 
     {"at", lua_BlockAt},
     {"convert", lua_ConvertBlock},
