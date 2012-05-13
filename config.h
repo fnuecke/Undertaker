@@ -178,7 +178,7 @@ extern "C" {
 #define MP_HAND_LIGHT_HEIGHT (MP_BLOCK_SIZE * 3)
 
     /** Brightness of the light at the cursor */
-#define MP_HAND_LIGHT_POWER 500.0f
+#define MP_HAND_LIGHT_POWER 30.0f
 
     ///////////////////////////////////////////////////////////////////////////////
     // Camera

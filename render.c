@@ -609,7 +609,7 @@ static void ambientPass(void) {
 static void drawLight(const MP_Light* light) {
     // Get the radius of the light (i.e. how far from the center it has no
     // noticeable effect anymore).
-    const float range = (light->diffusePower > light->specularPower ? light->diffusePower : light->specularPower);
+    const float range = (light->diffusePower > light->specularPower ? light->diffusePower : light->specularPower) * 8;
     const float cameraToLight = v3distance(&light->position, MP_GetCameraPosition());
     const int cameraIsInLightVolume = cameraToLight <= range * 1.42f;
 
@@ -1027,6 +1027,15 @@ void MP_InitMaterial(MP_Material* material) {
 }
 
 void MP_AddLight(const MP_Light* light) {
+    // Find the light.
+    for (unsigned int i = 0; i < gLightCount; ++i) {
+        if (gLights[i] == light) {
+            // Already have that light.
+            return;
+        }
+    }
+
+    // Not yet in list.
     if (gLightCount >= gLightCapacity) {
         gLightCapacity = gLightCapacity * 2 + 1;
         gLights = realloc(gLights, gLightCapacity * sizeof (MP_Light*));
@@ -1039,17 +1048,17 @@ void MP_AddLight(const MP_Light* light) {
     ++gLightCount;
 }
 
-int MP_RemoveLight(const MP_Light* light) {
+bool MP_RemoveLight(const MP_Light* light) {
     // Find the light.
     for (unsigned int i = 0; i < gLightCount; ++i) {
         if (gLights[i] == light) {
             // Found it. Close the gap by shifting all following entries one up.
             --gLightCount;
             memmove(&gLights[i], &gLights[i + 1], (gLightCount - i) * sizeof (MP_Light*));
-            return 1;
+            return true;
         }
     }
-    return 0;
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

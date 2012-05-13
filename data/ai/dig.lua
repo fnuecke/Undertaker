@@ -40,15 +40,7 @@ local function onBlockMetaChanged(block, x, y)
 			return block:isSelectedBy(player)
 		end
 		addJobsForBlockAt(player, block, x, y, "dig", validateLocation, validateTarget)
-		if not addJobsForBlocksSurrounding(player, block, x, y, "dig", validateLocation, validateTarget) then
-			-- Invalid location, clear all jobs targeting neighboring blocks.
-			for job in Job.getByType(player, "dig") do
-				local jx, jy = job:getPosition()
-				if jx > x and jx < x + 1 and jy > y and jy < y + 1 then
-					Job.delete(player, job)
-				end
-			end
-		end
+		addJobsForBlocksSurrounding(player, block, x, y, "dig", validateLocation, validateTarget)
 	end
 end
 

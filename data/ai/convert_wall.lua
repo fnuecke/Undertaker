@@ -29,9 +29,10 @@ local function onBlockSelectionChanged(player, block, x, y)
 end
 
 --[[
-When a block's meta changes we want to destroy all jobs targeting it. We also
-want to update all neighboring blocks, because a conversion slot might have
-become open (if our passability changed).
+When a block's meta or owner changes we want to destroy all jobs targeting it,
+then try to recreate it (target validity changed).
+We also want to update all neighboring blocks, because a slot might have become
+open (location validity changed).
 --]]
 local function onBlockChanged(block, x, y)
 	for player = 1, 4 do
@@ -48,15 +49,7 @@ local function onBlockChanged(block, x, y)
 					block:getOwner() ~= player
 		end
 		addJobsForBlockAt(player, block, x, y, "convert_wall", validateLocation, validateTarget)
-		if not addJobsForBlocksSurrounding(player, block, x, y, "convert_wall", validateLocation, validateTarget) then
-			-- Invalid location, clear all jobs targeting neighboring blocks.
-			for job in Job.getByType(player, "convert_wall") do
-				local jx, jy = job:getPosition()
-				if jx > x and jx < x + 1 and jy > y and jy < y + 1 then
-					Job.delete(player, job)
-				end
-			end
-		end
+		addJobsForBlocksSurrounding(player, block, x, y, "convert_wall", validateLocation, validateTarget)
 	end
 end
 

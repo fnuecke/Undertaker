@@ -43,7 +43,7 @@ static const float z_coords[5] = {-MP_WATER_LEVEL,
 /**
  * The current map.
  */
-static MP_Block* gMap = 0;
+static MP_Block* gMap = NULL;
 
 /**
  * Size of the current map (width and height).
@@ -61,17 +61,22 @@ static int gCursorX = 0, gCursorY = 0;
 static MP_Light gHandLight;
 
 /**
+ * Potential light sources on walls
+ */
+static MP_Light* gWallLights = NULL;
+
+/**
+ * List of methods to call when map size changes.
+ */
+static Callbacks* gMapSizeChangeCallbacks = NULL;
+
+/**
  * Currently doing a picking (select) render pass?
  */
 static bool gIsPicking = false;
 
 /**
- * List of methods to call when map size changes.
- */
-static Callbacks* gMapSizeChangeCallbacks = 0;
-
-/**
- * The material used for shading stuff we draw.
+ * The material use for shading stuff we draw.
  */
 static MP_Material gMaterial;
 
@@ -80,11 +85,11 @@ static MP_Material gMaterial;
 ///////////////////////////////////////////////////////////////////////////////
 
 enum {
-    SIDE_TOP,
     SIDE_NORTH,
     SIDE_SOUTH,
     SIDE_EAST,
-    SIDE_WEST
+    SIDE_WEST,
+    SIDE_TOP
 };
 
 static struct Vertex {
@@ -102,7 +107,7 @@ static struct Vertex {
 
     /** Pad to 128 byte */
     char padding[16];
-} *gVertices = 0;
+} *gVertices = NULL;
 
 /** Array and buffer IDs */
 static GLuint gVertexBufferID = 0;
@@ -276,6 +281,9 @@ static float computeOffset(float* offset, float x, float y) {
 }
 
 static void updateVerticesAt(int x, int y) {
+    if (x < 0 || x >= gMapSize || y < 0 || y >= gMapSize) {
+        return;
+    }
     for (unsigned int z = 0; z < 5; ++z) {
         const unsigned int idx = fi(x, y, z);
         vec3* v = &gVertices[idx].position;
@@ -358,25 +366,15 @@ static void interpolateNormal(vec3* n, const vec3* v0,
 }
 
 static void updateNormalsAt(int x, int y) {
+    if (x < 0 || x >= gMapSize || y < 0 || y >= gMapSize) {
+        return;
+    }
 #define P(x, y, z) (&gVertices[fi(x, y, z)].position)
     for (unsigned int z = 0; z < 5; ++z) {
         const unsigned int idx = fi(x, y, z);
         struct Vertex* vert = &gVertices[idx];
         const vec3* v0 = &vert->position;
-
-        // Compute z normals.
-        vec3* n = &vert->normal[SIDE_TOP];
-
-        // Compute normals based on neighbors and accumulate.
-        interpolateNormal(n, v0,
-                          P(x, y - 1, z),
-                          P(x + 1, y - 1, z),
-                          P(x + 1, y, z),
-                          P(x + 1, y + 1, z),
-                          P(x, y + 1, z),
-                          P(x - 1, y + 1, z),
-                          P(x - 1, y, z),
-                          P(x - 1, y - 1, z));
+        vec3* n;
 
         // If we don't get out of bounds issues, compute x and y, too.
         if (z > 1 && z < 4) {
@@ -417,6 +415,20 @@ static void updateNormalsAt(int x, int y) {
             v3imuls(&vert->normal[SIDE_WEST], -1);
         }
 
+        // Compute z normals.
+        n = &vert->normal[SIDE_TOP];
+
+        // Compute normals based on neighbors and accumulate.
+        interpolateNormal(n, v0,
+                          P(x, y - 1, z),
+                          P(x + 1, y - 1, z),
+                          P(x + 1, y, z),
+                          P(x + 1, y + 1, z),
+                          P(x, y + 1, z),
+                          P(x - 1, y + 1, z),
+                          P(x - 1, y, z),
+                          P(x - 1, y - 1, z));
+
         // Update data on GPU?
         if (gShouldUpdateVertexBuffer) {
             glBindBuffer(GL_ARRAY_BUFFER, gVertexBufferID);
@@ -426,6 +438,72 @@ static void updateNormalsAt(int x, int y) {
         }
     }
 #undef P
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Map model updating: lights
+///////////////////////////////////////////////////////////////////////////////
+
+static void updateLightLocal(int x, int y) {
+    const unsigned int idx = y * gMapSize * 4 + x * 4;
+    MP_Block* block = MP_GetBlockAt(x, y);
+    if (block && block->meta && block->meta->level < MP_BLOCK_LEVEL_HIGH) {
+        // Check for nearby walls.
+        if ((block = MP_GetBlockAt(x, y + 1)) && block->meta &&
+            block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+            block->meta->lightFrequency &&
+            x % (block->owner == MP_PLAYER_NONE
+            ? block->meta->lightFrequency
+            : block->meta->lightFrequency >> 1) == 0) {
+            MP_AddLight(&gWallLights[idx + SIDE_NORTH]);
+        } else {
+            MP_RemoveLight(&gWallLights[idx + SIDE_NORTH]);
+        }
+        if ((block = MP_GetBlockAt(x, y - 1)) && block->meta &&
+            block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+            block->meta->lightFrequency &&
+            x % (block->owner == MP_PLAYER_NONE
+            ? block->meta->lightFrequency
+            : block->meta->lightFrequency >> 1) == 0) {
+            MP_AddLight(&gWallLights[idx + SIDE_SOUTH]);
+        } else {
+            MP_RemoveLight(&gWallLights[idx + SIDE_SOUTH]);
+        }
+        if ((block = MP_GetBlockAt(x + 1, y)) && block->meta &&
+            block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+            block->meta->lightFrequency &&
+            y % (block->owner == MP_PLAYER_NONE
+            ? block->meta->lightFrequency
+            : block->meta->lightFrequency >> 1) == 0) {
+            MP_AddLight(&gWallLights[idx + SIDE_EAST]);
+        } else {
+            MP_RemoveLight(&gWallLights[idx + SIDE_EAST]);
+        }
+        if ((block = MP_GetBlockAt(x - 1, y)) && block->meta &&
+            block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+            block->meta->lightFrequency &&
+            y % (block->owner == MP_PLAYER_NONE
+            ? block->meta->lightFrequency
+            : block->meta->lightFrequency >> 1) == 0) {
+            MP_AddLight(&gWallLights[idx + SIDE_WEST]);
+        } else {
+            MP_RemoveLight(&gWallLights[idx + SIDE_WEST]);
+        }
+    } else if (x >= 0 && x < gMapSize && y >= 0 && y < gMapSize) {
+        // Invalid block for lights.
+        MP_RemoveLight(&gWallLights[idx + SIDE_NORTH]);
+        MP_RemoveLight(&gWallLights[idx + SIDE_SOUTH]);
+        MP_RemoveLight(&gWallLights[idx + SIDE_EAST]);
+        MP_RemoveLight(&gWallLights[idx + SIDE_WEST]);
+    }
+}
+
+static void updateLightsAt(int x, int y) {
+    updateLightLocal(x, y);
+    updateLightLocal(x - 1, y);
+    updateLightLocal(x + 1, y);
+    updateLightLocal(x, y - 1);
+    updateLightLocal(x, y + 1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -463,11 +541,21 @@ static void updateBlock(MP_Block* block) {
                 updateNormalsAt(lx, ly);
             }
         }
+
+        for (int lx = start_x; lx <= end_x; ++lx) {
+            for (int ly = start_y; ly <= end_y; ++ly) {
+            }
+        }
     }
 
-    // Deselect block.
-    for (int i = 0; i < MP_PLAYER_COUNT; ++i) {
-        MP_DeselectBlock(MP_PLAYER_NONE + i, x, y);
+    // Update lights.
+    updateLightsAt(x, y);
+
+    // Deselect block for players it's no longer selectable by.
+    for (int player = 0; player < MP_PLAYER_COUNT; ++player) {
+        if (!MP_IsBlockSelectable(player, block)) {
+            MP_DeselectBlock(player, x, y);
+        }
     }
 }
 
@@ -607,37 +695,6 @@ static void endDraw(void) {
 #define NORMAL(side) BUFFER_OFFSET(sizeof(vec3) * (1 + side))
 #define TEXTURE(side) BUFFER_OFFSET(sizeof(vec3) * 6 + sizeof(vec2) * side)
 
-static void drawTop(int x, int y, unsigned int z) {
-    GLuint indices[6];
-    x = x * 2 + MP_MAP_BORDER;
-    y = y * 2 + MP_MAP_BORDER;
-
-    glVertexAttribPointer(MP_GetNormalAttributeLocation(),
-                          3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex),
-                          NORMAL(SIDE_TOP));
-    glVertexAttribPointer(MP_GetTextureCoordinateAttributeLocation(),
-                          2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex),
-                          TEXTURE(SIDE_TOP));
-
-    indices[0] = fi(x, y + 2, z);
-    indices[1] = fi(x, y + 1, z);
-    indices[2] = fi(x + 1, y + 2, z);
-    indices[3] = fi(x + 1, y + 1, z);
-    indices[4] = fi(x + 2, y + 2, z);
-    indices[5] = fi(x + 2, y + 1, z);
-    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &indices);
-
-    indices[0] = fi(x, y + 1, z);
-    indices[1] = fi(x, y, z);
-    indices[2] = fi(x + 1, y + 1, z);
-    indices[3] = fi(x + 1, y, z);
-    indices[4] = fi(x + 2, y + 1, z);
-    indices[5] = fi(x + 2, y, z);
-    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &indices);
-
-    EXIT_ON_OPENGL_ERROR();
-}
-
 static void drawNorth(int x, int y, unsigned int z) {
     GLuint indices[6];
     x = x * 2 + MP_MAP_BORDER;
@@ -757,6 +814,37 @@ static void drawWest(int x, int y, unsigned int z) {
     indices[3] = fi(x, y + 1, z);
     indices[4] = fi(x, y, z + 1);
     indices[5] = fi(x, y, z);
+    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &indices);
+
+    EXIT_ON_OPENGL_ERROR();
+}
+
+static void drawTop(int x, int y, unsigned int z) {
+    GLuint indices[6];
+    x = x * 2 + MP_MAP_BORDER;
+    y = y * 2 + MP_MAP_BORDER;
+
+    glVertexAttribPointer(MP_GetNormalAttributeLocation(),
+                          3, GL_FLOAT, GL_FALSE, sizeof (struct Vertex),
+                          NORMAL(SIDE_TOP));
+    glVertexAttribPointer(MP_GetTextureCoordinateAttributeLocation(),
+                          2, GL_FLOAT, GL_FALSE, sizeof (struct Vertex),
+                          TEXTURE(SIDE_TOP));
+
+    indices[0] = fi(x, y + 2, z);
+    indices[1] = fi(x, y + 1, z);
+    indices[2] = fi(x + 1, y + 2, z);
+    indices[3] = fi(x + 1, y + 1, z);
+    indices[4] = fi(x + 2, y + 2, z);
+    indices[5] = fi(x + 2, y + 1, z);
+    glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &indices);
+
+    indices[0] = fi(x, y + 1, z);
+    indices[1] = fi(x, y, z);
+    indices[2] = fi(x + 1, y + 1, z);
+    indices[3] = fi(x + 1, y, z);
+    indices[4] = fi(x + 2, y + 1, z);
+    indices[5] = fi(x + 2, y, z);
     glDrawElements(GL_QUAD_STRIP, 6, GL_UNSIGNED_INT, &indices);
 
     EXIT_ON_OPENGL_ERROR();
@@ -1251,6 +1339,17 @@ void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith) {
             MP_log_fatal("Out of memory while allocating map data.\n");
         }
 
+        // Free old light data.
+        for (unsigned int i = 0; i < (unsigned int) gMapSize * gMapSize * 4; ++i) {
+            MP_RemoveLight(&gWallLights[i]);
+        }
+        free(gWallLights);
+
+        // Allocate new light data.
+        if (!(gWallLights = calloc(size * size * 4, sizeof (MP_Light)))) {
+            MP_log_fatal("Out of memory while allocating map light data.\n");
+        }
+
         // Free old map model data.
         free(gVertices);
 
@@ -1278,9 +1377,15 @@ void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith) {
             block->meta = fillWith;
             block->room = NULL;
             block->owner = MP_PLAYER_NONE;
-            block->durability = fillWith->durability;
-            block->strength = fillWith->strength;
-            block->gold = fillWith->gold;
+            if (fillWith) {
+                block->durability = fillWith->durability;
+                block->strength = fillWith->strength;
+                block->gold = fillWith->gold;
+            } else {
+                block->durability = 0;
+                block->strength = 0;
+                block->gold = 0;
+            }
         }
     }
 
@@ -1298,9 +1403,6 @@ void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith) {
                 // Initialize normals to defaults (especially the border cases, i.e.
                 // at 0 and max, because those aren't computed dynamically to avoid
                 // having to check the border cases).
-                v->normal[SIDE_TOP].d.x = 0;
-                v->normal[SIDE_TOP].d.y = 0;
-                v->normal[SIDE_TOP].d.z = 1;
                 v->normal[SIDE_NORTH].d.x = 0;
                 v->normal[SIDE_NORTH].d.y = 1;
                 v->normal[SIDE_NORTH].d.z = 0;
@@ -1313,10 +1415,11 @@ void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith) {
                 v->normal[SIDE_WEST].d.x = -1;
                 v->normal[SIDE_WEST].d.y = 0;
                 v->normal[SIDE_WEST].d.z = 0;
+                v->normal[SIDE_TOP].d.x = 0;
+                v->normal[SIDE_TOP].d.y = 0;
+                v->normal[SIDE_TOP].d.z = 1;
 
                 // Set texture coordinate.
-                v->texCoord[SIDE_TOP].t.u = x / 2.0f;
-                v->texCoord[SIDE_TOP].t.v = (gVerticesPerDimension - 1 - y) / 2.0f;
                 v->texCoord[SIDE_NORTH].t.u = (gVerticesPerDimension - 1 - x) / 2.0f;
                 v->texCoord[SIDE_NORTH].t.v = (4 - z) / 2.0f;
                 v->texCoord[SIDE_SOUTH].t.u = x / 2.0f;
@@ -1325,6 +1428,8 @@ void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith) {
                 v->texCoord[SIDE_EAST].t.v = (4 - z) / 2.0f;
                 v->texCoord[SIDE_WEST].t.u = (gVerticesPerDimension - 1 - y) / 2.0f;
                 v->texCoord[SIDE_WEST].t.v = (4 - z) / 2.0f;
+                v->texCoord[SIDE_TOP].t.u = x / 2.0f;
+                v->texCoord[SIDE_TOP].t.v = (gVerticesPerDimension - 1 - y) / 2.0f;
             }
         }
     }
@@ -1333,6 +1438,48 @@ void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith) {
     for (unsigned int x = 1; x < gVerticesPerDimension - 1; ++x) {
         for (unsigned int y = 1; y < gVerticesPerDimension - 1; ++y) {
             updateNormalsAt(x, y);
+        }
+    }
+
+    // Set light defaults.
+    for (unsigned int i = 0; i < (unsigned int) gMapSize * gMapSize * 4; ++i) {
+        gWallLights[i].diffuseColor.c.r = 1.0f;
+        gWallLights[i].diffuseColor.c.g = 1.0f;
+        gWallLights[i].diffuseColor.c.b = 1.0f;
+        gWallLights[i].diffusePower = 5.0f;
+        gWallLights[i].specularColor.c.r = 1.0f;
+        gWallLights[i].specularColor.c.g = 1.0f;
+        gWallLights[i].specularColor.c.b = 1.0f;
+        gWallLights[i].specularPower = 5.0f;
+        gWallLights[i].position.d.z = MP_BLOCK_HEIGHT * 2 / 3;
+    }
+
+    // Compute light positions.
+    for (unsigned int x = 0; x < gMapSize; ++x) {
+        for (unsigned int y = 0; y < gMapSize; ++y) {
+            // For each cell lights are on the four edges:
+            // +-------+
+            // |   ^   |
+            // |<     >|
+            // |   v   |
+            // +-------+
+            const unsigned int idx = y * gMapSize * 4 + x * 4;
+            MP_Light* l;
+            l = &gWallLights[idx + SIDE_NORTH];
+            l->position.d.x = (x + 0.5f) * MP_BLOCK_SIZE;
+            l->position.d.y = (y + 0.9f) * MP_BLOCK_SIZE;
+
+            l = &gWallLights[idx + SIDE_SOUTH];
+            l->position.d.x = (x + 0.5f) * MP_BLOCK_SIZE;
+            l->position.d.y = (y + 0.1f) * MP_BLOCK_SIZE;
+
+            l = &gWallLights[idx + SIDE_EAST];
+            l->position.d.x = (x + 0.9f) * MP_BLOCK_SIZE;
+            l->position.d.y = (y + 0.5f) * MP_BLOCK_SIZE;
+
+            l = &gWallLights[idx + SIDE_WEST];
+            l->position.d.x = (x + 0.1f) * MP_BLOCK_SIZE;
+            l->position.d.y = (y + 0.5f) * MP_BLOCK_SIZE;
         }
     }
 

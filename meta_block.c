@@ -77,6 +77,8 @@ static int tableToBlock(lua_State* L, MP_BlockMeta* meta, bool forDefaults) {
             meta->level = luaMP_checklevel(L, -1, narg);
         } else if (strcmp(key, "passability") == 0) {
             meta->passability = luaMP_checkpassability(L, -1, narg);
+        } else if (strcmp(key, "lightfrequency") == 0) {
+            meta->lightFrequency = luaL_checkunsigned(L, -1);
         } else if (strcmp(key, "durability") == 0) {
             meta->durability = luaL_checkunsigned(L, -1);
         } else if (strcmp(key, "strength") == 0) {
@@ -162,6 +164,7 @@ static void resetDefaults(void) {
     gMetaDefaults.name = NULL;
     gMetaDefaults.level = MP_BLOCK_LEVEL_HIGH;
     gMetaDefaults.passability = 0;
+    gMetaDefaults.lightFrequency = 0;
     gMetaDefaults.durability = 0;
     gMetaDefaults.strength = 0;
     gMetaDefaults.gold = 0;
@@ -178,11 +181,12 @@ inline static bool initMeta(MP_BlockMeta* m, const MP_BlockMeta* meta) {
 
 /** Type override */
 inline static bool updateMeta(MP_BlockMeta* m, const MP_BlockMeta* meta) {
+    m->level = meta->level;
+    m->passability = meta->passability;
+    m->lightFrequency = meta->lightFrequency;
     m->durability = meta->durability;
     m->strength = meta->strength;
     m->gold = meta->gold;
-    m->level = meta->level;
-    m->passability = meta->passability;
     m->becomes = meta->becomes;
 
     return true;

@@ -22,8 +22,14 @@ extern "C" {
         /** The name of this block type */
         const char* name;
 
+        /** The level (height) at which to render this block type */
+        MP_BlockLevel level;
+
         /** The required passability flag to traverse this block type */
         MP_Passability passability;
+
+        /** Frequency at which lights are attached to a wall; double if owned */
+        unsigned int lightFrequency;
 
         /** Durability of this block (digging resistance) */
         unsigned int durability;
@@ -36,9 +42,6 @@ extern "C" {
 
         /** The type of block this one becomes upon destruction */
         const MP_BlockMeta* becomes;
-
-        /** The level (height) at which to render this block type */
-        MP_BlockLevel level;
 
         /** IDs of textures to use for rendering at different levels */
         MP_TextureID texturesTop[MP_BLOCK_TEXTURE_TOP_COUNT];

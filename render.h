@@ -10,6 +10,7 @@
 
 #include <GL/glew.h>
 
+#include "types.h"
 #include "vmath.h"
 
 /**
@@ -125,7 +126,7 @@ extern "C" {
      * @param light the light to remove.
      * @return whether the light was removed (1) or not (0).
      */
-    int MP_RemoveLight(const MP_Light* light);
+    bool MP_RemoveLight(const MP_Light* light);
 
     ///////////////////////////////////////////////////////////////////////////
     // Initialization / Rendering

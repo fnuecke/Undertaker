@@ -99,12 +99,14 @@ local function addJobsForBlocksSurrounding(player, block, x, y, jobType, validat
 				Job.create(job)
 			end
 		end
-
-		-- We did check.
-		return true
 	else
-		-- Nothing to do, location validation failed.
-		return false
+		-- Invalid location, clear all jobs targeting neighboring blocks.
+		for job in Job.getByType(player, jobType) do
+			local jx, jy = job:getPosition()
+			if jx > x and jx < x + 1 and jy > y and jy < y + 1 then
+				Job.delete(player, job)
+			end
+		end
 	end
 end
 
