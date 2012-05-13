@@ -72,13 +72,17 @@ void main(void) {
 	#else
 	float lambertTerm = max(0, dot(normalize(toLight), normal));
 	#endif
-	Color = diffuseAlbedo * DiffuseLightColor * lambertTerm * DiffuseLightPower * DiffuseLightPower / distance;
+	float mult = distance / (DiffuseLightPower * DiffuseLightPower);
+	mult = 1 - clamp(mult * mult, 0, 1);
+	Color = diffuseAlbedo * DiffuseLightColor * lambertTerm * mult;
 
 	// Specular lighting.
 	vec3 h = normalize(toLight + toCamera);
 	float hdotn = max(0, dot(h, normal));
 	float specularTerm = pow(hdotn, specularExponent);
-	Color += specularIntensity * diffuseAlbedo * SpecularLightColor * specularTerm * SpecularLightPower * SpecularLightPower / distance;
+	mult = distance / (SpecularLightPower * SpecularLightPower);
+	mult = 1 - clamp(mult * mult, 0, 1);
+	Color += specularIntensity * diffuseAlbedo * SpecularLightColor * specularTerm * mult;
 
 	if (dot(Color, vec3(1)) == 0) discard;
 }

@@ -521,11 +521,9 @@ static void onModelMatrixChanged(void) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static void geometryPass(void) {
-    static const GLenum buffers[] = {
-                                     GL_COLOR_ATTACHMENT0,
+    static const GLenum buffers[] = {GL_COLOR_ATTACHMENT0,
                                      GL_COLOR_ATTACHMENT1,
-                                     GL_COLOR_ATTACHMENT2
-    };
+                                     GL_COLOR_ATTACHMENT2};
 
     // Bind our frame buffer.
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, gBuffer.frameBuffer);
@@ -608,10 +606,11 @@ static void ambientPass(void) {
 
 static void drawLight(const MP_Light* light) {
     // Get the radius of the light (i.e. how far from the center it has no
-    // noticeable effect anymore).
-    const float range = (light->diffusePower > light->specularPower ? light->diffusePower : light->specularPower) * 8;
+    // noticeable effect anymore). Compensate for octahedron clipping some space
+    // (which is 1/(sqrt(2)/2) = ~1.42
+    const float range = (light->diffusePower > light->specularPower ? light->diffusePower : light->specularPower) * 1.42f;
     const float cameraToLight = v3distance(&light->position, MP_GetCameraPosition());
-    const int cameraIsInLightVolume = cameraToLight <= range * 1.42f;
+    const int cameraIsInLightVolume = cameraToLight <= range + (MP_CLIP_NEAR * 2);
 
     // Translate to the light.
     MP_PushModelMatrix();
