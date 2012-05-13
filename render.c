@@ -152,14 +152,14 @@ static struct {
         /** The diffuse color of the light */
         GLint DiffuseLightColor;
 
-        /** Power of the diffuse light */
-        GLint DiffuseLightPower;
+        /** Range of the diffuse light */
+        GLint DiffuseLightRange;
 
         /** The specular color of the light */
         GLint SpecularLightColor;
 
-        /** Power of the specular light */
-        GLint SpecularLightPower;
+        /** Range of the specular light */
+        GLint SpecularLightRange;
     } fs_uniforms;
 } gLightShader;
 
@@ -406,12 +406,12 @@ static void initShaders(void) {
             glGetUniformLocation(gLightShader.program, "LightPosition");
     gLightShader.fs_uniforms.DiffuseLightColor =
             glGetUniformLocation(gLightShader.program, "DiffuseLightColor");
-    gLightShader.fs_uniforms.DiffuseLightPower =
-            glGetUniformLocation(gLightShader.program, "DiffuseLightPower");
+    gLightShader.fs_uniforms.DiffuseLightRange =
+            glGetUniformLocation(gLightShader.program, "DiffuseLightRange");
     gLightShader.fs_uniforms.SpecularLightColor =
             glGetUniformLocation(gLightShader.program, "SpecularLightColor");
-    gLightShader.fs_uniforms.SpecularLightPower =
-            glGetUniformLocation(gLightShader.program, "SpecularLightPower");
+    gLightShader.fs_uniforms.SpecularLightRange =
+            glGetUniformLocation(gLightShader.program, "SpecularLightRange");
     EXIT_ON_OPENGL_ERROR();
 }
 
@@ -584,7 +584,7 @@ static void ambientPass(void) {
     glUseProgram(gAmbientShader.program);
     glUniformMatrix4fv(gAmbientShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, MP_GetModelViewProjectionMatrix()->m);
     glUniform1i(gAmbientShader.fs_uniforms.GBuffer0, 0);
-    glUniform1f(gAmbientShader.fs_uniforms.AmbientLightPower, 0.1f);
+    glUniform1f(gAmbientShader.fs_uniforms.AmbientLightPower, MP_AMBIENT_LIGHT_COLOR_POWER);
 
     // Render the quad.
     renderQuad(0, 0, MP_resolution_x, MP_resolution_y);
@@ -608,7 +608,7 @@ static void drawLight(const MP_Light* light) {
     // Get the radius of the light (i.e. how far from the center it has no
     // noticeable effect anymore). Compensate for octahedron clipping some space
     // (which is 1/(sqrt(2)/2) = ~1.42
-    const float range = (light->diffusePower > light->specularPower ? light->diffusePower : light->specularPower) * 1.42f;
+    const float range = (light->diffuseRange > light->specularRange ? light->diffuseRange : light->specularRange) * 1.42f;
     const float cameraToLight = v3distance(&light->position, MP_GetCameraPosition());
     const int cameraIsInLightVolume = cameraToLight <= range + (MP_CLIP_NEAR * 2);
 
@@ -707,9 +707,9 @@ static void drawLight(const MP_Light* light) {
     glUniform1i(gLightShader.fs_uniforms.GBuffer2, 2);
     glUniform3fv(gLightShader.fs_uniforms.CameraPosition, 1, MP_GetCameraPosition()->v);
     glUniform3fv(gLightShader.fs_uniforms.DiffuseLightColor, 1, light->diffuseColor.v);
-    glUniform1f(gLightShader.fs_uniforms.DiffuseLightPower, light->diffusePower);
+    glUniform1f(gLightShader.fs_uniforms.DiffuseLightRange, light->diffuseRange);
     glUniform3fv(gLightShader.fs_uniforms.SpecularLightColor, 1, light->specularColor.v);
-    glUniform1f(gLightShader.fs_uniforms.SpecularLightPower, light->specularPower);
+    glUniform1f(gLightShader.fs_uniforms.SpecularLightRange, light->specularRange);
     glUniform3fv(gLightShader.fs_uniforms.LightPosition, 1, light->position.v);
 
     // Render the quad.

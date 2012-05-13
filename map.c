@@ -1419,11 +1419,11 @@ void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith) {
         gWallLights[i].diffuseColor.c.r = MP_WALL_LIGHT_COLOR_R;
         gWallLights[i].diffuseColor.c.g = MP_WALL_LIGHT_COLOR_G;
         gWallLights[i].diffuseColor.c.b = MP_WALL_LIGHT_COLOR_B;
-        gWallLights[i].diffusePower = MP_WALL_LIGHT_POWER;
+        gWallLights[i].diffuseRange = MP_WALL_LIGHT_RANGE;
         gWallLights[i].specularColor.c.r = MP_WALL_LIGHT_COLOR_R;
         gWallLights[i].specularColor.c.g = MP_WALL_LIGHT_COLOR_G;
         gWallLights[i].specularColor.c.b = MP_WALL_LIGHT_COLOR_B;
-        gWallLights[i].specularPower = MP_WALL_LIGHT_POWER;
+        gWallLights[i].specularRange = MP_WALL_LIGHT_RANGE;
         gWallLights[i].position.d.z = MP_WALL_LIGHT_HEIGHT;
     }
 
@@ -1465,11 +1465,11 @@ void MP_InitMap(void) {
     gHandLight.diffuseColor.c.r = MP_HAND_LIGHT_COLOR_R;
     gHandLight.diffuseColor.c.g = MP_HAND_LIGHT_COLOR_G;
     gHandLight.diffuseColor.c.b = MP_HAND_LIGHT_COLOR_B;
-    gHandLight.diffusePower = MP_HAND_LIGHT_POWER;
+    gHandLight.diffuseRange = MP_HAND_LIGHT_RANGE;
     gHandLight.specularColor.c.r = MP_HAND_LIGHT_COLOR_R;
     gHandLight.specularColor.c.g = MP_HAND_LIGHT_COLOR_G;
     gHandLight.specularColor.c.b = MP_HAND_LIGHT_COLOR_B;
-    gHandLight.specularPower = MP_HAND_LIGHT_POWER;
+    gHandLight.specularRange = MP_HAND_LIGHT_RANGE;
     MP_AddLight(&gHandLight);
 
     MP_OnPreRender(onPreRender);

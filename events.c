@@ -72,11 +72,11 @@ static void key_down(const SDL_Event* e) {
             light->diffuseColor.c.r = 1;
             light->diffuseColor.c.g = 1;
             light->diffuseColor.c.b = 1;
-            light->diffusePower = 60;
+            light->diffuseRange = 60;
             light->specularColor.c.r = 1;
             light->specularColor.c.g = 1;
             light->specularColor.c.b = 1;
-            light->specularPower = 60;
+            light->specularRange = 60;
             light->position.d.x = MP_GetCursor(MP_CURSOR_LEVEL_FLOOR)->v[0];
             light->position.d.y = MP_GetCursor(MP_CURSOR_LEVEL_FLOOR)->v[1];
             light->position.d.z = MP_BLOCK_HEIGHT / 2;

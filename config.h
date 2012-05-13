@@ -155,8 +155,8 @@ extern "C" {
 #define MP_MAP_SELECTED_COLOR_R 0.3f
 #define MP_MAP_SELECTED_COLOR_G 0.5f
 #define MP_MAP_SELECTED_COLOR_B 0.7f
-#define MP_MAP_SELECTED_COLOR_A_MIN 0.6f
-#define MP_MAP_SELECTED_COLOR_A_MAX 0.9f
+#define MP_MAP_SELECTED_COLOR_A_MIN (0.6f - MP_AMBIENT_LIGHT_COLOR_POWER)
+#define MP_MAP_SELECTED_COLOR_A_MAX (0.9f - MP_AMBIENT_LIGHT_COLOR_POWER)
 #define MP_MAP_SELECTED_PULSE_FREQUENCY 1 / 750.0f
 #define MP_MAP_SELECTED_COLOR_A (MP_MAP_SELECTED_COLOR_A_MIN + sinf(SDL_GetTicks() * 3.14159265358979323846f * (MP_MAP_SELECTED_PULSE_FREQUENCY)) * (MP_MAP_SELECTED_COLOR_A_MAX - MP_MAP_SELECTED_COLOR_A_MIN))
 
@@ -169,27 +169,30 @@ extern "C" {
     /** Offset for selection outline to not intersect with map blocks */
 #define MP_MAP_SELECTION_OFFSET 0.15f
 
+    /** Base lighting */
+#define MP_AMBIENT_LIGHT_COLOR_POWER 0.2f
+
     /** Color of the light at the cursor */
-#define MP_HAND_LIGHT_COLOR_R 1.0f
-#define MP_HAND_LIGHT_COLOR_G 1.0f
-#define MP_HAND_LIGHT_COLOR_B 1.0f
+#define MP_HAND_LIGHT_COLOR_R (1.0f - MP_AMBIENT_LIGHT_COLOR_POWER)
+#define MP_HAND_LIGHT_COLOR_G (0.9f - MP_AMBIENT_LIGHT_COLOR_POWER)
+#define MP_HAND_LIGHT_COLOR_B (0.8f - MP_AMBIENT_LIGHT_COLOR_POWER)
 
     /** Height of the hand light */
 #define MP_HAND_LIGHT_HEIGHT (MP_BLOCK_SIZE * 3)
 
     /** Brightness of the light at the cursor */
-#define MP_HAND_LIGHT_POWER 10.0f * MP_BLOCK_SIZE
+#define MP_HAND_LIGHT_RANGE 6.0f * MP_BLOCK_SIZE
 
     /** Color of the light at the cursor */
-#define MP_WALL_LIGHT_COLOR_R 1.0f
-#define MP_WALL_LIGHT_COLOR_G 0.9f
-#define MP_WALL_LIGHT_COLOR_B 0.8f
+#define MP_WALL_LIGHT_COLOR_R (0.9f - MP_AMBIENT_LIGHT_COLOR_POWER)
+#define MP_WALL_LIGHT_COLOR_G (0.8f - MP_AMBIENT_LIGHT_COLOR_POWER)
+#define MP_WALL_LIGHT_COLOR_B (0.7f - MP_AMBIENT_LIGHT_COLOR_POWER)
 
     /** Height of the hand light */
 #define MP_WALL_LIGHT_HEIGHT (MP_BLOCK_SIZE * 0.8f)
 
     /** Brightness of the light at the cursor */
-#define MP_WALL_LIGHT_POWER 2.0f * MP_BLOCK_SIZE
+#define MP_WALL_LIGHT_RANGE 2.0f * MP_BLOCK_SIZE
 
     ///////////////////////////////////////////////////////////////////////////////
     // Camera

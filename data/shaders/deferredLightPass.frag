@@ -27,11 +27,11 @@ uniform vec3 LightPosition;
 // The diffuse color of the light.
 uniform vec3 DiffuseLightColor;
 // Power of the diffuse light.
-uniform float DiffuseLightPower;
+uniform float DiffuseLightRange;
 // The specular color of the light.
 uniform vec3 SpecularLightColor;
 // Power of the specular light.
-uniform float SpecularLightPower;
+uniform float SpecularLightRange;
 // Power of ambient light (which is presumed to be white).
 uniform float AmbientLightPower;
 ///////////////////////////////////////////////////////////////////////////////
@@ -72,7 +72,7 @@ void main(void) {
 	#else
 	float lambertTerm = max(0, dot(normalize(toLight), normal));
 	#endif
-	float mult = distance / (DiffuseLightPower * DiffuseLightPower);
+	float mult = distance / (DiffuseLightRange * DiffuseLightRange);
 	mult = 1 - clamp(mult * mult, 0, 1);
 	Color = diffuseAlbedo * DiffuseLightColor * lambertTerm * mult;
 
@@ -80,7 +80,7 @@ void main(void) {
 	vec3 h = normalize(toLight + toCamera);
 	float hdotn = max(0, dot(h, normal));
 	float specularTerm = pow(hdotn, specularExponent);
-	mult = distance / (SpecularLightPower * SpecularLightPower);
+	mult = distance / (SpecularLightRange * SpecularLightRange);
 	mult = 1 - clamp(mult * mult, 0, 1);
 	Color += specularIntensity * diffuseAlbedo * SpecularLightColor * specularTerm * mult;
 

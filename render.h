@@ -37,13 +37,13 @@ extern "C" {
         vec3 diffuseColor;
 
         /** The diffuse lightpower */
-        float diffusePower;
+        float diffuseRange;
 
         /** The specular color */
         vec3 specularColor;
 
         /** The specular light power */
-        float specularPower;
+        float specularRange;
     } MP_Light;
 
     /**
