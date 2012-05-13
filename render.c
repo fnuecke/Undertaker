@@ -30,7 +30,7 @@ static struct {
 
     GLuint renderBuffer[3];
     GLuint depthBuffer;
-    GLuint texture[3];
+    GLuint texture[4];
 } gBuffer;
 
 /** Holds information on our geometry shader */
@@ -162,6 +162,32 @@ static struct {
         GLint SpecularLightRange;
     } fs_uniforms;
 } gLightShader;
+
+static struct {
+    /** ID of the shader program */
+    GLint program;
+
+    /** Uniforms for the vertex shader */
+    struct {
+        /** The current model-view-projection matrix */
+        GLint ModelViewProjectionMatrix;
+    } vs_uniforms;
+
+    /** Attributes for the vertex shader */
+    struct {
+        /** The vertex position model space */
+        GLint ModelVertex;
+
+        /** The texture coordinate at the vertex */
+        GLint TextureCoordinate;
+    } vs_attributes;
+
+    /** Uniforms for the fragment shader */
+    struct {
+        /** Third depth buffer texture */
+        GLint DepthBuffer;
+    } fs_uniforms;
+} gFogShader;
 
 /** Flag if we're currently in the geometry rendering stage */
 static bool gIsGeometryPass = false;
@@ -315,7 +341,7 @@ static void drawSphere(void) {
 static void initShaders(void) {
     // Load shader programs for deferred shading.
     const char* outGeometry[] = {"GBuffer0", "GBuffer1", "GBuffer2"};
-    const char* outAmbientAndLight[1] = {"Color"};
+    const char* outDeferred[1] = {"Color"};
 
     gGeometryShader.program = MP_LoadProgram("data/shaders/deferredGeometryPass.vert",
                                              "data/shaders/deferredGeometryPass.frag",
@@ -358,7 +384,7 @@ static void initShaders(void) {
 
     gAmbientShader.program = MP_LoadProgram("data/shaders/deferredAmbientPass.vert",
                                             "data/shaders/deferredAmbientPass.frag",
-                                            outAmbientAndLight, 1);
+                                            outDeferred, 1);
     if (!gAmbientShader.program) {
         return;
     }
@@ -380,7 +406,7 @@ static void initShaders(void) {
 
     gLightShader.program = MP_LoadProgram("data/shaders/deferredLightPass.vert",
                                           "data/shaders/deferredLightPass.frag",
-                                          outAmbientAndLight, 1);
+                                          outDeferred, 1);
     if (!gLightShader.program) {
         return;
     }
@@ -413,6 +439,25 @@ static void initShaders(void) {
     gLightShader.fs_uniforms.SpecularLightRange =
             glGetUniformLocation(gLightShader.program, "SpecularLightRange");
     EXIT_ON_OPENGL_ERROR();
+
+    gFogShader.program = MP_LoadProgram("data/shaders/deferredFogPass.vert",
+                                        "data/shaders/deferredFogPass.frag",
+                                        outDeferred, 1);
+    if (!gFogShader.program) {
+        return;
+    }
+    // Get the uniform/attribute locations from the shader.
+    gFogShader.vs_uniforms.ModelViewProjectionMatrix =
+            glGetUniformLocation(gFogShader.program, "ModelViewProjectionMatrix");
+
+    gFogShader.vs_attributes.ModelVertex =
+            glGetAttribLocation(gFogShader.program, "ModelVertex");
+    gFogShader.vs_attributes.TextureCoordinate =
+            glGetAttribLocation(gFogShader.program, "TextureCoordinate");
+
+    gFogShader.fs_uniforms.DepthBuffer =
+            glGetUniformLocation(gFogShader.program, "DepthBuffer");
+    EXIT_ON_OPENGL_ERROR();
 }
 
 static GLenum createRenderBuffer(GLenum internalformat, GLenum attachment) {
@@ -436,7 +481,7 @@ static GLenum createRenderBuffer(GLenum internalformat, GLenum attachment) {
     return render_buffer;
 }
 
-static GLenum createTexture(GLenum internalformat, GLenum type, GLenum attachment) {
+static GLenum createTexture(GLenum internalformat, GLenum format, GLenum type, GLenum attachment) {
     // Generate and bind the texture.
     GLenum texture;
     glGenTextures(1, &texture);
@@ -446,7 +491,7 @@ static GLenum createTexture(GLenum internalformat, GLenum type, GLenum attachmen
     EXIT_ON_OPENGL_ERROR();
 
     // Allocate it.
-    glTexImage2D(GL_TEXTURE_2D, 0, internalformat, MP_resolution_x, MP_resolution_y, 0, GL_RGBA, type, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalformat, MP_resolution_x, MP_resolution_y, 0, format, type, NULL);
     EXIT_ON_OPENGL_ERROR();
 
     // Set some more parameters.
@@ -479,9 +524,10 @@ static void initGBuffer(void) {
     gBuffer.depthBuffer = createRenderBuffer(GL_DEPTH_COMPONENT24, GL_DEPTH_ATTACHMENT);
 
     // Create our textures.
-    gBuffer.texture[0] = createTexture(GL_RGBA16F, GL_FLOAT, GL_COLOR_ATTACHMENT0);
-    gBuffer.texture[1] = createTexture(GL_RGBA16F, GL_FLOAT, GL_COLOR_ATTACHMENT1);
-    gBuffer.texture[2] = createTexture(GL_RGBA16F, GL_FLOAT, GL_COLOR_ATTACHMENT2);
+    gBuffer.texture[0] = createTexture(GL_RGBA16F, GL_RGBA, GL_FLOAT, GL_COLOR_ATTACHMENT0);
+    gBuffer.texture[1] = createTexture(GL_RGBA16F, GL_RGBA, GL_FLOAT, GL_COLOR_ATTACHMENT1);
+    gBuffer.texture[2] = createTexture(GL_RGBA16F, GL_RGBA, GL_FLOAT, GL_COLOR_ATTACHMENT2);
+    gBuffer.texture[3] = createTexture(GL_DEPTH_COMPONENT24, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, GL_DEPTH_ATTACHMENT);
 
     // Check if all worked fine and unbind the FBO
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -501,7 +547,8 @@ static bool isDeferredShadingPossible(void) {
     return MP_d_draw_deferred_shader &&
             gGeometryShader.program &&
             gAmbientShader.program &&
-            gLightShader.program;
+            gLightShader.program && 
+            gFogShader.program;
 }
 
 static void onModelMatrixChanged(void) {
@@ -520,7 +567,7 @@ static void onModelMatrixChanged(void) {
 // Deferred lighting
 ///////////////////////////////////////////////////////////////////////////////
 
-static void geometryPass(void) {
+static void beginGeometryPass(void) {
     static const GLenum buffers[] = {GL_COLOR_ATTACHMENT0,
                                      GL_COLOR_ATTACHMENT1,
                                      GL_COLOR_ATTACHMENT2};
@@ -539,6 +586,8 @@ static void geometryPass(void) {
     glDrawBuffers(3, buffers);
 
     EXIT_ON_OPENGL_ERROR();
+
+    gIsGeometryPass = true;
 }
 
 static void renderQuad(float startX, float startY, float endX, float endY) {
@@ -701,7 +750,8 @@ static void drawLight(const MP_Light* light) {
 
     // Use lighting shader program.
     glUseProgram(gLightShader.program);
-    glUniformMatrix4fv(gLightShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, MP_GetModelViewProjectionMatrix()->m);
+    glUniformMatrix4fv(gLightShader.vs_uniforms.ModelViewProjectionMatrix, 1,
+                       GL_FALSE, MP_GetModelViewProjectionMatrix()->m);
     glUniform1i(gLightShader.fs_uniforms.GBuffer0, 0);
     glUniform1i(gLightShader.fs_uniforms.GBuffer1, 1);
     glUniform1i(gLightShader.fs_uniforms.GBuffer2, 2);
@@ -711,6 +761,7 @@ static void drawLight(const MP_Light* light) {
     glUniform3fv(gLightShader.fs_uniforms.SpecularLightColor, 1, light->specularColor.v);
     glUniform1f(gLightShader.fs_uniforms.SpecularLightRange, light->specularRange);
     glUniform3fv(gLightShader.fs_uniforms.LightPosition, 1, light->position.v);
+    EXIT_ON_OPENGL_ERROR();
 
     // Render the quad.
     renderQuad(0, 0, MP_resolution_x, MP_resolution_y);
@@ -732,10 +783,53 @@ static void drawLight(const MP_Light* light) {
     EXIT_ON_OPENGL_ERROR();
 }
 
-static void lightPass(void) {
-    // Stop using geometry shader.
+static void fogPass(void) {
+    // Blend lights additively.
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
+
+    // No depth testing for orthogonal quad rendering.
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+
+    // Set projection matrix to orthogonal, because we want to draw a quad
+    // filling the complete screen.
+    MP_BeginOrthogonal();
+
+    // Set view a bit back to avoid clipping.
+    MP_BeginLookAt(1.0f + MP_CLIP_NEAR, 0, 0, 0, 0, 0);
+
+    // No model transform for us.
+    MP_PushModelMatrix();
+    MP_SetModelMatrix(&IDENTITY_MATRIX4);
+
+    // Use lighting shader program.
+    glUseProgram(gFogShader.program);
+    glUniformMatrix4fv(gFogShader.vs_uniforms.ModelViewProjectionMatrix, 1,
+                       GL_FALSE, MP_GetModelViewProjectionMatrix()->m);
+    glUniform1i(gFogShader.fs_uniforms.DepthBuffer, 0);
+    EXIT_ON_OPENGL_ERROR();
+
+    // Render the quad.
+    renderQuad(0, 0, MP_resolution_x, MP_resolution_y);
+
+    // Pop the shader.
     glUseProgram(0);
 
+    // Pop orthogonal view state.
+    MP_PopModelMatrix();
+    MP_EndLookAt();
+    MP_EndOrthogonal();
+
+    // Restore old state.
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+
+    EXIT_ON_OPENGL_ERROR();
+}
+
+static void lightPass(void) {
     // Done with our frame buffer.
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
@@ -760,30 +854,14 @@ static void lightPass(void) {
         // Do ambient lighting pass.
         ambientPass();
 
-        // Set uniforms for our shader program.
-        glUseProgram(gLightShader.program);
-        glUniformMatrix4fv(gLightShader.vs_uniforms.ModelViewProjectionMatrix,
-                           1, GL_FALSE, MP_GetModelViewProjectionMatrix()->m);
-        glUniform1i(gLightShader.fs_uniforms.GBuffer0, 0);
-        glUniform1i(gLightShader.fs_uniforms.GBuffer1, 1);
-        glUniform1i(gLightShader.fs_uniforms.GBuffer2, 2);
-        glUniform3fv(gLightShader.fs_uniforms.CameraPosition, 1, MP_GetCameraPosition()->v);
-        glUseProgram(0);
-
-        EXIT_ON_OPENGL_ERROR();
-
         // Draw lights.
         for (unsigned int i = 0; i < gLightCount; ++i) {
             drawLight(gLights[i]);
         }
-    } else if (MP_d_draw_deferred == MP_D_DEPTH_BUFFER) {
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer.frameBuffer);
-        glBlitFramebuffer(0, 0, MP_resolution_x, MP_resolution_y,
-                          0, 0, MP_resolution_x, MP_resolution_y,
-                          GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
-        EXIT_ON_OPENGL_ERROR();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, gBuffer.texture[3]);
+        fogPass();
     } else {
         glActiveTexture(GL_TEXTURE0);
         switch (MP_d_draw_deferred) {
@@ -795,6 +873,9 @@ static void lightPass(void) {
                 break;
             case MP_D_DEFERRED_NORMALS:
                 glBindTexture(GL_TEXTURE_2D, gBuffer.texture[2]);
+                break;
+            case MP_D_DEPTH_BUFFER:
+                glBindTexture(GL_TEXTURE_2D, gBuffer.texture[3]);
                 break;
             default:
                 break;
@@ -876,10 +957,8 @@ void MP_Render(void) {
     // Trigger pre render hooks.
     CB_Call(gPreRenderCallbacks);
 
-    gIsGeometryPass = true;
-
     if (isDeferredShadingPossible()) {
-        geometryPass();
+        beginGeometryPass();
         // Push current matrix state to shader.
         onModelMatrixChanged();
     }
@@ -887,9 +966,11 @@ void MP_Render(void) {
     // Render game components.
     CB_Call(gRenderCallbacks);
 
-    gIsGeometryPass = false;
-
     if (isDeferredShadingPossible()) {
+        // Stop using geometry shader.
+        glUseProgram(0);
+        gIsGeometryPass = false;
+
         lightPass();
     }
 

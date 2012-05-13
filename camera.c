@@ -41,20 +41,20 @@ static float gCameraZoomTarget = 0;
 
 static void update(void) {
     if (gCameraDirection & MP_CAMERA_DIRECTION_NORTH) {
-        gCameraVelocity.v[1] = MP_CAMERA_SPEED;
+        gCameraVelocity.v[1] = MP_scroll_speed;
     }
     if (gCameraDirection & MP_CAMERA_DIRECTION_SOUTH) {
-        gCameraVelocity.v[1] = -MP_CAMERA_SPEED;
+        gCameraVelocity.v[1] = -MP_scroll_speed;
     }
     if (gCameraDirection & MP_CAMERA_DIRECTION_EAST) {
-        gCameraVelocity.v[0] = MP_CAMERA_SPEED;
+        gCameraVelocity.v[0] = MP_scroll_speed;
     }
     if (gCameraDirection & MP_CAMERA_DIRECTION_WEST) {
-        gCameraVelocity.v[0] = -MP_CAMERA_SPEED;
+        gCameraVelocity.v[0] = -MP_scroll_speed;
     }
 
-    gCameraPosition.v[0] += gCameraVelocity.v[0];
-    gCameraPosition.v[1] += gCameraVelocity.v[1];
+    gCameraPosition.v[0] += gCameraVelocity.v[0] * MP_BLOCK_SIZE / MP_FRAMERATE;
+    gCameraPosition.v[1] += gCameraVelocity.v[1] * MP_BLOCK_SIZE / MP_FRAMERATE;
 
     if (gCameraPosition.v[0] < 0) {
         gCameraPosition.v[0] = 0;
@@ -70,8 +70,8 @@ static void update(void) {
         gCameraPosition.v[1] = MP_GetMapSize() * MP_BLOCK_SIZE;
     }
 
-    gCameraVelocity.v[0] *= MP_CAMERA_FRICTION;
-    gCameraVelocity.v[1] *= MP_CAMERA_FRICTION;
+    gCameraVelocity.v[0] *= (1 - MP_CAMERA_FRICTION * MP_BLOCK_SIZE / MP_FRAMERATE);
+    gCameraVelocity.v[1] *= (1 - MP_CAMERA_FRICTION * MP_BLOCK_SIZE / MP_FRAMERATE);
 
     if (fabs(gCameraVelocity.v[0]) < 0.0001f) {
         gCameraVelocity.v[0] = 0;

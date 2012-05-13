@@ -50,7 +50,7 @@ void MP_LoadMap(const char* mapname) {
     fflush(MP_log_target);
 
     // Adjust map size and set default block type.
-    MP_SetMapSize(128, MP_GetBlockMeta(1));
+    MP_SetMapSize(32, MP_GetBlockMeta(1));
 
     // Load new resources onto GPU.
     MP_GL_GenerateTextures();

@@ -281,9 +281,6 @@ static float computeOffset(float* offset, float x, float y) {
 }
 
 static void updateVerticesAt(int x, int y) {
-    if (x < 0 || x >= gMapSize || y < 0 || y >= gMapSize) {
-        return;
-    }
     for (unsigned int z = 0; z < 5; ++z) {
         const unsigned int idx = fi(x, y, z);
         vec3* v = &gVertices[idx].position;
@@ -366,9 +363,6 @@ static void interpolateNormal(vec3* n, const vec3* v0,
 }
 
 static void updateNormalsAt(int x, int y) {
-    if (x < 0 || x >= gMapSize || y < 0 || y >= gMapSize) {
-        return;
-    }
 #define P(x, y, z) (&gVertices[fi(x, y, z)].position)
     for (unsigned int z = 0; z < 5; ++z) {
         const unsigned int idx = fi(x, y, z);
@@ -483,6 +477,17 @@ static void updateLightsAt(int x, int y) {
 // Block updating
 ///////////////////////////////////////////////////////////////////////////////
 
+/** Clamps an arbitrary coordinate to a valid one (in bounds) */
+inline static unsigned int clamp(int coordinate) {
+    if (coordinate < 0) {
+        return 0;
+    }
+    if (coordinate >= (int) gVerticesPerDimension) {
+        return gVerticesPerDimension - 1;
+    }
+    return coordinate;
+}
+
 static void updateBlock(MP_Block* block) {
     unsigned short x, y;
 
@@ -498,10 +503,10 @@ static void updateBlock(MP_Block* block) {
 
     // Update model.
     {
-        const int start_x = x * 2 - 1 + MP_MAP_BORDER;
-        const int start_y = y * 2 - 1 + MP_MAP_BORDER;
-        const int end_x = x * 2 + 3 + MP_MAP_BORDER;
-        const int end_y = y * 2 + 3 + MP_MAP_BORDER;
+        const int start_x = clamp(x * 2 - 1 + MP_MAP_BORDER);
+        const int start_y = clamp(y * 2 - 1 + MP_MAP_BORDER);
+        const int end_x = clamp(x * 2 + 3 + MP_MAP_BORDER);
+        const int end_y = clamp(y * 2 + 3 + MP_MAP_BORDER);
 
         for (int lx = start_x; lx <= end_x; ++lx) {
             for (int ly = start_y; ly <= end_y; ++ly) {
@@ -512,11 +517,6 @@ static void updateBlock(MP_Block* block) {
         for (int lx = start_x; lx <= end_x; ++lx) {
             for (int ly = start_y; ly <= end_y; ++ly) {
                 updateNormalsAt(lx, ly);
-            }
-        }
-
-        for (int lx = start_x; lx <= end_x; ++lx) {
-            for (int ly = start_y; ly <= end_y; ++ly) {
             }
         }
     }
@@ -1045,12 +1045,23 @@ static void renderSelectionOverlay(void) {
     glDisable(GL_BLEND);
 }
 
+/** Clamps an arbitrary coordinate to a valid one (in bounds) */
+inline static int mapclamp(int coordinate) {
+    if (coordinate < -MP_MAP_BORDER / 2) {
+        return -MP_MAP_BORDER / 2;
+    }
+    if (coordinate >= MP_GetMapSize() + MP_MAP_BORDER / 2) {
+        return MP_GetMapSize() + MP_MAP_BORDER / 2 - 1;
+    }
+    return coordinate;
+}
+
 static void onRender(void) {
     const vec3* camera = MP_GetCameraPosition();
-    const int x_begin = (int) (camera->v[0] / MP_BLOCK_SIZE) - MP_RENDER_AREA_X / 2;
-    const int y_begin = (int) (camera->v[1] / MP_BLOCK_SIZE) - MP_RENDER_AREA_Y_OFFSET;
-    const int x_end = x_begin + MP_RENDER_AREA_X;
-    const int y_end = y_begin + MP_RENDER_AREA_Y;
+    const int x_begin = mapclamp((int) (camera->v[0] / MP_BLOCK_SIZE - MP_RENDER_AREA_X / 2));
+    const int y_begin = mapclamp((int) (camera->v[1] / MP_BLOCK_SIZE - MP_RENDER_AREA_Y_OFFSET));
+    const int x_end = mapclamp(x_begin + MP_RENDER_AREA_X);
+    const int y_end = mapclamp(y_begin + MP_RENDER_AREA_Y);
 
     const MP_BlockMeta* defaultMeta = MP_GetBlockMeta(1);
     const MP_BlockMeta* meta;
@@ -1327,7 +1338,7 @@ void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith) {
         free(gVertices);
 
         // Allocate new map model data.
-        gVerticesPerDimension = (size + MP_MAP_BORDER) * 2 + 1;
+        gVerticesPerDimension = (size + MP_MAP_BORDER * 2) * 2 + 1;
         gVertices = calloc(gVerticesPerDimension * gVerticesPerDimension * 5, sizeof (struct Vertex));
 
         if (!gVertices) {

@@ -69,14 +69,14 @@ static void key_down(const SDL_Event* e) {
         case SDLK_F9:
         {
             MP_Light* light = calloc(1, sizeof (MP_Light));
-            light->diffuseColor.c.r = 1;
-            light->diffuseColor.c.g = 1;
-            light->diffuseColor.c.b = 1;
-            light->diffuseRange = 60;
-            light->specularColor.c.r = 1;
-            light->specularColor.c.g = 1;
-            light->specularColor.c.b = 1;
-            light->specularRange = 60;
+            light->diffuseColor.c.r = 0.5f;
+            light->diffuseColor.c.g = 0.5f;
+            light->diffuseColor.c.b = 0.5f;
+            light->diffuseRange = 3;
+            light->specularColor.c.r = 0.5f;
+            light->specularColor.c.g = 0.5f;
+            light->specularColor.c.b = 0.5f;
+            light->specularRange = 5;
             light->position.d.x = MP_GetCursor(MP_CURSOR_LEVEL_FLOOR)->v[0];
             light->position.d.y = MP_GetCursor(MP_CURSOR_LEVEL_FLOOR)->v[1];
             light->position.d.z = MP_BLOCK_HEIGHT / 2;
