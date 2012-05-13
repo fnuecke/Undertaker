@@ -762,7 +762,8 @@ static void lightPass(void) {
 
         // Set uniforms for our shader program.
         glUseProgram(gLightShader.program);
-        glUniformMatrix4fv(gLightShader.vs_uniforms.ModelViewProjectionMatrix, 1, GL_FALSE, MP_GetModelViewProjectionMatrix()->m);
+        glUniformMatrix4fv(gLightShader.vs_uniforms.ModelViewProjectionMatrix,
+                           1, GL_FALSE, MP_GetModelViewProjectionMatrix()->m);
         glUniform1i(gLightShader.fs_uniforms.GBuffer0, 0);
         glUniform1i(gLightShader.fs_uniforms.GBuffer1, 1);
         glUniform1i(gLightShader.fs_uniforms.GBuffer2, 2);
@@ -977,12 +978,17 @@ void MP_SetMaterial(const MP_Material* material) {
                 glBindTexture(GL_TEXTURE_2D, material->textures[i]);
                 glUniform1i(gGeometryShader.fs_uniforms.Textures[i], i);
             }
-            glUniform1i(gGeometryShader.fs_uniforms.TextureCount, material->textureCount);
+            glUniform1i(gGeometryShader.fs_uniforms.TextureCount,
+                        material->textureCount);
 
-            glUniform3fv(gGeometryShader.fs_uniforms.ColorDiffuse, 1, material->diffuseColor.v);
-            glUniform1f(gGeometryShader.fs_uniforms.SpecularIntensity, material->specularIntensity);
-            glUniform1f(gGeometryShader.fs_uniforms.SpecularExponent, material->specularExponent);
-            glUniform1f(gGeometryShader.fs_uniforms.Emissivity, material->emissivity);
+            glUniform3fv(gGeometryShader.fs_uniforms.ColorDiffuse, 1,
+                         material->diffuseColor.v);
+            glUniform1f(gGeometryShader.fs_uniforms.SpecularIntensity,
+                        material->specularIntensity);
+            glUniform1f(gGeometryShader.fs_uniforms.SpecularExponent,
+                        material->specularExponent);
+            glUniform1f(gGeometryShader.fs_uniforms.Emissivity,
+                        material->emissivity);
 
             EXIT_ON_OPENGL_ERROR();
         } else {
@@ -1053,7 +1059,8 @@ bool MP_RemoveLight(const MP_Light* light) {
         if (gLights[i] == light) {
             // Found it. Close the gap by shifting all following entries one up.
             --gLightCount;
-            memmove(&gLights[i], &gLights[i + 1], (gLightCount - i) * sizeof (MP_Light*));
+            memmove(&gLights[i], &gLights[i + 1],
+                    (gLightCount - i) * sizeof (MP_Light*));
             return true;
         }
     }
