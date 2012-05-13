@@ -30,7 +30,7 @@ out vec3 Color;
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
-// Main routing, does what a main does. Freakin' EVERYTHING!
+// Main routine, does what a main does. Freakin' EVERYTHING!
 void main(void) {
 	float depth = texture2D(DepthBuffer, fs_TextureCoordinate).b;
 	Color = vec3(clamp(depth - 0.93, 0, 1) * 40);

@@ -52,7 +52,7 @@ float brightness(vec3 color) {
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
-// Main routing, does what a main does. Freakin' EVERYTHING!
+// Main routine, does what a main does. Freakin' EVERYTHING!
 void main(void) {
 	vec3 color = ColorDiffuse;
 	if (TextureCount > 0) {

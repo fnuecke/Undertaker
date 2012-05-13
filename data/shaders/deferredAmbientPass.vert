@@ -31,7 +31,7 @@ out vec2 fs_TextureCoordinate;
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
-// Main routing, does what a main does. Freakin' EVERYTHING!
+// Main routine, does what a main does. Freakin' EVERYTHING!
 void main(void) {
 	// Compute vertex position in projection space.
 	gl_Position = ModelViewProjectionMatrix * ModelVertex;
