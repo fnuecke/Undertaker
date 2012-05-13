@@ -1416,15 +1416,15 @@ void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith) {
 
     // Set light defaults.
     for (unsigned int i = 0; i < (unsigned int) gMapSize * gMapSize; ++i) {
-        gWallLights[i].diffuseColor.c.r = 1.0f;
-        gWallLights[i].diffuseColor.c.g = 1.0f;
-        gWallLights[i].diffuseColor.c.b = 1.0f;
-        gWallLights[i].diffusePower = 8.0f;
-        gWallLights[i].specularColor.c.r = 1.0f;
-        gWallLights[i].specularColor.c.g = 1.0f;
-        gWallLights[i].specularColor.c.b = 1.0f;
-        gWallLights[i].specularPower = 8.0f;
-        gWallLights[i].position.d.z = MP_BLOCK_HEIGHT * 2 / 3;
+        gWallLights[i].diffuseColor.c.r = MP_WALL_LIGHT_COLOR_R;
+        gWallLights[i].diffuseColor.c.g = MP_WALL_LIGHT_COLOR_G;
+        gWallLights[i].diffuseColor.c.b = MP_WALL_LIGHT_COLOR_B;
+        gWallLights[i].diffusePower = MP_WALL_LIGHT_POWER;
+        gWallLights[i].specularColor.c.r = MP_WALL_LIGHT_COLOR_R;
+        gWallLights[i].specularColor.c.g = MP_WALL_LIGHT_COLOR_G;
+        gWallLights[i].specularColor.c.b = MP_WALL_LIGHT_COLOR_B;
+        gWallLights[i].specularPower = MP_WALL_LIGHT_POWER;
+        gWallLights[i].position.d.z = MP_WALL_LIGHT_HEIGHT;
     }
 
     // Compute light positions.

@@ -178,7 +178,18 @@ extern "C" {
 #define MP_HAND_LIGHT_HEIGHT (MP_BLOCK_SIZE * 3)
 
     /** Brightness of the light at the cursor */
-#define MP_HAND_LIGHT_POWER 30.0f
+#define MP_HAND_LIGHT_POWER 24.0f
+
+    /** Color of the light at the cursor */
+#define MP_WALL_LIGHT_COLOR_R 1.0f
+#define MP_WALL_LIGHT_COLOR_G 0.9f
+#define MP_WALL_LIGHT_COLOR_B 0.8f
+
+    /** Height of the hand light */
+#define MP_WALL_LIGHT_HEIGHT (MP_BLOCK_SIZE * 0.8f)
+
+    /** Brightness of the light at the cursor */
+#define MP_WALL_LIGHT_POWER 8.0f
 
     ///////////////////////////////////////////////////////////////////////////////
     // Camera
