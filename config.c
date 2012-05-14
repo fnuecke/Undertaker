@@ -9,25 +9,25 @@
 #include <string.h>
 
 
-FILE* MP_log_target;
+FILE* MP_logTarget;
 
-int MP_resolution_x = 1280;
-int MP_resolution_y = 1024;
-int MP_field_of_view = 90;
-bool MP_use_antialiasing = false;
-float MP_scroll_speed = 10;
+int MP_resolutionX = 1280;
+int MP_resolutionY = 1024;
+int MP_fieldOfView = 90;
+bool MP_antialiasing = false;
+float MP_scrollSpeed = 10;
 char* MP_log_file = NULL;
 
-bool MP_d_ai_enabled = true;
-bool MP_d_draw_test_texture = false;
-bool MP_d_draw_paths = false;
-bool MP_d_draw_jobs = false;
-MP_DisplayMode MP_d_draw_deferred = MP_D_DEFERRED_FINAL;
-bool MP_d_draw_picking_mode = false;
-bool MP_d_draw_deferred_shader = true;
-bool MP_d_draw_light_volumes = false;
+bool MP_DBG_isAIEnabled = true;
+bool MP_DBG_drawTestTexture = false;
+bool MP_DBG_drawPaths = false;
+bool MP_DBG_drawJobs = false;
+MP_DBG_DisplayBuffer MP_DBG_deferredBuffer = MP_DBG_BUFFER_FINAL;
+bool MP_DBG_drawPickingMode = false;
+bool MP_DBG_useDeferredShader = true;
+bool MP_DBG_drawLightVolumes = false;
 
-void MP_load_config(void) {
+void MP_LoadConfig(void) {
     lua_State* L = luaL_newstate();
 
     if (luaL_dofile(L, "data/config.lua") == LUA_OK) {
@@ -38,13 +38,13 @@ void MP_load_config(void) {
             lua_rawgeti(L, -1, 1);
             x = lua_tounsignedx(L, -1, &isnum);
             if (!isnum) {
-                x = MP_resolution_x;
+                x = MP_resolutionX;
             }
             lua_pop(L, 1);
             lua_rawgeti(L, -1, 2);
             y = lua_tounsignedx(L, -1, &isnum);
             if (!isnum) {
-                y = MP_resolution_y;
+                y = MP_resolutionY;
             }
             lua_pop(L, 1);
 
@@ -61,31 +61,31 @@ void MP_load_config(void) {
                 y = 1600;
             }
 
-            MP_resolution_x = x;
-            MP_resolution_y = y;
+            MP_resolutionX = x;
+            MP_resolutionY = y;
         }
         lua_pop(L, 1);
 
         lua_getglobal(L, "fov");
         if (lua_isnumber(L, -1)) {
-            MP_field_of_view = lua_tonumber(L, -1);
-            if (MP_field_of_view < 60) {
-                MP_field_of_view = 60;
+            MP_fieldOfView = lua_tonumber(L, -1);
+            if (MP_fieldOfView < 60) {
+                MP_fieldOfView = 60;
             }
-            if (MP_field_of_view > 110) {
-                MP_field_of_view = 110;
+            if (MP_fieldOfView > 110) {
+                MP_fieldOfView = 110;
             }
         }
         lua_pop(L, 1);
 
         lua_getglobal(L, "scrollspeed");
         if (lua_isnumber(L, -1)) {
-            MP_scroll_speed = lua_tonumber(L, -1);
-            if (MP_scroll_speed < 1) {
-                MP_scroll_speed = 1;
+            MP_scrollSpeed = lua_tonumber(L, -1);
+            if (MP_scrollSpeed < 1) {
+                MP_scrollSpeed = 1;
             }
-            if (MP_scroll_speed > 50) {
-                MP_scroll_speed = 50;
+            if (MP_scrollSpeed > 50) {
+                MP_scrollSpeed = 50;
             }
         }
         lua_pop(L, 1);
@@ -103,33 +103,33 @@ void MP_load_config(void) {
 
     lua_close(L);
 
-    if (!MP_log_file || !(MP_log_target = fopen(MP_log_file, "w"))) {
+    if (!MP_log_file || !(MP_logTarget = fopen(MP_log_file, "w"))) {
         const char* defaultname = "game.log";
         if (!(MP_log_file = malloc((strlen(defaultname) + 1) * sizeof (char)))) {
             exit(EXIT_FAILURE);
         }
         strcpy(MP_log_file, defaultname);
-        MP_log_target = fopen(MP_log_file, "w");
+        MP_logTarget = fopen(MP_log_file, "w");
     }
 }
 
-void MP_save_config(void) {
+void MP_SaveConfig(void) {
     FILE* f;
 
     MP_log_info("Writing settings.\n");
 
     if ((f = fopen("data/config.lua", "w"))) {
         fprintf(f, "-- This file is replaced each time the game exits!\n");
-        fprintf(f, "resolution = {%d, %d}\n", MP_resolution_x, MP_resolution_y);
-        fprintf(f, "fov = %d\n", MP_field_of_view);
-        fprintf(f, "scrollspeed = %.0f\n", MP_scroll_speed);
+        fprintf(f, "resolution = {%d, %d}\n", MP_resolutionX, MP_resolutionY);
+        fprintf(f, "fov = %d\n", MP_fieldOfView);
+        fprintf(f, "scrollspeed = %.0f\n", MP_scrollSpeed);
         fprintf(f, "logfile = \"%s\"\n", MP_log_file);
         fclose(f);
     } else {
         MP_log_warning("Failed opening config file for writing.\n");
     }
 
-    fclose(MP_log_target);
+    fclose(MP_logTarget);
 
     free(MP_log_file);
     MP_log_file = NULL;

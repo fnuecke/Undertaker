@@ -24,13 +24,13 @@
 
 static void shutdown(void) {
     MP_log_info("Game shutting down...\n");
-    MP_save_config();
+    MP_SaveConfig();
 }
 
 void MP_Init(void) {
     SDL_Surface* screen;
 
-    MP_load_config();
+    MP_LoadConfig();
 
     MP_log_info("Game starting up...\n");
 
@@ -52,7 +52,7 @@ void MP_Init(void) {
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 1);
     SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 0);
-    if (MP_use_antialiasing) {
+    if (MP_antialiasing) {
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
         SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
     }
@@ -60,7 +60,7 @@ void MP_Init(void) {
     MP_log_info("Done configuring SDL.\n");
 
     // Set up video.
-    screen = SDL_SetVideoMode(MP_resolution_x, MP_resolution_y, 0, SDL_HWSURFACE | SDL_OPENGL);
+    screen = SDL_SetVideoMode(MP_resolutionX, MP_resolutionY, 0, SDL_HWSURFACE | SDL_OPENGL);
     if (screen == NULL) {
         MP_log_fatal("Unable to set video: %s.\n", SDL_GetError());
     }

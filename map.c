@@ -1259,7 +1259,7 @@ static void onPreRender(void) {
     SDL_GetMouseState(&mouseX, &mouseY);
 
     gIsPicking = true;
-    name = MP_Pick(mouseX, MP_resolution_y - mouseY, &onRender);
+    name = MP_Pick(mouseX, MP_resolutionY - mouseY, &onRender);
     gIsPicking = false;
 
     if (name) {

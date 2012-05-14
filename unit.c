@@ -41,7 +41,7 @@ static unsigned int gUnitCount[MP_PLAYER_COUNT] = {0};
 ///////////////////////////////////////////////////////////////////////////////
 
 static void onUpdate(void) {
-    if (MP_d_ai_enabled) {
+    if (MP_DBG_isAIEnabled) {
         for (unsigned int i = 0; i < gTotalUnitCount; ++i) {
             // Update the unit's AI state.
             MP_UpdateAI(&units[i]);
@@ -123,7 +123,7 @@ static void onRender(void) {
         MP_PopModelMatrix();
 
         // If we display pathing render the units current path.
-        if (MP_d_draw_paths && MP_IsUnitMoving(unit)) {
+        if (MP_DBG_drawPaths && MP_IsUnitMoving(unit)) {
             const vec2* path = unit->ai->pathing.nodes;
             const unsigned int depth = unit->ai->pathing.depth;
 

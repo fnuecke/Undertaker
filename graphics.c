@@ -189,7 +189,7 @@ void MP_TranslateModelMatrix(float tx, float ty, float tz) {
 ///////////////////////////////////////////////////////////////////////////////
 
 int MP_BeginPerspective(void) {
-    const float f = 1.0f / tanf(MP_field_of_view * (PI / 360.0f));
+    const float f = 1.0f / tanf(MP_fieldOfView * (PI / 360.0f));
     float* m;
 
     if (!pushProjection()) {
@@ -224,13 +224,13 @@ int MP_BeginOrthogonal(void) {
 
     m = matrix.projection[stack.projection].m;
 #define M(row, col) m[col * 4 + row]
-    M(0, 0) = 2.0f / MP_resolution_x;
+    M(0, 0) = 2.0f / MP_resolutionX;
     M(0, 1) = 0.0f;
     M(0, 2) = 0.0f;
     M(0, 3) = -1.0f;
 
     M(1, 0) = 0.0f;
-    M(1, 1) = 2.0f / MP_resolution_y;
+    M(1, 1) = 2.0f / MP_resolutionY;
     M(1, 2) = 0.0f;
     M(1, 3) = -1.0f;
 
@@ -257,8 +257,8 @@ int MP_EndOrthogonal(void) {
 int MP_BeginPerspectiveForPicking(float x, float y) {
     if (MP_BeginPerspective()) {
         mat4 look = IDENTITY_MATRIX4;
-        mitranslate(&look, MP_resolution_x - 2 * x, MP_resolution_y - 2 * y, 0);
-        miscale(&look, MP_resolution_x, MP_resolution_y, 1.0);
+        mitranslate(&look, MP_resolutionX - 2 * x, MP_resolutionY - 2 * y, 0);
+        miscale(&look, MP_resolutionX, MP_resolutionY, 1.0);
 
         mimulm(&look, MP_GetProjectionMatrix());
         matrix.projection[stack.projection] = look;
@@ -362,8 +362,8 @@ int MP_Project(float objx, float objy, float objz,
     in.d.z = in.d.z * 0.5f + 0.5f;
 
     /* Map x,y to viewport */
-    in.d.x = in.d.x * MP_resolution_x;
-    in.d.y = in.d.y * MP_resolution_y;
+    in.d.x = in.d.x * MP_resolutionX;
+    in.d.y = in.d.y * MP_resolutionY;
 
     *winx = in.d.x;
     *winy = in.d.y;
@@ -388,8 +388,8 @@ int MP_UnProject(float winx, float winy, float winz,
     in.d.w = 1.0f;
 
     // Map x and y from window coordinates
-    in.d.x = in.d.x / MP_resolution_x;
-    in.d.y = in.d.y / MP_resolution_y;
+    in.d.x = in.d.x / MP_resolutionX;
+    in.d.y = in.d.y / MP_resolutionY;
 
     // Map to range -1 to 1
     in.d.x = in.d.x * 2.0f - 1.0f;

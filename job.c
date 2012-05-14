@@ -229,7 +229,7 @@ static const unsigned int colorCount = sizeof (colors) / sizeof (vec4);
 
 /** Debug rendering of where jobs are */
 static void onRender(void) {
-    if (MP_d_draw_jobs) {
+    if (MP_DBG_drawJobs) {
         MP_Material material;
         MP_InitMaterial(&material);
         material.emissivity = 1.0f;

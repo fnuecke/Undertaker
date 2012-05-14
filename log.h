@@ -17,9 +17,9 @@ extern "C" {
 #endif
 
 #define MP_log(level, ...) \
-fprintf(MP_log_target, "%s: ", level); \
-fprintf(MP_log_target, __VA_ARGS__); \
-fflush(MP_log_target)
+fprintf(MP_logTarget, "%s: ", level); \
+fprintf(MP_logTarget, __VA_ARGS__); \
+fflush(MP_logTarget)
 
 #define MP_log_info(...) MP_log("INFO", __VA_ARGS__)
 #define MP_log_warning(...) MP_log("WARNING", __VA_ARGS__)

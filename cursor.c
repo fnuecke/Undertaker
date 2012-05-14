@@ -60,7 +60,7 @@ static void update(void) {
 
     // Get window mouse coordinates.
     SDL_GetMouseState(&mouseX, &mouseY);
-    mouseY = MP_resolution_y - mouseY;
+    mouseY = MP_resolutionY - mouseY;
 
     updateLevel(MP_CURSOR_LEVEL_FLOOR, 0, mouseX, mouseY);
     updateLevel(MP_CURSOR_LEVEL_TOP, MP_BLOCK_HEIGHT, mouseX, mouseY);

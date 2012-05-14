@@ -87,7 +87,7 @@ static GLuint generateTexture(const SDL_Surface* surface) {
 ///////////////////////////////////////////////////////////////////////////////
 
 GLuint MP_GetTexture(MP_TextureID textureId, unsigned int hash) {
-    if (!MP_d_draw_test_texture && textureId > 0 && textureId - 1 < gTextureCount) {
+    if (!MP_DBG_drawTestTexture && textureId > 0 && textureId - 1 < gTextureCount) {
         const Texture* texture = &gTextures[textureId - 1];
         return texture->textureId[hash % texture->count];
     } else {

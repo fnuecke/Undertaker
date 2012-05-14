@@ -39,13 +39,13 @@ static void key_down(const SDL_Event* e) {
             // Debugging commands.
 
         case SDLK_F1:
-            MP_d_draw_test_texture = 1 - MP_d_draw_test_texture;
+            MP_DBG_drawTestTexture = 1 - MP_DBG_drawTestTexture;
             break;
         case SDLK_F2:
-            MP_d_draw_paths = 1 - MP_d_draw_paths;
+            MP_DBG_drawPaths = 1 - MP_DBG_drawPaths;
             break;
         case SDLK_F3:
-            MP_d_draw_jobs = 1 - MP_d_draw_jobs;
+            MP_DBG_drawJobs = 1 - MP_DBG_drawJobs;
             break;
         case SDLK_F4:
         {
@@ -55,16 +55,16 @@ static void key_down(const SDL_Event* e) {
             break;
         }
         case SDLK_F5:
-            MP_d_draw_deferred = (MP_d_draw_deferred + 1) % MP_D_DISPLAY_MODE_COUNT;
+            MP_DBG_deferredBuffer = (MP_DBG_deferredBuffer + 1) % MP_DBG_BUFFER_COUNT;
             break;
         case SDLK_F6:
-            MP_d_draw_picking_mode = 1 - MP_d_draw_picking_mode;
+            MP_DBG_drawPickingMode = 1 - MP_DBG_drawPickingMode;
             break;
         case SDLK_F7:
-            MP_d_draw_deferred_shader = 1 - MP_d_draw_deferred_shader;
+            MP_DBG_useDeferredShader = 1 - MP_DBG_useDeferredShader;
             break;
         case SDLK_F8:
-            MP_d_ai_enabled = 1 - MP_d_ai_enabled;
+            MP_DBG_isAIEnabled = 1 - MP_DBG_isAIEnabled;
             break;
         case SDLK_F9:
         {
@@ -84,7 +84,7 @@ static void key_down(const SDL_Event* e) {
             break;
         }
         case SDLK_F10:
-            MP_d_draw_light_volumes = 1 - MP_d_draw_light_volumes;
+            MP_DBG_drawLightVolumes = 1 - MP_DBG_drawLightVolumes;
             break;
 
         case SDLK_BACKQUOTE:

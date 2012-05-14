@@ -470,7 +470,7 @@ static GLenum createRenderBuffer(GLenum internalformat, GLenum attachment) {
     EXIT_ON_OPENGL_ERROR();
 
     // Set it up.
-    glRenderbufferStorage(GL_RENDERBUFFER, internalformat, MP_resolution_x, MP_resolution_y);
+    glRenderbufferStorage(GL_RENDERBUFFER, internalformat, MP_resolutionX, MP_resolutionY);
     EXIT_ON_OPENGL_ERROR();
 
     // Bind it to the frame buffer.
@@ -491,7 +491,7 @@ static GLenum createTexture(GLenum internalformat, GLenum format, GLenum type, G
     EXIT_ON_OPENGL_ERROR();
 
     // Allocate it.
-    glTexImage2D(GL_TEXTURE_2D, 0, internalformat, MP_resolution_x, MP_resolution_y, 0, format, type, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalformat, MP_resolutionX, MP_resolutionY, 0, format, type, NULL);
     EXIT_ON_OPENGL_ERROR();
 
     // Set some more parameters.
@@ -544,7 +544,7 @@ static void initGBuffer(void) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static bool isDeferredShadingPossible(void) {
-    return MP_d_draw_deferred_shader &&
+    return MP_DBG_useDeferredShader &&
             gGeometryShader.program &&
             gAmbientShader.program &&
             gLightShader.program && 
@@ -591,10 +591,10 @@ static void beginGeometryPass(void) {
 }
 
 static void renderQuad(float startX, float startY, float endX, float endY) {
-    const float tx0 = startX / MP_resolution_x;
-    const float tx1 = endX / MP_resolution_x;
-    const float ty0 = startY / MP_resolution_y;
-    const float ty1 = endY / MP_resolution_y;
+    const float tx0 = startX / MP_resolutionX;
+    const float tx1 = endX / MP_resolutionX;
+    const float ty0 = startY / MP_resolutionY;
+    const float ty1 = endY / MP_resolutionY;
 
     // Render the quad.
     glBegin(GL_QUADS);
@@ -636,7 +636,7 @@ static void ambientPass(void) {
     glUniform1f(gAmbientShader.fs_uniforms.AmbientLightPower, MP_AMBIENT_LIGHT_COLOR_POWER);
 
     // Render the quad.
-    renderQuad(0, 0, MP_resolution_x, MP_resolution_y);
+    renderQuad(0, 0, MP_resolutionX, MP_resolutionY);
 
     // Done with our program.
     glUseProgram(0);
@@ -741,10 +741,10 @@ static void drawLight(const MP_Light* light) {
     MP_PushModelMatrix();
     MP_SetModelMatrix(&IDENTITY_MATRIX4);
 
-    if (MP_d_draw_light_volumes) {
+    if (MP_DBG_drawLightVolumes) {
         glColor3f(0.05f, 0.05f, 0.05f);
         // Render the quad.
-        renderQuad(0, 0, MP_resolution_x, MP_resolution_y);
+        renderQuad(0, 0, MP_resolutionX, MP_resolutionY);
         glColor3f(1.0f, 1.0f, 1.0f);
     }
 
@@ -764,7 +764,7 @@ static void drawLight(const MP_Light* light) {
     EXIT_ON_OPENGL_ERROR();
 
     // Render the quad.
-    renderQuad(0, 0, MP_resolution_x, MP_resolution_y);
+    renderQuad(0, 0, MP_resolutionX, MP_resolutionY);
 
     // Pop the shader.
     glUseProgram(0);
@@ -811,7 +811,7 @@ static void fogPass(void) {
     EXIT_ON_OPENGL_ERROR();
 
     // Render the quad.
-    renderQuad(0, 0, MP_resolution_x, MP_resolution_y);
+    renderQuad(0, 0, MP_resolutionX, MP_resolutionY);
 
     // Pop the shader.
     glUseProgram(0);
@@ -836,13 +836,13 @@ static void lightPass(void) {
     // Copy over the depth buffer from our frame buffer, to preserve the depths
     // in post-rendering (e.g. for lighting and selection outline).
     glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer.frameBuffer);
-    glBlitFramebuffer(0, 0, MP_resolution_x, MP_resolution_y,
-                      0, 0, MP_resolution_x, MP_resolution_y,
+    glBlitFramebuffer(0, 0, MP_resolutionX, MP_resolutionY,
+                      0, 0, MP_resolutionX, MP_resolutionY,
                       GL_DEPTH_BUFFER_BIT, GL_NEAREST);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
     // Figure out what to draw.
-    if (MP_d_draw_deferred == MP_D_DEFERRED_FINAL) {
+    if (MP_DBG_deferredBuffer == MP_DBG_BUFFER_FINAL) {
         // Set our three g-buffer textures.
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, gBuffer.texture[0]);
@@ -864,17 +864,17 @@ static void lightPass(void) {
         fogPass();
     } else {
         glActiveTexture(GL_TEXTURE0);
-        switch (MP_d_draw_deferred) {
-            case MP_D_DEFERRED_DIFFUSE:
+        switch (MP_DBG_deferredBuffer) {
+            case MP_DBG_BUFFER_DIFFUSE:
                 glBindTexture(GL_TEXTURE_2D, gBuffer.texture[0]);
                 break;
-            case MP_D_DEFERRED_POSITION:
+            case MP_DBG_BUFFER_POSITION:
                 glBindTexture(GL_TEXTURE_2D, gBuffer.texture[1]);
                 break;
-            case MP_D_DEFERRED_NORMALS:
+            case MP_DBG_BUFFER_NORMALS:
                 glBindTexture(GL_TEXTURE_2D, gBuffer.texture[2]);
                 break;
-            case MP_D_DEPTH_BUFFER:
+            case MP_DBG_BUFFER_DEPTH:
                 glBindTexture(GL_TEXTURE_2D, gBuffer.texture[3]);
                 break;
             default:
@@ -896,7 +896,7 @@ static void lightPass(void) {
         MP_SetModelMatrix(&IDENTITY_MATRIX4);
 
         // Render the quad.
-        renderQuad(0, 0, MP_resolution_x, MP_resolution_y);
+        renderQuad(0, 0, MP_resolutionX, MP_resolutionY);
 
         // Reset matrices.
         MP_PopModelMatrix();
@@ -936,10 +936,10 @@ void MP_Render(void) {
                    cameraTarget->d.x, cameraTarget->d.y, cameraTarget->d.z);
 
     // Set projection matrix.
-    if (MP_d_draw_picking_mode) {
+    if (MP_DBG_drawPickingMode) {
         int x, y;
         SDL_GetMouseState(&x, &y);
-        MP_BeginPerspectiveForPicking(x, MP_resolution_y - y);
+        MP_BeginPerspectiveForPicking(x, MP_resolutionY - y);
     } else {
         MP_BeginPerspective();
     }
@@ -1011,7 +1011,7 @@ void MP_InitRender(void) {
     initGBuffer();
 
     // Define our viewport as the size of our window.
-    glViewport(0, 0, MP_resolution_x, MP_resolution_y);
+    glViewport(0, 0, MP_resolutionX, MP_resolutionY);
     EXIT_ON_OPENGL_ERROR();
 
     // Set our projection matrix to match our viewport. Null the OpenGL internal

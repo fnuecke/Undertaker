@@ -23,74 +23,74 @@ extern "C" {
     ///////////////////////////////////////////////////////////////////////////////
 
     /** Screen resolution along the x axis */
-    int MP_resolution_x;
+    int MP_resolutionX;
 
     /** Screen resolution along the y axis */
-    int MP_resolution_y;
+    int MP_resolutionX;
 
     /** The field of view to use */
-    int MP_field_of_view;
+    int MP_fieldOfView;
 
     /** Whether to use anti aliasing or not */
-    bool MP_use_antialiasing;
+    bool MP_antialiasing;
 
     /** The stream to write log messages to */
-    FILE* MP_log_target;
+    FILE* MP_logTarget;
 
     ///////////////////////////////////////////////////////////////////////////////
     // Camera
     ///////////////////////////////////////////////////////////////////////////////
 
     /** Scroll speed of the camera */
-float MP_scroll_speed;
+    float MP_scrollSpeed;
 
     ///////////////////////////////////////////////////////////////////////////////
     // Debugging
     ///////////////////////////////////////////////////////////////////////////////
 
     /** Whether the AI is enabled (units are being updated) */
-    bool MP_d_ai_enabled;
+    bool MP_DBG_isAIEnabled;
 
     /** Use test texture instead of actual textures */
-    bool MP_d_draw_test_texture;
+    bool MP_DBG_drawTestTexture;
 
     /** Render unit paths */
-    bool MP_d_draw_paths;
+    bool MP_DBG_drawPaths;
 
     /** Render job slots for player red */
-    bool MP_d_draw_jobs;
+    bool MP_DBG_drawJobs;
 
     /** Possible steps of the deferred rendering that can be rendered */
     typedef enum {
-        MP_D_DEFERRED_FINAL,
-        MP_D_DEFERRED_DIFFUSE,
-        MP_D_DEFERRED_POSITION,
-        MP_D_DEFERRED_NORMALS,
-        MP_D_DEPTH_BUFFER,
-        MP_D_DISPLAY_MODE_COUNT /* Number of possibilities, for bounding */
-    } MP_DisplayMode;
+        MP_DBG_BUFFER_FINAL,
+        MP_DBG_BUFFER_DIFFUSE,
+        MP_DBG_BUFFER_POSITION,
+        MP_DBG_BUFFER_NORMALS,
+        MP_DBG_BUFFER_DEPTH,
+        MP_DBG_BUFFER_COUNT /* Number of possibilities, for bounding */
+    } MP_DBG_DisplayBuffer;
 
     /** What part of the deferred rendering process to output */
-    MP_DisplayMode MP_d_draw_deferred;
+    MP_DBG_DisplayBuffer MP_DBG_deferredBuffer;
 
     /** Show what the picking matrix sees */
-    bool MP_d_draw_picking_mode;
+    bool MP_DBG_drawPickingMode;
 
     /** Render using the deferred shading pipeline (shaders)? */
-    bool MP_d_draw_deferred_shader;
+    bool MP_DBG_useDeferredShader;
 
     /** Visualize the number of lights processed per pixel */
-    bool MP_d_draw_light_volumes;
+    bool MP_DBG_drawLightVolumes;
 
     ///////////////////////////////////////////////////////////////////////////////
     // Saving / loading
     ///////////////////////////////////////////////////////////////////////////////
 
     /** Load configuration from disk */
-    void MP_load_config(void);
+    void MP_LoadConfig(void);
 
     /** Save configuration to disk */
-    void MP_save_config(void);
+    void MP_SaveConfig(void);
 
     ///////////////////////////////////////////////////////////////////////////////
     // Macros
@@ -151,7 +151,7 @@ float MP_scroll_speed;
     ///////////////////////////////////////////////////////////////////////////////
 
     /** The screen aspect ratio */
-#define MP_ASPECT_RATIO ((float)MP_resolution_x / (float)MP_resolution_y)
+#define MP_ASPECT_RATIO ((float)MP_resolutionX / (float)MP_resolutionY)
 
     /** Near clip plane for rendering */
 #define MP_CLIP_NEAR 10.0f
@@ -195,10 +195,10 @@ float MP_scroll_speed;
 #define MP_OWNED_NOISE_REDUCTION 0.8f
 
     /** The horizontal number of blocks to render around the camera position */
-#define MP_RENDER_AREA_X ((int)(MP_ASPECT_RATIO * MP_field_of_view * 0.25f) + 1)
+#define MP_RENDER_AREA_X ((int)(MP_ASPECT_RATIO * MP_fieldOfView * 0.25f) + 1)
 
     /** The vertical number of blocks to render around the camera position */
-#define MP_RENDER_AREA_Y ((int)(MP_field_of_view * 0.2f))
+#define MP_RENDER_AREA_Y ((int)(MP_fieldOfView * 0.2f))
 
     /** Y offset of tiles to render (due to camera looking slightly forward) */
 #define MP_RENDER_AREA_Y_OFFSET (MP_RENDER_AREA_Y * 0.2f)

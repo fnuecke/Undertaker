@@ -33,7 +33,7 @@ void MP_LoadMap(const char* mapname) {
     }
 
     MP_log_info("Loading map '%s'.\n", mapname);
-    fflush(MP_log_target);
+    fflush(MP_logTarget);
 
     // Kill remaining jobs.
     MP_ClearJobs();
@@ -47,7 +47,7 @@ void MP_LoadMap(const char* mapname) {
         return;
     }
 
-    fflush(MP_log_target);
+    fflush(MP_logTarget);
 
     // Adjust map size and set default block type.
     MP_SetMapSize(32, MP_GetBlockMeta(1));

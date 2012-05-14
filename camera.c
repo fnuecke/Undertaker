@@ -41,16 +41,16 @@ static float gCameraZoomTarget = 0;
 
 static void update(void) {
     if (gCameraDirection & MP_CAMERA_DIRECTION_NORTH) {
-        gCameraVelocity.v[1] = MP_scroll_speed;
+        gCameraVelocity.v[1] = MP_scrollSpeed;
     }
     if (gCameraDirection & MP_CAMERA_DIRECTION_SOUTH) {
-        gCameraVelocity.v[1] = -MP_scroll_speed;
+        gCameraVelocity.v[1] = -MP_scrollSpeed;
     }
     if (gCameraDirection & MP_CAMERA_DIRECTION_EAST) {
-        gCameraVelocity.v[0] = MP_scroll_speed;
+        gCameraVelocity.v[0] = MP_scrollSpeed;
     }
     if (gCameraDirection & MP_CAMERA_DIRECTION_WEST) {
-        gCameraVelocity.v[0] = -MP_scroll_speed;
+        gCameraVelocity.v[0] = -MP_scrollSpeed;
     }
 
     gCameraPosition.v[0] += gCameraVelocity.v[0] * MP_BLOCK_SIZE / MP_FRAMERATE;
