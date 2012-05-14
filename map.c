@@ -36,54 +36,7 @@ static const float z_coords[5] = {-MP_WATER_LEVEL,
                                   MP_BLOCK_HEIGHT / 2.0f,
                                   MP_BLOCK_HEIGHT};
 
-///////////////////////////////////////////////////////////////////////////////
-// Internal variables
-///////////////////////////////////////////////////////////////////////////////
-
-/**
- * The current map.
- */
-static MP_Block* gMap = NULL;
-
-/**
- * Size of the current map (width and height).
- */
-static unsigned short gMapSize = 0;
-
-/**
- * Currently hovered block coordinates.
- */
-static int gCursorX = 0, gCursorY = 0;
-
-/**
- * The light the user's cursor emits.
- */
-static MP_Light gHandLight;
-
-/**
- * Potential light sources on walls
- */
-static MP_Light* gWallLights = NULL;
-
-/**
- * List of methods to call when map size changes.
- */
-static Callbacks* gMapSizeChangeCallbacks = NULL;
-
-/**
- * Currently doing a picking (select) render pass?
- */
-static bool gIsPicking = false;
-
-/**
- * The material use for shading stuff we draw.
- */
-static MP_Material gMaterial;
-
-///////////////////////////////////////////////////////////////////////////////
-// Map model data
-///////////////////////////////////////////////////////////////////////////////
-
+/** Block sides */
 enum {
     SIDE_NORTH,
     SIDE_SOUTH,
@@ -91,6 +44,42 @@ enum {
     SIDE_WEST,
     SIDE_TOP
 };
+
+///////////////////////////////////////////////////////////////////////////////
+// Internal variables
+///////////////////////////////////////////////////////////////////////////////
+
+/** The current map */
+static MP_Block* gMap = NULL;
+
+/** Size of the current map (width and height) */
+static unsigned short gMapSize = 0;
+
+/** The block currently under the cursor; used to check if there is any */
+static MP_Block* gCursorBlock = NULL;
+
+/** Currently hovered block coordinates */
+static int gCursorX = 0, gCursorY = 0;
+static float gCursorZ = 0;
+
+/** The light the user's cursor emits */
+static MP_Light gHandLight;
+
+/** Potential light sources on walls */
+static MP_Light* gWallLights = NULL;
+
+/** List of methods to call when map size changes */
+static Callbacks* gMapSizeChangeCallbacks = NULL;
+
+/** Currently doing a picking (select) render pass? */
+static bool gIsPicking = false;
+
+/** The material use for shading stuff we draw */
+static MP_Material gMaterial;
+
+///////////////////////////////////////////////////////////////////////////////
+// Map model data
+///////////////////////////////////////////////////////////////////////////////
 
 static struct Vertex {
     /** Position of the vertex in world space */
@@ -829,12 +818,7 @@ static void drawTop(int x, int y, unsigned int z) {
 
 static void renderSelectionOutline(void) {
     GLuint indices[4];
-    MP_Selection selection = MP_GetSelection();
-
-    selection.startX += MP_MAP_BORDER / 2;
-    selection.startY += MP_MAP_BORDER / 2;
-    selection.endX += MP_MAP_BORDER / 2;
-    selection.endY += MP_MAP_BORDER / 2;
+    const MP_Selection selection = MP_GetSelection();
 
     beginDraw();
 
@@ -853,112 +837,112 @@ static void renderSelectionOutline(void) {
     // Don't change the depth buffer.
     glDepthMask(GL_FALSE);
 
-    for (int x = selection.startX; x <= selection.endX; ++x) {
-        int map_x = x - MP_MAP_BORDER / 2;
-        for (int y = selection.startY; y <= selection.endY; ++y) {
-            int map_y = y - MP_MAP_BORDER / 2;
+    for (int map_x = selection.startX; map_x <= selection.endX; ++map_x) {
+        const int x = (map_x + (MP_MAP_BORDER >> 1)) * 2;
+        for (int map_y = selection.startY; map_y <= selection.endY; ++map_y) {
+            const int y = (map_y + (MP_MAP_BORDER >> 1)) * 2;
             if (!MP_IsBlockSelectable(MP_PLAYER_ONE, MP_GetBlockAt(map_x, map_y))) {
                 continue;
             }
 
             // Draw north outline.
-            if (y == selection.endY ||
+            if (map_y == selection.endY ||
                 isBlockOpen(MP_GetBlockAt(map_x, map_y + 1))) {
-                indices[0] = fi(x * 2, y * 2 + 2, 4);
-                indices[1] = fi(x * 2 + 1, y * 2 + 2, 4);
-                indices[2] = fi(x * 2 + 2, y * 2 + 2, 4);
+                indices[0] = fi(x, y + 2, 4);
+                indices[1] = fi(x + 1, y + 2, 4);
+                indices[2] = fi(x + 2, y + 2, 4);
                 glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
 
-                indices[0] = fi(x * 2, y * 2 + 2, 2);
-                indices[1] = fi(x * 2 + 1, y * 2 + 2, 2);
-                indices[2] = fi(x * 2 + 2, y * 2 + 2, 2);
+                indices[0] = fi(x, y + 2, 2);
+                indices[1] = fi(x + 1, y + 2, 2);
+                indices[2] = fi(x + 2, y + 2, 2);
                 glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
 
                 // Top-down lines?
-                if (x == selection.startX ||
+                if (map_x == selection.startX ||
                     ((isBlockOpen(MP_GetBlockAt(map_x, map_y + 1)) ^
                     isBlockOpen(MP_GetBlockAt(map_x - 1, map_y + 1))) ||
                     isBlockOpen(MP_GetBlockAt(map_x - 1, map_y)))) {
                     // Draw north west top-to-bottom line.
-                    indices[0] = fi(x * 2, y * 2 + 2, 4);
-                    indices[1] = fi(x * 2, y * 2 + 2, 3);
-                    indices[2] = fi(x * 2, y * 2 + 2, 2);
+                    indices[0] = fi(x, y + 2, 4);
+                    indices[1] = fi(x, y + 2, 3);
+                    indices[2] = fi(x, y + 2, 2);
                     glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
                 }
-                if (x == selection.endX ||
+                if (map_x == selection.endX ||
                     ((isBlockOpen(MP_GetBlockAt(map_x, map_y + 1)) ^
                     isBlockOpen(MP_GetBlockAt(map_x + 1, map_y + 1))) ||
                     isBlockOpen(MP_GetBlockAt(map_x + 1, map_y)))) {
                     // Draw north east top-to-bottom line.
-                    indices[0] = fi(x * 2 + 2, y * 2 + 2, 4);
-                    indices[1] = fi(x * 2 + 2, y * 2 + 2, 3);
-                    indices[2] = fi(x * 2 + 2, y * 2 + 2, 2);
+                    indices[0] = fi(x + 2, y + 2, 4);
+                    indices[1] = fi(x + 2, y + 2, 3);
+                    indices[2] = fi(x + 2, y + 2, 2);
                     glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
                 }
             }
 
             // Draw south outline.
-            if (y == selection.startY ||
+            if (map_y == selection.startY ||
                 isBlockOpen(MP_GetBlockAt(map_x, map_y - 1))) {
                 //MP_PushModelMatrix();
-                indices[0] = fi(x * 2, y * 2, 4);
-                indices[1] = fi(x * 2 + 1, y * 2, 4);
-                indices[2] = fi(x * 2 + 2, y * 2, 4);
+                indices[0] = fi(x, y, 4);
+                indices[1] = fi(x + 1, y, 4);
+                indices[2] = fi(x + 2, y, 4);
                 glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
 
-                indices[0] = fi(x * 2, y * 2, 2);
-                indices[1] = fi(x * 2 + 1, y * 2, 2);
-                indices[2] = fi(x * 2 + 2, y * 2, 2);
+                indices[0] = fi(x, y, 2);
+                indices[1] = fi(x + 1, y, 2);
+                indices[2] = fi(x + 2, y, 2);
                 glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
 
                 // Top-down lines?
-                if (x == selection.startX ||
+                if (map_x == selection.startX ||
                     ((isBlockOpen(MP_GetBlockAt(map_x, map_y - 1)) ^
                     isBlockOpen(MP_GetBlockAt(map_x - 1, map_y - 1))) ||
                     isBlockOpen(MP_GetBlockAt(map_x - 1, map_y)))) {
                     // Draw south west top-to-bottom line.
-                    indices[0] = fi(x * 2, y * 2, 4);
-                    indices[1] = fi(x * 2, y * 2, 3);
-                    indices[2] = fi(x * 2, y * 2, 2);
+                    indices[0] = fi(x, y, 4);
+                    indices[1] = fi(x, y, 3);
+                    indices[2] = fi(x, y, 2);
                     glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
                 }
-                if (x == selection.endX ||
+                if (map_x == selection.endX ||
                     ((isBlockOpen(MP_GetBlockAt(map_x, map_y - 1)) ^
                     isBlockOpen(MP_GetBlockAt(map_x + 1, map_y - 1))) ||
                     isBlockOpen(MP_GetBlockAt(map_x + 1, map_y)))) {
                     // Draw south east top-to-bottom line.
-                    indices[0] = fi(x * 2 + 2, y * 2, 4);
-                    indices[1] = fi(x * 2 + 2, y * 2, 3);
-                    indices[2] = fi(x * 2 + 2, y * 2, 2);
+                    indices[0] = fi(x + 2, y, 4);
+                    indices[1] = fi(x + 2, y, 3);
+                    indices[2] = fi(x + 2, y, 2);
                     glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
                 }
             }
 
             // Draw east outline.
-            if (x == selection.endX ||
+            if (map_x == selection.endX ||
                 isBlockOpen(MP_GetBlockAt(map_x + 1, map_y))) {
-                indices[0] = fi(x * 2 + 2, y * 2, 4);
-                indices[1] = fi(x * 2 + 2, y * 2 + 1, 4);
-                indices[2] = fi(x * 2 + 2, y * 2 + 2, 4);
+                indices[0] = fi(x + 2, y, 4);
+                indices[1] = fi(x + 2, y + 1, 4);
+                indices[2] = fi(x + 2, y + 2, 4);
                 glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
 
-                indices[0] = fi(x * 2 + 2, y * 2, 2);
-                indices[1] = fi(x * 2 + 2, y * 2 + 1, 2);
-                indices[2] = fi(x * 2 + 2, y * 2 + 2, 2);
+                indices[0] = fi(x + 2, y, 2);
+                indices[1] = fi(x + 2, y + 1, 2);
+                indices[2] = fi(x + 2, y + 2, 2);
                 glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
             }
 
             // Draw west outline.
-            if (x == selection.startX ||
+            if (map_x == selection.startX ||
                 isBlockOpen(MP_GetBlockAt(map_x - 1, map_y))) {
-                indices[0] = fi(x * 2, y * 2, 4);
-                indices[1] = fi(x * 2, y * 2 + 1, 4);
-                indices[2] = fi(x * 2, y * 2 + 2, 4);
+                indices[0] = fi(x, y, 4);
+                indices[1] = fi(x, y + 1, 4);
+                indices[2] = fi(x, y + 2, 4);
                 glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
 
-                indices[0] = fi(x * 2, y * 2, 2);
-                indices[1] = fi(x * 2, y * 2 + 1, 2);
-                indices[2] = fi(x * 2, y * 2 + 2, 2);
+                indices[0] = fi(x, y, 2);
+                indices[1] = fi(x, y + 1, 2);
+                indices[2] = fi(x, y + 2, 2);
                 glDrawElements(GL_LINE_STRIP, 3, GL_UNSIGNED_INT, &indices);
             }
         }
@@ -971,12 +955,23 @@ static void renderSelectionOutline(void) {
     endDraw();
 }
 
+/** Clamps an arbitrary coordinate to a valid one (in bounds) */
+inline static int mapclamp(int coordinate) {
+    if (coordinate < -(MP_MAP_BORDER >> 1)) {
+        return -(MP_MAP_BORDER >> 1);
+    }
+    if (coordinate >= MP_GetMapSize() + (MP_MAP_BORDER >> 1)) {
+        return MP_GetMapSize() + (MP_MAP_BORDER >> 1) - 1;
+    }
+    return coordinate;
+}
+
 static void renderSelectionOverlay(void) {
     const vec3* camera = MP_GetCameraPosition();
-    const int x_begin = (int) (camera->v[0] / MP_BLOCK_SIZE) - MP_RENDER_AREA_X / 2;
-    const int y_begin = (int) (camera->v[1] / MP_BLOCK_SIZE) - MP_RENDER_AREA_Y_OFFSET;
-    const int x_end = x_begin + MP_RENDER_AREA_X;
-    const int y_end = y_begin + MP_RENDER_AREA_Y;
+    const int x_begin = mapclamp((int) (camera->v[0] / MP_BLOCK_SIZE - MP_RENDER_AREA_X / 2));
+    const int y_begin = mapclamp((int) (camera->v[1] / MP_BLOCK_SIZE - MP_RENDER_AREA_Y_OFFSET));
+    const int x_end = mapclamp(x_begin + MP_RENDER_AREA_X);
+    const int y_end = mapclamp(y_begin + MP_RENDER_AREA_Y);
 
     beginDraw();
 
@@ -1043,17 +1038,6 @@ static void renderSelectionOverlay(void) {
 
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);
-}
-
-/** Clamps an arbitrary coordinate to a valid one (in bounds) */
-inline static int mapclamp(int coordinate) {
-    if (coordinate < -MP_MAP_BORDER / 2) {
-        return -MP_MAP_BORDER / 2;
-    }
-    if (coordinate >= MP_GetMapSize() + MP_MAP_BORDER / 2) {
-        return MP_GetMapSize() + MP_MAP_BORDER / 2 - 1;
-    }
-    return coordinate;
 }
 
 static void onRender(void) {
@@ -1259,17 +1243,18 @@ static void onPreRender(void) {
     SDL_GetMouseState(&mouseX, &mouseY);
 
     gIsPicking = true;
-    name = MP_Pick(mouseX, MP_resolutionY - mouseY, &onRender);
-    gIsPicking = false;
-
-    if (name) {
+    if (MP_Pick(mouseX, MP_resolutionY - mouseY, &onRender, &name, &gCursorZ)) {
         gCursorX = (short) (name & 0xFFFF);
         gCursorY = (short) (name >> 16);
-    }
+        gCursorBlock = MP_GetBlockAt(gCursorX, gCursorY);
 
-    gHandLight.position.d.x = MP_GetCursor(MP_CURSOR_LEVEL_TOP)->v[0];
-    gHandLight.position.d.y = MP_GetCursor(MP_CURSOR_LEVEL_TOP)->v[1];
-    gHandLight.position.d.z = MP_HAND_LIGHT_HEIGHT;
+        gHandLight.position.d.x = MP_GetCursor(MP_CURSOR_LEVEL_TOP)->v[0];
+        gHandLight.position.d.y = MP_GetCursor(MP_CURSOR_LEVEL_TOP)->v[1];
+        gHandLight.position.d.z = MP_HAND_LIGHT_HEIGHT;
+    } else {
+        gCursorBlock = NULL;
+    }
+    gIsPicking = false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1298,14 +1283,21 @@ bool MP_GetBlockCoordinates(unsigned short* x, unsigned short* y, const MP_Block
     return false;
 }
 
-MP_Block * MP_GetBlockUnderCursor(int* x, int* y) {
+MP_Block* MP_GetBlockUnderCursor(void) {
+    return gCursorBlock;
+}
+
+void MP_GetBlockCoordinatesUnderCursor(int* x, int* y) {
     if (x) {
         *x = gCursorX;
     }
     if (y) {
         *y = gCursorY;
     }
-    return MP_GetBlockAt(gCursorX, gCursorY);
+}
+
+float MP_GetBlockDepthUnderCursor(void) {
+    return gCursorZ;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1313,6 +1305,8 @@ MP_Block * MP_GetBlockUnderCursor(int* x, int* y) {
 ///////////////////////////////////////////////////////////////////////////////
 
 void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith) {
+    gCursorBlock = NULL;
+
     // Reallocate data only if the size changed.
     if (size != gMapSize) {
         // Free old map data.

@@ -16,8 +16,8 @@ bool MP_IsBlockPassable(const MP_Block* block) {
     return MP_GetBlockPassability(block) > 0;
 }
 
-bool MP_IsBlockPassableBy(const MP_Block* block, const MP_Unit* unit) {
-    return unit && unit->meta && (MP_GetBlockPassability(block) & unit->meta->canPass) != 0;
+bool MP_IsBlockPassableBy(const MP_Block* block, const MP_UnitMeta* meta) {
+    return meta && (MP_GetBlockPassability(block) & meta->canPass) != 0;
 }
 
 bool MP_IsBlockDestructible(const MP_Block* block) {

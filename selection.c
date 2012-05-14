@@ -72,7 +72,7 @@ static void validate(MP_Selection* selection) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static void onUpdate(void) {
-    MP_GetBlockUnderCursor(&gCurrentSelection.endX, &gCurrentSelection.endY);
+    MP_GetBlockCoordinatesUnderCursor(&gCurrentSelection.endX, &gCurrentSelection.endY);
     if (gMode == MODE_NONE) {
         gCurrentSelection.startX = gCurrentSelection.endX;
         gCurrentSelection.startY = gCurrentSelection.endY;

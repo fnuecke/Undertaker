@@ -25,6 +25,9 @@ static void clear(void) {
     MP_ClearJobMeta();
     MP_ClearRoomMeta();
     MP_ClearUnitMeta();
+
+    // Clear unit list.
+    MP_ClearUnits();
 }
 
 void MP_LoadMap(const char* mapname) {

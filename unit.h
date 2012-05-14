@@ -54,6 +54,16 @@ extern "C" {
      */
     bool MP_IsUnitMoving(const MP_Unit* unit);
 
+    /**
+     * Get the unit currently hovered by the cursor, if any.
+     */
+    MP_Unit* MP_GetUnitUnderCursor(void);
+
+    /**
+     * Get the distance of the unit to the camera in an interval of [0, 1].
+     */
+    float MP_GetUnitDepthUnderCursor(void);
+
     ///////////////////////////////////////////////////////////////////////////
     // Modifiers
     ///////////////////////////////////////////////////////////////////////////
@@ -63,9 +73,9 @@ extern "C" {
      * @param player the player for whom to create the unit.
      * @param type the unit-type to create.
      * @param position the position at which to spawn the unit, in map space.
-     * @return whether adding was successful (1) or not(0).
+     * @return the added unit, or NULL on failure.
      */
-    int MP_AddUnit(MP_Player player, const MP_UnitMeta* type, const vec2* position);
+    MP_Unit* MP_AddUnit(MP_Player player, const MP_UnitMeta* type, const vec2* position);
 
     /**
      * Make a unit working on the specified job cancel it (if one is working on
@@ -76,8 +86,11 @@ extern "C" {
     void MP_StopJob(MP_Job* job);
 
     ///////////////////////////////////////////////////////////////////////////
-    // Initialization
+    // Initialization / Cleanup
     ///////////////////////////////////////////////////////////////////////////
+
+    /** Clear unit lists, freeing all dynamically allocated memory */
+    void MP_ClearUnits(void);
 
     /** Initialize unit logic */
     void MP_InitUnits(void);

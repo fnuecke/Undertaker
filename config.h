@@ -204,7 +204,7 @@ extern "C" {
 #define MP_RENDER_AREA_Y_OFFSET (MP_RENDER_AREA_Y * 0.2f)
 
     /** Size of the border to allocate around the actual map vertices to render out of range area */
-#define MP_MAP_BORDER MP_RENDER_AREA_X
+#define MP_MAP_BORDER (MP_RENDER_AREA_X + (MP_RENDER_AREA_X & 1))
 
     /** The color of the selection outline */
 #define MP_MAP_SELECTED_COLOR_R 0.3f

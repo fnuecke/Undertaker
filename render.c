@@ -1127,11 +1127,8 @@ void MP_AddLight(const MP_Light* light) {
         gLights = realloc(gLights, gLightCapacity * sizeof (MP_Light*));
     }
 
-    // Copy values.
-    gLights[gLightCount] = light;
-
-    // Increment counter.
-    ++gLightCount;
+    // Save pointer.
+    gLights[gLightCount++] = light;
 }
 
 bool MP_RemoveLight(const MP_Light* light) {

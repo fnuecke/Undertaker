@@ -34,9 +34,20 @@ extern "C" {
     bool MP_GetBlockCoordinates(unsigned short* x, unsigned short* y, const MP_Block* block);
 
     /**
-     * Gets the block currently hovered by the mouse, and its coordinates.
+     * Gets the block currently hovered by the mouse.
      */
-    MP_Block* MP_GetBlockUnderCursor(int* x, int* y);
+    MP_Block* MP_GetBlockUnderCursor(void);
+
+    /**
+     * Gets the coordinates of the block currently hovered by the mouse.
+     */
+    void MP_GetBlockCoordinatesUnderCursor(int* x, int* y);
+
+    /**
+     * Gets the depth (distance to camera) of the block currently under the
+     * cursor.
+     */
+    float MP_GetBlockDepthUnderCursor(void);
 
     ///////////////////////////////////////////////////////////////////////////
     // Modifiers

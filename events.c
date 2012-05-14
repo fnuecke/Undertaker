@@ -72,11 +72,11 @@ static void key_down(const SDL_Event* e) {
             light->diffuseColor.c.r = 0.5f;
             light->diffuseColor.c.g = 0.5f;
             light->diffuseColor.c.b = 0.5f;
-            light->diffuseRange = 3;
+            light->diffuseRange = 3 * MP_BLOCK_SIZE;
             light->specularColor.c.r = 0.5f;
             light->specularColor.c.g = 0.5f;
             light->specularColor.c.b = 0.5f;
-            light->specularRange = 5;
+            light->specularRange = 5 * MP_BLOCK_SIZE;
             light->position.d.x = MP_GetCursor(MP_CURSOR_LEVEL_FLOOR)->v[0];
             light->position.d.y = MP_GetCursor(MP_CURSOR_LEVEL_FLOOR)->v[1];
             light->position.d.z = MP_BLOCK_HEIGHT / 2;
@@ -88,28 +88,28 @@ static void key_down(const SDL_Event* e) {
             break;
 
         case SDLK_BACKQUOTE:
-            MP_SetBlockOwner(MP_GetBlockUnderCursor(NULL, NULL), MP_PLAYER_ONE);
+            MP_SetBlockOwner(MP_GetBlockUnderCursor(), MP_PLAYER_ONE);
             break;
         case SDLK_1:
-            MP_SetBlockMeta(MP_GetBlockUnderCursor(NULL, NULL), MP_GetBlockMeta(1));
+            MP_SetBlockMeta(MP_GetBlockUnderCursor(), MP_GetBlockMeta(1));
             break;
         case SDLK_2:
-            MP_SetBlockMeta(MP_GetBlockUnderCursor(NULL, NULL), MP_GetBlockMeta(2));
+            MP_SetBlockMeta(MP_GetBlockUnderCursor(), MP_GetBlockMeta(2));
             break;
         case SDLK_3:
-            MP_SetBlockMeta(MP_GetBlockUnderCursor(NULL, NULL), MP_GetBlockMeta(3));
+            MP_SetBlockMeta(MP_GetBlockUnderCursor(), MP_GetBlockMeta(3));
             break;
         case SDLK_4:
-            MP_SetBlockMeta(MP_GetBlockUnderCursor(NULL, NULL), MP_GetBlockMeta(4));
+            MP_SetBlockMeta(MP_GetBlockUnderCursor(), MP_GetBlockMeta(4));
             break;
         case SDLK_5:
-            MP_SetBlockMeta(MP_GetBlockUnderCursor(NULL, NULL), MP_GetBlockMeta(5));
+            MP_SetBlockMeta(MP_GetBlockUnderCursor(), MP_GetBlockMeta(5));
             break;
         case SDLK_6:
-            MP_SetBlockMeta(MP_GetBlockUnderCursor(NULL, NULL), MP_GetBlockMeta(6));
+            MP_SetBlockMeta(MP_GetBlockUnderCursor(), MP_GetBlockMeta(6));
             break;
         case SDLK_7:
-            MP_SetBlockMeta(MP_GetBlockUnderCursor(NULL, NULL), MP_GetBlockMeta(7));
+            MP_SetBlockMeta(MP_GetBlockUnderCursor(), MP_GetBlockMeta(7));
             break;
         default:
             break;

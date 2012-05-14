@@ -1,9 +1,10 @@
 #include "job_script.h"
 
 #include "block.h"
+#include "job.h"
 #include "map.h"
 #include "selection.h"
-#include "job.h"
+#include "unit.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Getters
@@ -61,7 +62,7 @@ static int lua_IsPassable(lua_State* L) {
 
 static int lua_IsPassableBy(lua_State* L) {
     lua_pushboolean(L, MP_IsBlockPassableBy(luaMP_checkblock(L, 1, 1),
-                                            luaMP_checkunit(L, 2, 2)));
+                                            luaMP_checkunit(L, 2, 2)->meta));
     return 1;
 }
 

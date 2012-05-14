@@ -30,47 +30,49 @@ static unsigned int* gJobsCount[MP_PLAYER_COUNT];
 static unsigned int* gJobsCapacity[MP_PLAYER_COUNT];
 
 /** Capacity for job types, per player; this is also the count */
-static unsigned int gJobTypeCapacity[MP_PLAYER_COUNT];
+static unsigned int gJobTypeCapacityAndCount[MP_PLAYER_COUNT];
 
 ///////////////////////////////////////////////////////////////////////////////
 // Allocation
 ///////////////////////////////////////////////////////////////////////////////
 
 static void ensureJobListSize(MP_Player player, unsigned int metaId) {
-    if (metaId >= gJobTypeCapacity[player]) {
+    if (metaId >= gJobTypeCapacityAndCount[player]) {
         unsigned int newCapacity = metaId + 1;
 
-        if (!(gJobs[player] = realloc(gJobs[player], newCapacity * sizeof (MP_Job***)))) {
+        if (!(gJobs[player] =
+            realloc(gJobs[player], newCapacity * sizeof (MP_Job***)))) {
             MP_log_fatal("Out of memory while resizing job list.\n");
         }
 
-        if (!(gJobsCount[player] = realloc(gJobsCount[player], newCapacity * sizeof (unsigned int)))) {
+        if (!(gJobsCount[player] =
+            realloc(gJobsCount[player], newCapacity * sizeof (unsigned int)))) {
             MP_log_fatal("Out of memory while resizing job count list.\n");
         }
 
-        if (!(gJobsCapacity[player] = realloc(gJobsCapacity[player], newCapacity * sizeof (unsigned int)))) {
+        if (!(gJobsCapacity[player] =
+            realloc(gJobsCapacity[player], newCapacity * sizeof (unsigned int)))) {
             MP_log_fatal("Out of memory while resizing job capacity list.\n");
         }
 
         // Clear the new slots.
-        for (unsigned int i = gJobTypeCapacity[player]; i < newCapacity; ++i) {
+        for (unsigned int i = gJobTypeCapacityAndCount[player]; i < newCapacity; ++i) {
             gJobs[player][i] = NULL;
             gJobsCount[player][i] = 0;
             gJobsCapacity[player][i] = 0;
         }
 
-        gJobTypeCapacity[player] = newCapacity;
+        gJobTypeCapacityAndCount[player] = newCapacity;
     }
 }
 
 static void ensureJobTypeListSize(MP_Player player, unsigned int metaId) {
     ensureJobListSize(player, metaId);
 
-    if (gJobsCount[player][metaId] + 1 > gJobsCapacity[player][metaId]) {
+    if (gJobsCount[player][metaId] >= gJobsCapacity[player][metaId]) {
         gJobsCapacity[player][metaId] = gJobsCapacity[player][metaId] * 2 + 1;
         if (!(gJobs[player][metaId] =
-            realloc(gJobs[player][metaId],
-                    gJobsCapacity[player][metaId] * sizeof (MP_Job**)))) {
+            realloc(gJobs[player][metaId], gJobsCapacity[player][metaId] * sizeof (MP_Job**)))) {
             MP_log_fatal("Out of memory while resizing job list.\n");
         }
     }
@@ -93,8 +95,10 @@ MP_Job* MP_NewJob(MP_Player player, const MP_JobMeta* meta) {
     }
     job->meta = meta;
 
-    // Store it in our list and return it.
-    return gJobs[player][meta->id][gJobsCount[player][meta->id]++] = job;
+    // Store it in our list.
+    gJobs[player][meta->id][gJobsCount[player][meta->id]++] = job;
+
+    return job;
 }
 
 static void deleteJob(MP_Player player, unsigned int metaId, unsigned int number) {
@@ -112,7 +116,7 @@ static void deleteJob(MP_Player player, unsigned int metaId, unsigned int number
 
 /** Delete a job that is no longer used */
 void MP_DeleteJob(MP_Player player, MP_Job* job) {
-    if (!job || !job->meta || job->meta->id >= gJobTypeCapacity[player]) {
+    if (!job || !job->meta || job->meta->id >= gJobTypeCapacityAndCount[player]) {
         return;
     }
 
@@ -127,7 +131,7 @@ void MP_DeleteJob(MP_Player player, MP_Job* job) {
 }
 
 void MP_DeleteJobsTargetingBlock(MP_Player player, const MP_JobMeta* meta, const MP_Block* block) {
-    if (meta->id >= gJobTypeCapacity[player]) {
+    if (meta->id >= gJobTypeCapacityAndCount[player]) {
         return;
     }
 
@@ -141,7 +145,7 @@ void MP_DeleteJobsTargetingBlock(MP_Player player, const MP_JobMeta* meta, const
 }
 
 void MP_DeleteJobsTargetingRoom(MP_Player player, const MP_JobMeta* meta, const MP_Room* room) {
-    if (meta->id >= gJobTypeCapacity[player]) {
+    if (meta->id >= gJobTypeCapacityAndCount[player]) {
         return;
     }
 
@@ -155,7 +159,7 @@ void MP_DeleteJobsTargetingRoom(MP_Player player, const MP_JobMeta* meta, const 
 }
 
 void MP_DeleteJobsTargetingUnit(MP_Player player, const MP_JobMeta* meta, const MP_Unit* unit) {
-    if (meta->id >= gJobTypeCapacity[player]) {
+    if (meta->id >= gJobTypeCapacityAndCount[player]) {
         return;
     }
 
@@ -234,7 +238,7 @@ static void onRender(void) {
         MP_InitMaterial(&material);
         material.emissivity = 1.0f;
 
-        for (unsigned int metaId = 0; metaId < gJobTypeCapacity[MP_PLAYER_ONE]; ++metaId) {
+        for (unsigned int metaId = 0; metaId < gJobTypeCapacityAndCount[MP_PLAYER_ONE]; ++metaId) {
             for (unsigned int number = 0; number < gJobsCount[MP_PLAYER_ONE][metaId]; ++number) {
                 const MP_Job* job = gJobs[MP_PLAYER_ONE][metaId][number];
 
@@ -371,7 +375,7 @@ MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobMeta* meta, float* distance)
 
 void MP_ClearJobs(void) {
     for (unsigned int player = 0; player < MP_PLAYER_COUNT; ++player) {
-        for (unsigned int metaId = 0; metaId < gJobTypeCapacity[player]; ++metaId) {
+        for (unsigned int metaId = 0; metaId < gJobTypeCapacityAndCount[player]; ++metaId) {
             for (unsigned int number = 0; number < gJobsCount[player][metaId]; ++number) {
                 free(gJobs[player][metaId][number]);
                 gJobs[player][metaId][number] = NULL;
@@ -386,7 +390,7 @@ void MP_ClearJobs(void) {
         free(gJobsCapacity[player]);
         gJobsCapacity[player] = NULL;
 
-        gJobTypeCapacity[player] = 0;
+        gJobTypeCapacityAndCount[player] = 0;
     }
 }
 
@@ -396,5 +400,5 @@ void MP_InitJobs(void) {
     memset(gJobs, 0, MP_PLAYER_COUNT * sizeof (MP_Job***));
     memset(gJobsCount, 0, MP_PLAYER_COUNT * sizeof (unsigned int*));
     memset(gJobsCapacity, 0, MP_PLAYER_COUNT * sizeof (unsigned int*));
-    memset(gJobTypeCapacity, 0, MP_PLAYER_COUNT * sizeof (unsigned int));
+    memset(gJobTypeCapacityAndCount, 0, MP_PLAYER_COUNT * sizeof (unsigned int));
 }
