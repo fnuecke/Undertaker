@@ -26,7 +26,7 @@ extern "C" {
     int MP_resolutionX;
 
     /** Screen resolution along the y axis */
-    int MP_resolutionX;
+    int MP_resolutionY;
 
     /** The field of view to use */
     int MP_fieldOfView;
