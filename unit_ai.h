@@ -86,6 +86,7 @@ extern "C" {
      * Render pathing information for units (debug only).
      */
     void MP_RenderPathing(const MP_Unit* unit);
+
 #ifdef	__cplusplus
 }
 #endif
