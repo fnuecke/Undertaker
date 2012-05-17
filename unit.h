@@ -36,6 +36,9 @@ extern "C" {
         /** Current position of the unit */
         vec2 position;
 
+        /** The amount of gold the unit is carrying around */
+        unsigned int gold;
+
         /** Unit desire saturation information */
         MP_UnitSatisfaction satisfaction;
 

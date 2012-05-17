@@ -108,6 +108,9 @@ extern "C" {
         /** Base movement speed of the unit */
         float moveSpeed;
 
+        /** How much gold the unit can carry */
+        unsigned int goldCapacity;
+
         /** Jobs the unit can perform */
         const MP_JobMeta** jobs;
 

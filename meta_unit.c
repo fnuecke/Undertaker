@@ -163,6 +163,9 @@ static int tableToUnit(lua_State* L, MP_UnitMeta* meta, bool forDefaults) {
                 meta->canPass = luaMP_checkpassability(L, -1, narg);
             }
 
+        } else if (strcmp(key, "maxgold") == 0) {
+            meta->goldCapacity = luaL_checkunsigned(L, -1);
+
         } else if (strcmp(key, "movespeed") == 0) {
             meta->moveSpeed = luaL_checknumber(L, -1);
 
@@ -219,6 +222,7 @@ inline static bool updateMeta(MP_UnitMeta* m, const MP_UnitMeta* meta) {
     m->canPass = meta->canPass;
     m->moveSpeed = meta->moveSpeed;
     m->satisfaction = meta->satisfaction;
+    m->goldCapacity = meta->goldCapacity;
 
     return true;
 }
