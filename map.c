@@ -1,5 +1,6 @@
 #include "map.h"
 
+#include <float.h>
 #include <math.h>
 #include <string.h>
 #include <malloc.h>
@@ -820,6 +821,11 @@ static void renderSelectionOutline(void) {
     GLuint indices[4];
     const MP_Selection selection = MP_GetSelection();
 
+    // Skip if a unit is in the way.
+    if (!MP_GetBlockUnderCursor() || MP_GetBlockDepthUnderCursor() >= MP_GetUnitDepthUnderCursor()) {
+        return;
+    }
+
     beginDraw();
 
     // Set up for line drawing.
@@ -1253,6 +1259,7 @@ static void onPreRender(void) {
         gHandLight.position.d.z = MP_HAND_LIGHT_HEIGHT;
     } else {
         gCursorBlock = NULL;
+        gCursorZ = FLT_MAX;
     }
     gIsPicking = false;
 }

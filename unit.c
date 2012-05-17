@@ -90,6 +90,12 @@ static void onRender(void) {
         for (unsigned short unitId = 0; unitId < gUnitCount[player]; ++unitId) {
             const MP_Unit* unit = gUnits[player][unitId];
 
+            // Skip while in hand.
+            if (unit->ai->isInHand) {
+                // TODO render as being held, skip when picking.
+                continue;
+            }
+
             // Push name of the unit for picking.
             LN(player, unitId);
 
@@ -132,6 +138,7 @@ static void onPreRender(void) {
         gCursorUnit = gUnits[player][unitId];
     } else {
         gCursorUnit = NULL;
+        gCursorZ = FLT_MAX;
     }
     gIsPicking = false;
 }

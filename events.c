@@ -10,6 +10,7 @@
 #include "unit.h"
 #include "map.h"
 #include "meta_block.h"
+#include "hand.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Event handlers
@@ -144,11 +145,29 @@ static void mouse_down(const SDL_Event* e) {
             MP_CameraZoomOut();
             break;
         case SDL_BUTTON_LEFT:
-            MP_BeginSelection();
+            if (MP_GetBlockDepthUnderCursor() < MP_GetUnitDepthUnderCursor()) {
+                // Block under cursor is closer to camera.
+                if (MP_GetBlockUnderCursor()) {
+                    // And there actually is a block, begin selecting.
+                    MP_BeginSelection();
+                }
+            } else if (MP_GetUnitUnderCursor()) {
+                // Pick up unit.
+                MP_Unit* unit = MP_GetUnitUnderCursor();
+                if (unit->owner == MP_PLAYER_ONE) {
+                    MP_PickUpUnit(unit->owner, unit);
+                }
+            }
             break;
         case SDL_BUTTON_RIGHT:
             if (MP_DiscardSelection()) {
+                // Was selecting, that's it.
                 break;
+            } else {
+                // Not selecting, try to drop something from the hand.
+                vec2 position = *MP_GetCursor(MP_CURSOR_LEVEL_FLOOR);
+                v2idivs(&position, MP_BLOCK_SIZE);
+                MP_DropTopHandEntry(MP_PLAYER_ONE, &position);
             }
             break;
         default:

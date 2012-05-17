@@ -55,6 +55,9 @@ extern "C" {
      * pop itself when complete.
      */
     struct MP_AI_Info {
+        /** Whether the unit is currently in its owners hand */
+        bool isInHand;
+
         /** The current AI state */
         AI_State state;
 

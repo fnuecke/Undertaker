@@ -51,7 +51,7 @@ static void updateMove(MP_Unit* unit) {
     AI_Path* path = &unit->ai->pathing;
 
     // Are we even moving?
-    if (!MP_IsUnitMoving(unit)) {
+    if (!MP_IsUnitMoving(unit) || unit->ai->isInHand) {
         return;
     }
 
@@ -161,6 +161,11 @@ static void updateCurrentJob(MP_Unit* unit) {
     MP_Job* bestJob;
     float bestWeightedDistance;
 
+    // Skip if the unit is in the player's hand.
+    if (unit->ai->isInHand) {
+        return;
+    }
+
     // Make sure our job still has a run method.
     if (state->job && !state->job->meta->hasRunMethod) {
         MP_StopJob(state->job);
@@ -234,8 +239,8 @@ static void updateCurrentJob(MP_Unit* unit) {
 /** Runs job logic, if possible */
 static void updateJob(MP_Unit* unit) {
     AI_State* state = &unit->ai->state;
-    // Only if we have a job.
-    if (state->job) {
+    // Only if we have a job and we're not in the player's hand.
+    if (state->job && !unit->ai->isInHand) {
         // See if we have an update method for it or have to wait before running the
         // job logic again.
         if (state->jobRunDelay > 0) {
