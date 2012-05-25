@@ -12,12 +12,16 @@
 #include "meta_unit.h"
 #include "textures.h"
 #include "unit.h"
+#include "script.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Save / Load methods
 ///////////////////////////////////////////////////////////////////////////////
 
 static void clear(void) {
+    // Remove existing jobs.
+    MP_ClearJobs();
+
     // Unload resources.
     MP_UnloadTextures();
 
@@ -32,6 +36,9 @@ static void clear(void) {
 }
 
 void MP_LoadMap(const char* mapname) {
+    char filename[128];
+    lua_State* L;
+
     if (!mapname) {
         return;
     }
@@ -39,25 +46,40 @@ void MP_LoadMap(const char* mapname) {
     MP_log_info("Loading map '%s'.\n", mapname);
     fflush(MP_logTarget);
 
-    // Kill remaining jobs.
-    MP_ClearJobs();
-
+    // Clean up.
     clear();
 
+    // Create the lua environment.
+    L = MP_InitLua();
+
+    // Set meta parsing environment.
+    MP_SetMapScriptGlobals();
+
+    // Try to parse the file.
+    lua_pushcfunction(L, MP_Lua_Import);
+    lua_pushfstring(L, "data/maps/%s.lua", mapname);
+    if (MP_Lua_pcall(L, 1, 0) != LUA_OK) {
+        // Print error and clean up.
+        MP_log_error("Failed parsing map file:\n%s\n", lua_tostring(L, -1));
+        MP_CloseLua();
+        return false;
+    }
+
+    MP_log_info("Done parsing map file '%s'.\n", filename);
+
     // Load new meta information for the map.
-    if (!MP_LoadMeta(mapname)) {
+    if (MP_LoadMeta(mapname)) {
+        // Load new resources onto GPU.
+        MP_GL_GenerateTextures();
+
+        // Switch to ingame script environment.
+        MP_SetGameScriptGlobals();
+    } else {
         // Remove anything we might have parsed.
         clear();
-        return;
     }
 
     fflush(MP_logTarget);
-
-    // Adjust map size and set default block type.
-    MP_SetMapSize(32, MP_GetBlockMeta(1));
-
-    // Load new resources onto GPU.
-    MP_GL_GenerateTextures();
 }
 
 void MP_SaveMap(const char* filename) {

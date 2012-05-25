@@ -2,8 +2,9 @@
 
 #include "bitset.h"
 #include "block.h"
+#include "events.h"
 #include "job.h"
-#include "job_script.h"
+#include "script.h"
 #include "map.h"
 #include "update.h"
 

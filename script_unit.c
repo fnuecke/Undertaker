@@ -1,4 +1,4 @@
-#include "job_script.h"
+#include "script.h"
 
 #include "unit.h"
 #include "meta_unit.h"
@@ -10,24 +10,24 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 static int lua_GetCanPass(lua_State* L) {
-    lua_pushinteger(L, luaMP_checkunit(L, 1, 1)->meta->canPass);
+    lua_pushinteger(L, luaMP_checkunit(L, 1)->meta->canPass);
     return 1;
 }
 
 static int lua_GetOwner(lua_State* L) {
-    lua_pushinteger(L, luaMP_checkunit(L, 1, 1)->owner);
+    lua_pushinteger(L, luaMP_checkunit(L, 1)->owner);
     return 1;
 }
 
 static int lua_GetPosition(lua_State* L) {
-    MP_Unit* unit = luaMP_checkunit(L, 1, 1);
+    MP_Unit* unit = luaMP_checkunit(L, 1);
     lua_pushnumber(L, unit->position.d.x);
     lua_pushnumber(L, unit->position.d.y);
     return 2;
 }
 
 static int lua_GetType(lua_State* L) {
-    lua_pushinteger(L, luaMP_checkunit(L, 1, 1)->meta->id);
+    lua_pushinteger(L, luaMP_checkunit(L, 1)->meta->id);
     return 1;
 }
 
@@ -39,7 +39,7 @@ static int lua_Move(lua_State* L) {
     vec2 position;
     position.d.x = luaL_checknumber(L, 2);
     position.d.y = luaL_checknumber(L, 3);
-    lua_pushnumber(L, MP_MoveTo(luaMP_checkunit(L, 1, 1), &position));
+    lua_pushnumber(L, MP_MoveTo(luaMP_checkunit(L, 1), &position));
     return 1;
 }
 
@@ -76,8 +76,8 @@ MP_Unit* luaMP_tounit(lua_State* L, int narg) {
     return *(MP_Unit**) lua_touserdata(L, narg);
 }
 
-MP_Unit* luaMP_checkunit(lua_State* L, int narg, int errarg) {
+MP_Unit* luaMP_checkunit(lua_State* L, int narg) {
     void* ud = luaL_checkudata(L, narg, LUA_UNITLIBNAME);
-    luaL_argcheck(L, ud != NULL, errarg, "'" LUA_UNITLIBNAME "' expected");
+    luaL_argcheck(L, ud != NULL, narg, "'" LUA_UNITLIBNAME "' expected");
     return *(MP_Unit**) ud;
 }

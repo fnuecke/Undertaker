@@ -6,7 +6,8 @@ The unit will need to have the 'convert' ability, which is used to determine
 conversion strength and cooldown.
 --]]
 
--- Get utility methods for creating jobs for block walls.
+-- Get utility methods.
+import "ability_util"
 import "wall_util"
 
 --[[
@@ -54,26 +55,11 @@ local function onBlockChanged(block, x, y)
 end
 
 --[[
-Check if we're in range for converting. If so, convert, else go there and wait
-until we reach the job's location.
+We're active, so do some converting.
 --]]
 local function run(unit, job)
-	-- See whether we're close enough.
-	local ux, uy = unit:getPosition()
 	local jx, jy = job:getPosition()
-	local dx, dy = ux - jx, uy - jy
-	local dn = (dx * dx + dy * dy)
-	-- TODO replace with ability range^2
-	if dn <= 0.01 then
-		-- In range, do our thing.
-		-- TODO replace with ability strength
-		job:getTargetBlock():convert(unit:getOwner(), 10)
-		-- TODO replace with ability cooldown
-		return 0.5
-	else
-		-- Not yet there, move and try again after getting there.
-		return unit:move(jx, jy)
-	end
+	useAbilityOrMove(unit, "convert", jx, jy, {block=job:getTargetBlock()})
 end
 
 export("onBlockSelectionChanged", onBlockSelectionChanged)

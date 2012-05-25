@@ -1,5 +1,5 @@
 #include "unit_ai.h"
-#include "job_script.h"
+#include "script.h"
 
 #include <assert.h>
 #include <float.h>
@@ -203,7 +203,7 @@ static void updateCurrentJob(MP_Unit* unit) {
 
         // Weigh the distance based on the saturation and preference.
         if (jobs[number]->hasDynamicPreference) {
-            distance -= weightedPreference(saturation[number], MP_Lua_GetDynamicPreference(unit, jobs[number]), &metaSaturation[number]);
+            distance -= weightedPreference(saturation[number], MP_GetDynamicPreference(unit, jobs[number]), &metaSaturation[number]);
         } else {
             distance -= weightedPreference(saturation[number], metaSaturation[number].preference, &metaSaturation[number]);
         }
@@ -249,7 +249,7 @@ static void updateJob(MP_Unit* unit) {
         } else {
             // Otherwise update the unit based on its current job.
             assert(state->job->meta->hasRunMethod);
-            state->active = MP_Lua_RunJob(unit, state->job, &state->jobRunDelay);
+            state->active = MP_RunJob(unit, state->job, &state->jobRunDelay);
         }
     }
 }

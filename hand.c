@@ -3,6 +3,7 @@
 #include <float.h>
 #include <malloc.h>
 
+#include "log.h"
 #include "unit.h"
 #include "unit_ai.h"
 #include "map.h"

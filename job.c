@@ -9,6 +9,8 @@
 #include "astar_mp.h"
 #include "block.h"
 #include "config.h"
+#include "events.h"
+#include "log.h"
 #include "meta_job.h"
 #include "map.h"
 #include "render.h"

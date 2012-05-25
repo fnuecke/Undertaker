@@ -7,9 +7,11 @@
 #include <SDL/SDL.h>
 #include <GL/glew.h>
 
+#include "callbacks.h"
 #include "camera.h"
 #include "config.h"
 #include "cursor.h"
+#include "events.h"
 #include "graphics.h"
 #include "job.h"
 #include "log.h"

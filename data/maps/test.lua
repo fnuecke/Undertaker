@@ -2,11 +2,11 @@
 meta "defaults"
 
 -- Map size in blocks, always squared.
-size 16
+size(16, "dirt")
 
 -- Terrain definition.
-local map = {}
-terrain map
+--local map = {}
+--terrain map
 
 --[[
 0 0 0 1 1 1 1 1 1 0 0 0 0 0 0

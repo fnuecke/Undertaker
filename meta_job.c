@@ -4,8 +4,9 @@
 
 #include "block.h"
 #include "job.h"
-#include "job_script.h"
-#include "job_script_eventnames.h"
+#include "meta_impl.h"
+#include "script.h"
+#include "script_events.h"
 #include "room.h"
 #include "unit.h"
 
@@ -136,7 +137,7 @@ static int lua_Export(lua_State* L) {
     return 0;
 }
 
-static int lua_Import(lua_State* L) {
+static int MP_Lua_Import(lua_State* L) {
     char path[128];
 
     // Check if we have a valid name.
@@ -243,7 +244,7 @@ static void setupForLoading(lua_State* L) {
     lua_pushglobaltable(L);
 
     // Register functions.
-    lua_pushcfunction(L, lua_Import);
+    lua_pushcfunction(L, MP_Lua_Import);
     lua_setfield(L, -2, "import");
 
     lua_pushcfunction(L, lua_Export);
@@ -308,7 +309,7 @@ int MP_Lua_AddJobMeta(lua_State* L) {
     setupForLoading(meta.L);
 
     // Load the script.
-    lua_pushcfunction(meta.L, lua_Import);
+    lua_pushcfunction(meta.L, MP_Lua_Import);
     lua_pushstring(meta.L, meta.name);
     if (MP_Lua_pcall(meta.L, 1, 0) != LUA_OK) {
         // Failed loading, pass error on.

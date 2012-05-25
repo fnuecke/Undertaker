@@ -2,8 +2,9 @@
 
 #include <stdio.h>
 
+#include "meta_impl.h"
 #include "passability.h"
-#include "job_script.h"
+#include "script.h"
 #include "textures.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -33,71 +34,11 @@ const char* BLOCK_TEXTURE_SUFFIX_SIDE[] = {[MP_BLOCK_TEXTURE_SIDE] = "side",
 
 META_globals(MP_BlockMeta)
 
+static bool gForDefaults;
+
 ///////////////////////////////////////////////////////////////////////////////
 // Helper methods
 ///////////////////////////////////////////////////////////////////////////////
-
-/** Lua table parsing */
-static int tableToBlock(lua_State* L, MP_BlockMeta* meta, bool forDefaults) {
-    // Keep track at which table entry we are.
-    int narg = 1;
-
-    // What do we use for defaults?
-    if (!forDefaults) {
-        const MP_BlockMeta* existing;
-
-        // Get the name.
-        lua_getfield(L, -1, "name");
-        // Check if that type is already known (override).
-        if ((existing = MP_GetBlockMetaByName(luaL_checkstring(L, -1)))) {
-            // Yes, this will be an override.
-            *meta = *existing;
-        } else {
-            // New entry.
-            *meta = gMetaDefaults;
-            meta->name = lua_tostring(L, -1); // must be string (checkstring)
-        }
-        lua_pop(L, 1); // pop name
-    } // else: meta already equals gMetaDefaults
-
-    // Now loop through the table. Push initial 'key' -- nil means start.
-    lua_pushnil(L);
-    while (lua_next(L, -2)) {
-        // Get key as string.
-        const char* key;
-        luaL_argcheck(L, lua_type(L, -2) == LUA_TSTRING, narg, "keys must be strings");
-        key = lua_tostring(L, -2);
-
-        // See what we have.
-        if (strcmp(key, "name") == 0) {
-            if (forDefaults) {
-                return luaL_argerror(L, narg, "'name' not allowed in defaults");
-            } // else: Silently skip.
-        } else if (strcmp(key, "level") == 0) {
-            meta->level = luaMP_checklevel(L, -1, narg);
-        } else if (strcmp(key, "passability") == 0) {
-            meta->passability = luaMP_checkpassability(L, -1, narg);
-        } else if (strcmp(key, "lightfrequency") == 0) {
-            meta->lightFrequency = luaL_checkunsigned(L, -1);
-        } else if (strcmp(key, "durability") == 0) {
-            meta->durability = luaL_checkunsigned(L, -1);
-        } else if (strcmp(key, "strength") == 0) {
-            meta->strength = luaL_checkunsigned(L, -1);
-        } else if (strcmp(key, "gold") == 0) {
-            meta->gold = luaL_checkunsigned(L, -1);
-        } else if (strcmp(key, "becomes") == 0) {
-            meta->becomes = luaMP_checkblockmeta(L, -1, narg);
-        } else {
-            return luaL_argerror(L, narg, "unknown key");
-        }
-
-        lua_pop(L, 1); // pop value
-
-        ++narg;
-    }
-
-    return 0;
-}
 
 /** Texture loading for a single type */
 static void loadTexturesFor(MP_BlockMeta* m) {
@@ -155,6 +96,72 @@ static void loadTexturesFor(MP_BlockMeta* m) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// Parser
+///////////////////////////////////////////////////////////////////////////////
+
+// <editor-fold defaultstate="collapsed" desc="block parsers">
+static void level(lua_State* L, MP_BlockMeta* meta) {
+    meta->level = luaMP_checklevel(L, -1);
+}
+
+static void passability(lua_State* L, MP_BlockMeta* meta) {
+    meta->passability = luaMP_checkpassability(L, -1);
+}
+
+static void lightfrequency(lua_State* L, MP_BlockMeta* meta) {
+    meta->lightFrequency = luaL_checkunsigned(L, -1);
+}
+
+static void durability(lua_State* L, MP_BlockMeta* meta) {
+    meta->durability = luaL_checkunsigned(L, -1);
+}
+
+static void strength(lua_State* L, MP_BlockMeta* meta) {
+    meta->strength = luaL_checkunsigned(L, -1);
+}
+
+static void gold(lua_State* L, MP_BlockMeta* meta) {
+    meta->gold = luaL_checkunsigned(L, -1);
+}
+
+static void becomes(lua_State* L, MP_BlockMeta* meta) {
+    meta->becomes = luaMP_checkblockmeta(L, -1);
+}
+
+META_parser(MP_BlockMeta, Block, {
+    // What do we use for defaults?
+    if (!gForDefaults) {
+        const MP_BlockMeta* existing;
+
+        // Get the name.
+        lua_getfield(L, -1, "name");
+        // Check if that type is already known (override).
+        if ((existing = MP_GetBlockMetaByName(luaL_checkstring(L, -1)))) {
+            // Yes, this will be an override.
+            *meta = *existing;
+        } else {
+            // New entry.
+            *meta = gMetaDefaults;
+            meta->name =  lua_tostring(L, -1);
+        }
+        lua_pop(L, 1); // pop name
+    } // else meta already equals gMetaDefaults
+    target = meta;
+}, gForDefaults, MP_BlockMeta* meta)
+// </editor-fold>
+
+static const BlockParserEntry blockParsers[] = {
+    {"level", level},
+    {"passability", passability},
+    {"lightfrequency", lightfrequency},
+    {"durability", durability},
+    {"strength", strength},
+    {"gold", gold},
+    {"becomes", becomes},
+    {NULL, NULL}
+};
+
+///////////////////////////////////////////////////////////////////////////////
 // Meta implementation
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -199,11 +206,11 @@ inline static void deleteMeta(MP_BlockMeta* m) {
 META_impl(MP_BlockMeta, Block)
 
 int MP_Lua_BlockMetaDefaults(lua_State* L) {
-    // Validate input.
-    luaL_argcheck(L, lua_gettop(L) == 1 && lua_istable(L, 1), 0, "one 'table' expected");
+    luaL_argcheck(L, lua_gettop(L) == 1, 1, "wrong number of arguments");
 
     // Build the block meta using the given properties.
-    tableToBlock(L, &gMetaDefaults, true /* for defaults */);
+    gForDefaults = true;
+    parseBlockTable(L, blockParsers, &gMetaDefaults);
 
     return 0;
 }
@@ -212,14 +219,14 @@ int MP_Lua_AddBlockMeta(lua_State* L) {
     // New type, start with defaults.
     MP_BlockMeta meta;
 
-    // Validate input.
-    luaL_argcheck(L, lua_gettop(L) == 1 && lua_istable(L, 1), 0, "one 'table' expected");
+    luaL_argcheck(L, lua_gettop(L) == 1, 1, "wrong number of arguments");
 
     // Build the block meta using the given properties.
-    tableToBlock(L, &meta, false /* not for defaults */);
+    gForDefaults = false;
+    parseBlockTable(L, blockParsers, &meta);
 
     // We require for at least the name to be set.
-    luaL_argcheck(L, meta.name != NULL, 1, "'name' is required but not set");
+    luaL_argcheck(L, meta.name != NULL && strlen(meta.name) > 0, 1, "invalid or no 'name'");
 
     // All green, add the type.
     if (!MP_AddBlockMeta(&meta)) {

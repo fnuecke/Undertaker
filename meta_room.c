@@ -1,5 +1,7 @@
 #include "meta_room.h"
 
+#include "meta_impl.h"
+
 META_globals(MP_RoomMeta)
 
 /** Reset defaults on map change */

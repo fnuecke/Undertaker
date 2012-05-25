@@ -1,4 +1,6 @@
-#include "job_script.h"
+#include "script.h"
+
+#include <string.h>
 
 #include "job.h"
 #include "meta_job.h"
@@ -25,8 +27,8 @@ static int lua_JobIter(lua_State* L) {
 }
 
 static int lua_GetByType(lua_State* L) {
-    const MP_Player player = luaMP_checkplayer(L, 1, 1);
-    const MP_JobMeta* meta = luaMP_checkjobmeta(L, 2, 2);
+    const MP_Player player = luaMP_checkplayer(L, 1);
+    const MP_JobMeta* meta = luaMP_checkjobmeta(L, 2);
 
     JobIter* iter = (JobIter*) lua_newuserdata(L, sizeof (JobIter));
     iter->jobs = MP_GetJobs(player, meta, &iter->i);
@@ -36,14 +38,14 @@ static int lua_GetByType(lua_State* L) {
 }
 
 static int lua_GetOffset(lua_State* L) {
-    MP_Job* job = luaMP_checkjob(L, 1, 1);
+    MP_Job* job = luaMP_checkjob(L, 1);
     lua_pushnumber(L, job->offset.d.x);
     lua_pushnumber(L, job->offset.d.y);
     return 2;
 }
 
 static int lua_GetPosition(lua_State* L) {
-    MP_Job* job = luaMP_checkjob(L, 1, 1);
+    MP_Job* job = luaMP_checkjob(L, 1);
     vec2 p;
     MP_GetJobPosition(&p, job);
     lua_pushnumber(L, p.d.x);
@@ -52,17 +54,17 @@ static int lua_GetPosition(lua_State* L) {
 }
 
 static int lua_GetTargetBlock(lua_State* L) {
-    luaMP_pushblock(L, luaMP_checkjob(L, 1, 1)->block);
+    luaMP_pushblock(L, luaMP_checkjob(L, 1)->block);
     return 1;
 }
 
 static int lua_GetTargetRoom(lua_State* L) {
-    luaMP_pushroom(L, luaMP_checkjob(L, 1, 1)->room);
+    luaMP_pushroom(L, luaMP_checkjob(L, 1)->room);
     return 1;
 }
 
 static int lua_GetTargetUnit(lua_State* L) {
-    luaMP_pushunit(L, luaMP_checkjob(L, 1, 1)->unit);
+    luaMP_pushunit(L, luaMP_checkjob(L, 1)->unit);
     return 1;
 }
 
@@ -82,7 +84,7 @@ static int lua_CreateJob(lua_State* L) {
 
     // Get job meta data.
     lua_getfield(L, -1, "name");
-    job.meta = luaMP_checkjobmeta(L, -1, 1);
+    job.meta = luaMP_checkjobmeta(L, -1);
     lua_pop(L, 1);
 
     // Now loop through the table. Push initial 'key' -- nil means start.
@@ -100,13 +102,13 @@ static int lua_CreateJob(lua_State* L) {
             // Silently skip it.
 
         } else if (strcmp(key, "block") == 0) {
-            job.block = luaMP_checkblock(L, -1, narg);
+            job.block = luaMP_checkblock(L, -1);
 
         } else if (strcmp(key, "room") == 0) {
-            job.room = luaMP_checkroom(L, -1, narg);
+            job.room = luaMP_checkroom(L, -1);
 
         } else if (strcmp(key, "unit") == 0) {
-            job.unit = luaMP_checkunit(L, -1, narg);
+            job.unit = luaMP_checkunit(L, -1);
 
         } else if (strcmp(key, "offset") == 0) {
             vec2 p = ZERO_VEC2;
@@ -142,7 +144,7 @@ static int lua_CreateJob(lua_State* L) {
             job.offset = p;
 
         } else if (strcmp(key, "player") == 0) {
-            player = luaMP_checkplayer(L, -1, narg);
+            player = luaMP_checkplayer(L, -1);
 
         } else {
             return luaL_argerror(L, narg, "unknown key");
@@ -161,16 +163,16 @@ static int lua_CreateJob(lua_State* L) {
 }
 
 static int lua_DeleteJob(lua_State* L) {
-    const MP_Player player = luaMP_checkplayer(L, 1, 1);
-    MP_DeleteJob(player, luaMP_checkjob(L, 2, 2));
+    const MP_Player player = luaMP_checkplayer(L, 1);
+    MP_DeleteJob(player, luaMP_checkjob(L, 2));
     return 0;
 }
 
 static int lua_DeleteJobWhereTarget(lua_State* L) {
     // Get player.
-    const MP_Player player = luaMP_checkplayer(L, 1, 1);
+    const MP_Player player = luaMP_checkplayer(L, 1);
     // Get job type to delete.
-    const MP_JobMeta* meta = luaMP_checkjobmeta(L, 2, 2);
+    const MP_JobMeta* meta = luaMP_checkjobmeta(L, 2);
     // Get the target. Figure out what it is.
     if (luaMP_isblock(L, 3)) {
         // It's a block.
@@ -226,8 +228,8 @@ MP_Job* luaMP_tojob(lua_State* L, int narg) {
     return *(MP_Job**) lua_touserdata(L, narg);
 }
 
-MP_Job* luaMP_checkjob(lua_State* L, int narg, int errarg) {
+MP_Job* luaMP_checkjob(lua_State* L, int narg) {
     void* ud = luaL_checkudata(L, narg, LUA_JOBLIBNAME);
-    luaL_argcheck(L, ud != NULL, errarg, "'" LUA_JOBLIBNAME "' expected");
+    luaL_argcheck(L, ud != NULL, narg, "'" LUA_JOBLIBNAME "' expected");
     return *(MP_Job**) ud;
 }

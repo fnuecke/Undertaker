@@ -1,4 +1,4 @@
-#include "job_script.h"
+#include "script.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Getters
@@ -35,8 +35,8 @@ MP_Room* luaMP_toroom(lua_State* L, int narg) {
     return *(MP_Room**) lua_touserdata(L, narg);
 }
 
-MP_Room* luaMP_checkroom(lua_State* L, int narg, int errarg) {
+MP_Room* luaMP_checkroom(lua_State* L, int narg) {
     void* ud = luaL_checkudata(L, narg, LUA_ROOMLIBNAME);
-    luaL_argcheck(L, ud != NULL, errarg, "'" LUA_ROOMLIBNAME "' expected");
+    luaL_argcheck(L, ud != NULL, narg, "'" LUA_ROOMLIBNAME "' expected");
     return *(MP_Room**) ud;
 }

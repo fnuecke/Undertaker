@@ -12,14 +12,23 @@ type must be declared before another uses it in the 'becomes' field, e.g.
 --[[
 Ability types.
 
-TODO
+These represents single abilities a unit may have. Each ability has its own
+cooldown. Abilities may be passed custom parameters in the unit declaration.
+
+This will try loading a script file defining the abilities' behavior when
+activated.
 --]]
+ability "dig"
+ability "convert"
 
 --[[
 Job types.
 
 These represent single AI states. For each state declared here, there must be a
 script file containing the actual logic for the state with the name of the job.
+
+This will try loading a script file defining the jobs' behavior based on events
+and when executed (active).
 --]]
 job "wander"
 job "dig"
@@ -156,6 +165,10 @@ unit {name="imp", movespeed=1.8,
 			{name="dig", preference=20},
 			{name="convert_floor", preference=10},
 			{name="convert_wall", preference=1}
+		},
+		abilities={
+			{name="dig", config={damage=10, cooldown=0.5}},
+			{name="convert", config={strength=10, cooldown=0.5}}
 		}}
 
 --[[
