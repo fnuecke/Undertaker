@@ -61,6 +61,11 @@ static TYPE* findByName(const char* name) { \
     return NULL; \
 }
 
+#define META_getDefaults(TYPE, NAME) \
+TYPE* MP_Get##NAME##MetaDefaults(void) { \
+    return &gMetaDefaults; \
+}
+
 #define META_getById(TYPE, NAME) \
 const TYPE* MP_Get##NAME##Meta(unsigned int id) { \
     if (id > 0 && id - 1 < gMetaCount) { \
@@ -124,6 +129,7 @@ void MP_Clear##NAME##Meta(void) { \
 META_getNextFreeEntry(TYPE) \
 META_storeName \
 META_findByName(TYPE) \
+META_getDefaults(TYPE, NAME) \
 META_getById(TYPE, NAME) \
 META_getByName(TYPE, NAME) \
 META_getCount(TYPE, NAME) \

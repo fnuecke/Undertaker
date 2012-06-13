@@ -22,9 +22,6 @@ extern "C" {
         /** The name of this job type */
         const char* name;
 
-        /** The script used to handle job logic */
-        lua_State* L;
-
         /** List to check which events are handled by the script */
         bool handlesEvent[MP_JOB_EVENT_COUNT];
 

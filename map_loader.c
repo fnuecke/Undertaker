@@ -36,7 +36,6 @@ static void clear(void) {
 }
 
 void MP_LoadMap(const char* mapname) {
-    char filename[128];
     lua_State* L;
 
     if (!mapname) {
@@ -53,30 +52,27 @@ void MP_LoadMap(const char* mapname) {
     L = MP_InitLua();
 
     // Set meta parsing environment.
-    MP_SetMapScriptGlobals();
+    MP_SetLoadingScriptGlobals(L);
 
     // Try to parse the file.
     lua_pushcfunction(L, MP_Lua_Import);
     lua_pushfstring(L, "data/maps/%s.lua", mapname);
     if (MP_Lua_pcall(L, 1, 0) != LUA_OK) {
-        // Print error and clean up.
         MP_log_error("Failed parsing map file:\n%s\n", lua_tostring(L, -1));
-        MP_CloseLua();
-        return false;
-    }
 
-    MP_log_info("Done parsing map file '%s'.\n", filename);
+        // Remove anything we might have parsed.
+        clear();
 
-    // Load new meta information for the map.
-    if (MP_LoadMeta(mapname)) {
+        // Shut down Lua VM.
+        MP_CloseLua(L);
+    } else {
+        MP_log_info("Done parsing map '%s'.\n", mapname);
+
         // Load new resources onto GPU.
         MP_GL_GenerateTextures();
 
         // Switch to ingame script environment.
-        MP_SetGameScriptGlobals();
-    } else {
-        // Remove anything we might have parsed.
-        clear();
+        MP_SetGameScriptGlobals(L);
     }
 
     fflush(MP_logTarget);

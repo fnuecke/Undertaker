@@ -8,22 +8,11 @@
 #ifndef ABILITY_H
 #define	ABILITY_H
 
-#include "types.h"
+#include "meta_ability.h"
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
-
-    struct MP_AbilityMeta {
-        /** The ID of the ability type */
-        unsigned int id;
-
-        /** The name of the ability type */
-        char* name;
-
-        /** The time it takes before the ability can trigger again */
-        float cooldown;
-    };
 
     struct MP_Ability {
         /** Info on the ability type */

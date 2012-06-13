@@ -66,56 +66,11 @@ extern "C" {
     const MP_UnitMeta* luaMP_checkunitmeta(lua_State* L, int narg);
 
     ///////////////////////////////////////////////////////////////////////////
-    // Environment switching
-    ///////////////////////////////////////////////////////////////////////////
-
-    /**
-     * Setup basic globals structure for a script VM. Shuts down a previous VM.
-     */
-    lua_State* MP_InitLua(void);
-    
-    /**
-     * Shut down the Lua VM.
-     */
-    void MP_CloseLua(void);
-
-    /**
-     * Used for parsing map basics. Makes available meta, size and similar setters.
-     */
-    void MP_SetMapScriptGlobals(void);
-
-    /**
-     * Used for in-game script execution. Makes available interface methods for
-     * querying/modifying game state.
-     */
-    void MP_SetGameScriptGlobals(void);
-
-    /**
-     * Creates a fresh local environment for the following lua calls. This can
-     * be used when loading scripts to allow the scripts to fill in that local
-     * environment.
-     */
-    void MP_NewSciptLocals(void);
-
-    /**
-     * Stores a local environment under the specified name for later retrieval.
-     * This will not invalidate the current local environment.
-     */
-    void MP_RegisterScriptLocals(const char* type, const char* name);
-
-    /**
-     * Restore a local environment previously stored.
-     */
-    void MP_LoadScriptLocals(const char* type, const char* name);
-
-    ///////////////////////////////////////////////////////////////////////////
     // Utility methods
     ///////////////////////////////////////////////////////////////////////////
 
     /** Same as lua_pcall, just that it produces a stack trace */
     int MP_Lua_pcall(lua_State* L, int nargs, int nresults);
-
-    int MP_Lua_Import(lua_State* L);
 
     bool MP_RunJob(MP_Unit* unit, MP_Job* job, unsigned int* delay);
 

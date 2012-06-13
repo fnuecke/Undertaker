@@ -15,6 +15,7 @@
 
 #define META_header(TYPE, NAME) \
 const TYPE* MP_Get##NAME##Meta(unsigned int id); \
+TYPE* MP_Get##NAME##MetaDefaults(void); \
 const TYPE* MP_Get##NAME##MetaByName(const char* name); \
 unsigned int MP_Get##NAME##MetaCount(void); \
 bool MP_Add##NAME##Meta(const TYPE* meta); \
