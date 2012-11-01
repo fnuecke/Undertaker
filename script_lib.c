@@ -12,7 +12,7 @@ void MP_Lua_Push##NAME(lua_State* L, MP_##NAME* value) { \
     luaL_setmetatable(L, LIBNAME); \
 } \
 bool MP_Lua_Is##NAME(lua_State* L, int narg) { \
-    return luaL_checkudata(L, narg, LIBNAME) != NULL; \
+    return luaL_testudata(L, narg, LIBNAME) != NULL; \
 } \
 MP_##NAME* MP_Lua_To##NAME(lua_State* L, int narg) { \
     return *(MP_##NAME**) lua_touserdata(L, narg); \

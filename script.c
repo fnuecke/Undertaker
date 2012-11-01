@@ -96,10 +96,11 @@ lua_State* MP_Lua_Init(void) {
     require(gL, LUA_STRLIBNAME, luaopen_string, false);
     require(gL, LUA_TABLIBNAME, luaopen_table, false);
 
-    require(gL, LUA_BLOCKLIBNAME, MP_Lua_OpenBlock, true);
+    require(gL, LUA_ABILITYLIBNAME, MP_Lua_OpenAbility, true);
     require(gL, LUA_JOBLIBNAME, MP_Lua_OpenJob, true);
-    require(gL, LUA_ROOMLIBNAME, MP_Lua_OpenRoom, true);
+    require(gL, LUA_BLOCKLIBNAME, MP_Lua_OpenBlock, true);
     require(gL, LUA_UNITLIBNAME, MP_Lua_OpenUnit, true);
+    require(gL, LUA_ROOMLIBNAME, MP_Lua_OpenRoom, true);
 
     // Log warnings if accessing undefined fields of our table. This is
     // to notify developers that their scripts do something most likely
@@ -213,7 +214,7 @@ int MP_Lua_pcall(lua_State* L, int nargs, int nresults) {
 ///////////////////////////////////////////////////////////////////////////////
 // Loading
 ///////////////////////////////////////////////////////////////////////////////
-
+            
 // Reserved words in lua, scripts cannot have these names.
 static const char* gReserved[] = {"and", "break", "do", "else", "elseif",
                                   "end", "false", "for", "function", "if",
@@ -227,6 +228,9 @@ static const char* gReserved[] = {"and", "break", "do", "else", "elseif",
                                   LUA_LOADLIBNAME,
                                   LUA_BLOCKLIBNAME, LUA_JOBLIBNAME,
                                   LUA_ROOMLIBNAME, LUA_UNITLIBNAME,
+                                  "import", "mapsize", "ability", "job",
+                                  "passability", "blockdefaults", "block",
+                                  "unitdefaults", "unit",
                                   NULL};
 
 inline static int isempty(lua_State* L, int index) {
@@ -382,21 +386,39 @@ int MP_Lua_Load(const char* path) {
         lua_pushcfunction(L, m->func);
         lua_setfield(L, -2, m->name);
     }
+    // Copy for extracting globals after parsing.
+    lua_pushvalue(L, -1);
 
     // Make the new globals the index.
-    lua_setfield(L, -3, "__index");
+    lua_setfield(L, -4, "__index");
 
     // Try to parse the script.
     level = lua_gettop(L);
     if ((result = luaL_dofile(L, path)) != LUA_OK) {
         // Save error message, push it below the globals table.
-        lua_insert(L, -4);
+        lua_insert(L, -5);
     } else {
         // Pop results.
         lua_pop(L, lua_gettop(L) - level);
 
-        // TODO copy globals from parsed scripts
+        // Copy globals from parsed scripts. Those are essentially the tables
+        // that are not our own entries, so we delete those first, then copy
+        // over what remains.
+        for (const luaL_Reg* m = loadlib; m->name != NULL; ++m) {
+            lua_pushnil(L);
+            lua_setfield(L, -2, m->name);
+        }
+
+        lua_pushnil(L);
+        while (lua_next(L, -2)) {
+            lua_pushvalue(L, -2);
+            lua_insert(L, -2);
+            lua_settable(L, -5);
+        }
     }
+    
+    // Pop our index.
+    lua_pop(L, 1);
 
     // Restore global state.
     lua_setfield(L, -2, "__index");

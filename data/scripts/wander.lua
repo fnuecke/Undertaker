@@ -45,7 +45,7 @@ job {
         onUnitAdded = function(unit)
             -- We target ourself. It must be ensured by the priority, that no
             -- other unit will target this units wander job.
-            Job.create {player=unit:getOwner(), name="wander", target=unit}
+            Job.create {name="wander", player=unit:getOwner(), target=unit}
         end
     }
 }

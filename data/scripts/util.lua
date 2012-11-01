@@ -25,7 +25,7 @@ function util.addJobsForBlock(player, block, jobType, validateLocation, validate
     local x, y = block:getPosition()
 	-- Start digging if a neighboring tile is passable.
 	if validateTarget(block) then
-		local job = {name=jobType, player=player, block=block}
+		local job = {name=jobType, player=player, target=block}
 		if validateLocation(Block.at(x, y + 1)) then
 			job.offset = {0, 0.7}
 			Job.create(job)
@@ -86,7 +86,7 @@ function util.addJobsForBlocksSurrounding(player, block, jobType, validateLocati
 		if bit32.band(existingJobs, Side.NORTH) == 0 then
 			local b = Block.at(x, y + 1)
 			if validateTarget(b) then
-				job.block = b
+				job.target = b
 				job.offset = {0, -0.7}
 				Job.create(job)
 			end
@@ -94,7 +94,7 @@ function util.addJobsForBlocksSurrounding(player, block, jobType, validateLocati
 		if bit32.band(existingJobs, Side.SOUTH) == 0 then
 			local b = Block.at(x, y - 1)
 			if validateTarget(b) then
-				job.block = b
+				job.target = b
 				job.offset = {0, 0.7}
 				Job.create(job)
 			end
@@ -102,7 +102,7 @@ function util.addJobsForBlocksSurrounding(player, block, jobType, validateLocati
 		if bit32.band(existingJobs, Side.EAST) == 0 then
 			local b = Block.at(x + 1, y)
 			if validateTarget(b) then
-				job.block = b
+				job.target = b
 				job.offset = {-0.7, 0}
 				Job.create(job)
 			end
@@ -110,7 +110,7 @@ function util.addJobsForBlocksSurrounding(player, block, jobType, validateLocati
 		if bit32.band(existingJobs, Side.WEST) == 0 then
 			local b = Block.at(x - 1, y)
 			if validateTarget(b) then
-				job.block = b
+				job.target = b
 				job.offset = {0.7, 0}
 				Job.create(job)
 			end

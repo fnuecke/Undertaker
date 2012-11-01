@@ -21,6 +21,7 @@
 #include "cursor.h"
 #include "job.h"
 #include "room_type.h"
+#include "script_events.h"
 
 static void shutdown(void) {
     MP_log_info("Game shutting down...\n");
@@ -95,6 +96,7 @@ void MP_Init(void) {
     MP_InitUnits();
     MP_InitMap();
     MP_InitJobs();
+    MP_InitLuaEvents();
 
     MP_log_info("Done initializing internal hooks.\n");
 

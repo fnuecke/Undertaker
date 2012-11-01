@@ -29,7 +29,7 @@ job {
         end
     end,
     events = {
-        onBlockSelectionChanged = function(block, player)
+        onBlockSelectionChanged = function(player, block)
             Job.deleteByTypeWhereTarget(player, "dig", block)
 
             local function validateLocation(block)
@@ -39,7 +39,7 @@ job {
                 return block:isSelectedBy(player)
             end
             local x, y = block:getPosition()
-            util.addJobsForBlockAt(player, block, x, y, "dig", validateLocation, validateTarget)
+            util.addJobsForBlock(player, block, "dig", validateLocation, validateTarget)
         end,
 
         --[[
@@ -58,8 +58,8 @@ job {
                 local function validateTarget(block)
                     return block:isSelectedBy(player)
                 end
-                util.addJobsForBlockAt(player, block, x, y, "dig", validateLocation, validateTarget)
-                util.addJobsForBlocksSurrounding(player, block, x, y, "dig", validateLocation, validateTarget)
+                util.addJobsForBlock(player, block, "dig", validateLocation, validateTarget)
+                util.addJobsForBlocksSurrounding(player, block, "dig", validateLocation, validateTarget)
             end
         end,
 

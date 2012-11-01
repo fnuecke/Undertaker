@@ -84,25 +84,22 @@ static int lua_CreateJob(lua_State* L) {
     MP_Player player = MP_PLAYER_NONE;
     MP_Job job = {NULL, NULL, MP_JOB_TARGET_NONE, NULL, ZERO_VEC2};
 
-    // Keep track at which table entry we are.
-    int narg = 1;
-
     // Validate input.
-    luaL_argcheck(L, lua_gettop(L) == 1 && lua_istable(L, -1), 0, "one 'table' expected");
+    luaL_argcheck(L, lua_gettop(L) == 1 && lua_istable(L, 1), 0, "one 'table' expected");
 
     // Get job meta data.
-    lua_getfield(L, -1, "name");
+    lua_getfield(L, 1, "name");
     job.type = MP_Lua_CheckJobType(L, -1);
     lua_pop(L, 1);
 
     // Now loop through the table. Push initial 'key' -- nil means start.
     lua_pushnil(L);
     // -> table, nil
-    while (lua_next(L, -2)) {
+    while (lua_next(L, 1)) {
         // -> table, key, value
         // Get key as string.
         const char* key;
-        luaL_argcheck(L, lua_type(L, -2) == LUA_TSTRING, narg, "keys must be strings");
+        luaL_argcheck(L, lua_type(L, -2) == LUA_TSTRING, 1, "keys must be strings");
         key = lua_tostring(L, -2);
 
         // See what we have.
@@ -120,12 +117,12 @@ static int lua_CreateJob(lua_State* L) {
                 job.targetType = MP_JOB_TARGET_UNIT;
                 job.target = MP_Lua_ToUnit(L, -1);
             } else {
-                return luaL_argerror(L, narg, "invalid target type");
+                return luaL_argerror(L, 1, "invalid target type");
             }
 
         } else if (strcmp(key, "offset") == 0) {
             vec2 p = ZERO_VEC2;
-            luaL_checktype(L, narg, LUA_TTABLE);
+            luaL_checktype(L, 1, LUA_TTABLE);
             // Test if we have named arguments or should use the first two.
             lua_getfield(L, -1, "x");
             if (lua_isnil(L, -1)) {
@@ -160,12 +157,10 @@ static int lua_CreateJob(lua_State* L) {
             player = MP_Lua_CheckPlayer(L, -1);
 
         } else {
-            return luaL_argerror(L, narg, "unknown key");
+            return luaL_argerror(L, 1, "unknown key");
         }
 
         lua_pop(L, 1);
-
-        ++narg;
     }
 
     luaL_argcheck(L, job.target != NULL, 1, "must set 'target'");

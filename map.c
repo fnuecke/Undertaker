@@ -1562,10 +1562,7 @@ void MP_SetBlockType(MP_Block* block, const MP_BlockType* type) {
 
     updateBlock(block);
 
-    // Fire event for AI scripts.
-    for (int i = 0; i < MP_PLAYER_COUNT; ++i) {
-        MP_DispatchBlockTypeChangedEvent(block);
-    }
+    MP_DispatchBlockTypeChangedEvent(block);
 }
 
 void MP_SetBlockOwner(MP_Block* block, MP_Player player) {
@@ -1584,9 +1581,7 @@ void MP_SetBlockOwner(MP_Block* block, MP_Player player) {
     updateBlock(block);
 
     // Fire event for AI scripts.
-    for (int i = 0; i < MP_PLAYER_COUNT; ++i) {
-        MP_DispatchBlockOwnerChangedEvent(block);
-    }
+    MP_DispatchBlockOwnerChangedEvent(block);
 
     autoConvert(block, player);
 }

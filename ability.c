@@ -5,12 +5,14 @@
 bool MP_UseAbility(MP_Ability* ability) {
     lua_State* L = MP_Lua();
 
-    if (ability->cooldown > 0) {
-        return false;
-    }
-    
+    // Fail if we don't have a run method.
     if (ability->type->runMethod == LUA_REFNIL) {
         MP_log_warning("Trying to run ability '%s', which has no 'run' method.\n", ability->type->info.name);
+        return false;
+    }
+
+    // Skip if we're on cooldown.
+    if (ability->cooldown > 0) {
         return false;
     }
 
@@ -18,7 +20,7 @@ bool MP_UseAbility(MP_Ability* ability) {
     lua_rawgeti(L, LUA_REGISTRYINDEX, ability->type->runMethod);
     if (lua_isfunction(L, -1)) {
         MP_Lua_PushAbility(L, ability);
-        if (MP_Lua_pcall(L, 2, 1) == LUA_OK) {
+        if (MP_Lua_pcall(L, 1, 1) == LUA_OK) {
             // We may have gotten a delay (in seconds) to wait (cooldown).
             bool success = false;
             if (lua_isnumber(L, -1)) {

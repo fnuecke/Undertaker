@@ -121,7 +121,7 @@ job {
     events = {
         onBlockTypeChanged = convertWallBlockChangeHandler,
         onBlockOwnerChanged = convertWallBlockChangeHandler,
-        onBlockSelectionChanged = function(block, player)
+        onBlockSelectionChanged = function(player, block)
             Job.deleteByTypeWhereTarget(player, "convert_wall", block)
 
             local function validateLocation(block)

@@ -189,6 +189,7 @@ MP_Unit* MP_AddUnit(MP_Player player, const MP_UnitType* meta, const vec2* posit
     
     // Create shallow copy of ability property list.
     for (unsigned int number = 0; number < unit->type->abilityCount; ++number) {
+        unit->abilities[number].type = unit->type->abilities[number].type;
         unit->abilities[number].unit = unit;
         lua_rawgeti(L, LUA_REGISTRYINDEX, unit->type->abilities[number].properties);
         lua_newtable(L);
