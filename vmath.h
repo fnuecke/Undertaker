@@ -1,5 +1,4 @@
 /* 
- * File:   vmath.h
  * Author: fnuecke
  *
  * Created on April 24, 2012, 10:11 PM
@@ -257,4 +256,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* VMATH_H */
+#endif

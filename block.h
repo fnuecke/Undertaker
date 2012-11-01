@@ -1,5 +1,4 @@
 /* 
- * File:   block.h
  * Author: fnuecke
  *
  * Created on May 2, 2012, 4:46 PM
@@ -8,7 +7,7 @@
 #ifndef BLOCK_H
 #define	BLOCK_H
 
-#include "meta_block.h"
+#include "block_type.h"
 
 #ifdef	__cplusplus
 extern "C" {
@@ -21,7 +20,7 @@ extern "C" {
     /** Description of a single block instance */
     struct MP_Block {
         /** Info on the block type */
-        const MP_BlockMeta* meta;
+        const MP_BlockType* type;
 
         /** The type of room on this block */
         MP_Room* room;
@@ -49,7 +48,7 @@ extern "C" {
 
     bool MP_IsBlockPassable(const MP_Block* block);
 
-    bool MP_IsBlockPassableBy(const MP_Block* block, const MP_UnitMeta* meta);
+    bool MP_IsBlockPassableBy(const MP_Block* block, const MP_UnitType* meta);
 
     bool MP_IsBlockDestructible(const MP_Block* block);
 
@@ -59,5 +58,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* BLOCK_H */
-
+#endif

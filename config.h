@@ -1,5 +1,4 @@
 /* 
- * File:   config.h
  * Author: fnuecke
  *
  * Created on April 14, 2012, 9:46 AM
@@ -9,7 +8,6 @@
 #define	CONFIG_H
 
 #include <stdio.h>
-
 #include <GL/glew.h>
 
 #include "types.h"
@@ -273,5 +271,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* CONFIG_H */
-
+#endif

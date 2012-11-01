@@ -1,12 +1,11 @@
 /* 
- * File:   jobs.h
  * Author: fnuecke
  *
  * Created on April 18, 2012, 4:04 PM
  */
 
-#ifndef JOBS_H
-#define	JOBS_H
+#ifndef JOB_H
+#define	JOB_H
 
 #include "types.h"
 #include "vmath.h"
@@ -40,22 +39,34 @@ extern "C" {
      * the actual choice in job a unit decides on.
      */
 
-    /** Data for a single job */
+    /** Defines possible target types for a job */
+    typedef enum {
+        /** Job does not target anything in particular */
+        MP_JOB_TARGET_NONE,
+
+        /** Job targets a block */
+        MP_JOB_TARGET_BLOCK,
+
+        /** Job targets a room */
+        MP_JOB_TARGET_ROOM,
+
+        /** Job targets a unit */
+        MP_JOB_TARGET_UNIT
+    } MP_JobTargetType;
+
+    /** Data for a single job instance */
     struct MP_Job {
         /** Job type information */
-        const MP_JobMeta* meta;
+        const MP_JobType* type;
 
         /** The unit that is currently assigned to that job */
         MP_Unit* worker;
 
-        /** The targeted block, if any */
-        MP_Block* block;
+        /** The type of the targeted object (defines type of the pointer) */
+        MP_JobTargetType targetType;
 
-        /** The targeted room, if any */
-        MP_Room* room;
-
-        /** The targeted unit, if any */
-        MP_Unit* unit;
+        /** The targeted object, if any */
+        void* target;
 
         /** Offset to the target position; absolute, if there is no target */
         vec2 offset;
@@ -68,7 +79,7 @@ extern "C" {
      * @param meta the type of the job to create.
      * @return the newly created job.
      */
-    MP_Job* MP_NewJob(MP_Player player, const MP_JobMeta* meta);
+    MP_Job* MP_NewJob(MP_Player player, const MP_JobType* type);
 
     /**
      * Deletes a job. This frees the memory the job occupies, so all pointers to
@@ -86,7 +97,7 @@ extern "C" {
      * @param meta the type of job to delete.
      * @param block the targeted block to check for.
      */
-    void MP_DeleteJobsTargetingBlock(MP_Player player, const MP_JobMeta* meta, const MP_Block* block);
+    void MP_DeleteJobsTargetingBlock(MP_Player player, const MP_JobType* meta, const MP_Block* block);
 
     /**
      * Deletes all jobs targeting the specified room. Same effects as for the
@@ -95,7 +106,7 @@ extern "C" {
      * @param meta the type of job to delete.
      * @param room the targeted room to check for.
      */
-    void MP_DeleteJobsTargetingRoom(MP_Player player, const MP_JobMeta* meta, const MP_Room* room);
+    void MP_DeleteJobsTargetingRoom(MP_Player player, const MP_JobType* meta, const MP_Room* room);
 
     /**
      * Deletes all jobs targeting the specified unit. Same effects as for the
@@ -104,7 +115,7 @@ extern "C" {
      * @param meta the type of job to delete.
      * @param unit the targeted unit to check for.
      */
-    void MP_DeleteJobsTargetingUnit(MP_Player player, const MP_JobMeta* meta, const MP_Unit* unit);
+    void MP_DeleteJobsTargetingUnit(MP_Player player, const MP_JobType* meta, const MP_Unit* unit);
 
     /**
      * Get a list of all jobs of the specified type, as well as the size of that
@@ -114,7 +125,7 @@ extern "C" {
      * @param count used to return the length of the list.
      * @return the list of jobs.
      */
-    MP_Job * const* MP_GetJobs(MP_Player player, const MP_JobMeta* meta, unsigned int* count);
+    MP_Job* const* MP_GetJobs(MP_Player player, const MP_JobType* meta, unsigned int* count);
 
     /**
      * Get the actual position of a job, i.e. that of its target including the
@@ -131,12 +142,33 @@ extern "C" {
      * @param the distance to the found job, if any.
      * @return the closest job of that type to the unit. May be null.
      */
-    MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobMeta* type, float* distance);
+    MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobType* type, float* distance);
 
     /**
      * Clear all job lists and free all additional memory.
      */
     void MP_ClearJobs(void);
+
+    /**
+     * Runs a script associated with the specified job, for the specified unit.
+     * If delay is not null, a delay may be returned this way, after which the
+     * job should be executed again, instead of instantly.
+     * @param unit the unit to run the job for.
+     * @param job the job to run.
+     * @param delay if not null, used to return a delay to wait.
+     * @return whether the job is active or not (for saturation changes).
+     */
+    bool MP_RunJob(MP_Unit* unit, MP_Job* job, unsigned int* delay);
+
+    /**
+     * Gets a dynamic preference of a unit for a job. This allows units having
+     * a job preference based on dynamic parameters (e.g. number of enemies
+     * nearby, to trigger a "flee" behavior).
+     * @param unit the unit to get the preference for.
+     * @param type the job type.
+     * @return the weighted preference for that job.
+     */
+    float MP_GetDynamicPreference(MP_Unit* unit, const MP_JobType* type);
 
     /**
      * Initialize job system.
@@ -147,5 +179,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* JOBS_H */
-
+#endif

@@ -1,5 +1,4 @@
 /* 
- * File:   render.h
  * Author: fnuecke
  *
  * Created on April 23, 2012, 2:11 PM
@@ -146,5 +145,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* RENDER_H */
-
+#endif

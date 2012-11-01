@@ -1,5 +1,4 @@
 /* 
- * File:   map.h
  * Author: fnuecke
  *
  * Created on April 14, 2012, 9:44 AM
@@ -58,12 +57,12 @@ extern "C" {
      * event, which should invalidate all other map size dependent data (and
      * generally means that the old map has been unloaded -> cleanup).
      */
-    void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith);
+    void MP_SetMapSize(unsigned short size, const MP_BlockType* fillWith);
 
     /**
      * Change the type of a block.
      */
-    void MP_SetBlockMeta(MP_Block* block, const MP_BlockMeta* meta);
+    void MP_SetBlockType(MP_Block* block, const MP_BlockType* type);
 
     /**
      * Change the owner of a block.
@@ -103,5 +102,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* MAP_H */
-
+#endif

@@ -1,3 +1,6 @@
+#include <assert.h>
+#include <string.h>
+
 #include "map_loader.h"
 
 #include "config.h"
@@ -5,11 +8,11 @@
 #include "job.h"
 #include "log.h"
 #include "map.h"
-#include "meta.h"
-#include "meta_block.h"
-#include "meta_job.h"
-#include "meta_room.h"
-#include "meta_unit.h"
+#include "type.h"
+#include "block_type.h"
+#include "job_type.h"
+#include "room_type.h"
+#include "unit_type.h"
 #include "textures.h"
 #include "unit.h"
 #include "script.h"
@@ -26,53 +29,46 @@ static void clear(void) {
     MP_UnloadTextures();
 
     // Clear meta information.
-    MP_ClearBlockMeta();
-    MP_ClearJobMeta();
-    MP_ClearRoomMeta();
-    MP_ClearUnitMeta();
+    MP_ClearBlockTypes();
+    MP_ClearJobTypes();
+    MP_ClearRoomTypes();
+    MP_ClearUnitTypes();
 
     // Clear unit list.
     MP_ClearUnits();
 }
 
-void MP_LoadMap(const char* mapname) {
-    lua_State* L;
+void MP_LoadMap(const char* name) {
+    char path[256];
 
-    if (!mapname) {
-        return;
-    }
+    assert(name);
+    assert(strlen(name) > 0);
 
-    MP_log_info("Loading map '%s'.\n", mapname);
+    MP_log_info("Loading map '%s'.\n", name);
     fflush(MP_logTarget);
+
+    sprintf(path, "data/maps/%s.lua", name);
 
     // Clean up.
     clear();
 
     // Create the lua environment.
-    L = MP_InitLua();
+    MP_Lua_Init();
 
-    // Set meta parsing environment.
-    MP_SetLoadingScriptGlobals(L);
-
-    // Try to parse the file.
-    lua_pushcfunction(L, MP_Lua_Import);
-    lua_pushfstring(L, "data/maps/%s.lua", mapname);
-    if (MP_Lua_pcall(L, 1, 0) != LUA_OK) {
-        MP_log_error("Failed parsing map file:\n%s\n", lua_tostring(L, -1));
+    // Try to load the map.
+    if (MP_Lua_Load(path) != LUA_OK) {
+        MP_log_error("Failed parsing map file:\n%s\n", lua_tostring(MP_Lua(), -1));
 
         // Remove anything we might have parsed.
         clear();
 
         // Shut down Lua VM.
-        MP_CloseLua(L);
+        MP_Lua_Close();
     } else {
-        MP_log_info("Done parsing map '%s'.\n", mapname);
+        MP_log_info("Done parsing map '%s'.\n", name);
 
         // Load new resources onto GPU.
         MP_GL_GenerateTextures();
-
-        // Switch to ingame script environment.
-        MP_SetGameScriptGlobals(L);
     }
 
     fflush(MP_logTarget);

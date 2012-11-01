@@ -1,5 +1,4 @@
 /* 
- * File:   camera.h
  * Author: fnuecke
  *
  * Created on April 15, 2012, 2:21 PM
@@ -109,5 +108,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* CAMERA_H */
-
+#endif

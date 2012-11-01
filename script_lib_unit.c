@@ -1,33 +1,52 @@
 #include "script.h"
 
 #include "unit.h"
-#include "meta_unit.h"
+#include "unit_type.h"
 #include "unit_ai.h"
-#include "meta_job.h"
+#include "job_type.h"
+#include "ability_type.h"
+#include "ability.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Getters
 ///////////////////////////////////////////////////////////////////////////////
 
 static int lua_GetCanPass(lua_State* L) {
-    lua_pushinteger(L, luaMP_checkunit(L, 1)->meta->canPass);
+    lua_pushinteger(L, MP_Lua_CheckUnit(L, 1)->type->canPass);
     return 1;
 }
 
 static int lua_GetOwner(lua_State* L) {
-    lua_pushinteger(L, luaMP_checkunit(L, 1)->owner);
+    lua_pushinteger(L, MP_Lua_CheckUnit(L, 1)->owner);
     return 1;
 }
 
 static int lua_GetPosition(lua_State* L) {
-    MP_Unit* unit = luaMP_checkunit(L, 1);
+    MP_Unit* unit = MP_Lua_CheckUnit(L, 1);
     lua_pushnumber(L, unit->position.d.x);
     lua_pushnumber(L, unit->position.d.y);
     return 2;
 }
 
+static int lua_GetAbility(lua_State* L) {
+    MP_Unit* unit = MP_Lua_CheckUnit(L, 1);
+    const MP_AbilityType* ability = MP_Lua_CheckAbilityType(L, 2);
+    
+    // Find an ability of that type.
+    for(unsigned int i = 0; i < unit->type->abilityCount; ++i) {
+        if (unit->abilities[i].type == ability) {
+            MP_Lua_PushAbility(L, &unit->abilities[i]);
+            return 1;
+        }
+    }
+    
+    // No such ability, push null.
+    lua_pushnil(L);
+    return 1;
+}
+
 static int lua_GetType(lua_State* L) {
-    lua_pushinteger(L, luaMP_checkunit(L, 1)->meta->id);
+    lua_pushinteger(L, MP_Lua_CheckUnit(L, 1)->type->info.id);
     return 1;
 }
 
@@ -39,7 +58,7 @@ static int lua_Move(lua_State* L) {
     vec2 position;
     position.d.x = luaL_checknumber(L, 2);
     position.d.y = luaL_checknumber(L, 3);
-    lua_pushnumber(L, MP_MoveTo(luaMP_checkunit(L, 1), &position));
+    lua_pushnumber(L, MP_MoveTo(MP_Lua_CheckUnit(L, 1), &position));
     return 1;
 }
 
@@ -51,33 +70,14 @@ static const luaL_Reg lib[] = {
     {"getCanPass", lua_GetCanPass},
     {"getOwner", lua_GetOwner},
     {"getPosition", lua_GetPosition},
+    {"getAbility", lua_GetAbility},
     {"getType", lua_GetType},
 
     {"move", lua_Move},
     {NULL, NULL}
 };
 
-int luaopen_unit(lua_State* L) {
+int MP_Lua_OpenUnit(lua_State* L) {
     luaL_newlib(L, lib);
     return 1;
-}
-
-void luaMP_pushunit(lua_State* L, MP_Unit* unit) {
-    MP_Unit** ud = (MP_Unit**) lua_newuserdata(L, sizeof (MP_Unit*));
-    *ud = unit;
-    luaL_setmetatable(L, LUA_UNITLIBNAME);
-}
-
-bool luaMP_isunit(lua_State* L, int narg) {
-    return luaL_checkudata(L, narg, LUA_UNITLIBNAME) != NULL;
-}
-
-MP_Unit* luaMP_tounit(lua_State* L, int narg) {
-    return *(MP_Unit**) lua_touserdata(L, narg);
-}
-
-MP_Unit* luaMP_checkunit(lua_State* L, int narg) {
-    void* ud = luaL_checkudata(L, narg, LUA_UNITLIBNAME);
-    luaL_argcheck(L, ud != NULL, narg, "'" LUA_UNITLIBNAME "' expected");
-    return *(MP_Unit**) ud;
 }

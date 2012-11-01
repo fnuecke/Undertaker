@@ -1,5 +1,4 @@
 /* 
- * File:   shader.h
  * Author: fnuecke
  *
  * Created on April 23, 2012, 4:07 PM
@@ -29,4 +28,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* SHADER_H */
+#endif

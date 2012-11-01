@@ -1,14 +1,13 @@
 /* 
- * File:   units.h
  * Author: fnuecke
  *
  * Created on April 16, 2012, 7:18 PM
  */
 
-#ifndef UNITS_H
-#define	UNITS_H
+#ifndef UNIT_H
+#define	UNIT_H
 
-#include "meta_unit.h"
+#include "unit_type.h"
 #include "vmath.h"
 
 #ifdef	__cplusplus
@@ -19,16 +18,10 @@ extern "C" {
     // Types
     ///////////////////////////////////////////////////////////////////////////
 
-    /** Holds information on unit job desire saturation */
-    struct MP_UnitSatisfaction {
-        /** How satisfied the unit is with each job */
-        float* jobSaturation;
-    };
-
     /** Contains data on a single unit instance */
     struct MP_Unit {
         /** Info on the unit type */
-        const MP_UnitMeta* meta;
+        const MP_UnitType* type;
 
         /** The player this unit belongs to */
         MP_Player owner;
@@ -36,11 +29,11 @@ extern "C" {
         /** Current position of the unit */
         vec2 position;
 
-        /** The amount of gold the unit is carrying around */
-        unsigned int gold;
+        /** Abilities this unit can use */
+        MP_Ability* abilities;
 
-        /** Unit desire saturation information */
-        MP_UnitSatisfaction satisfaction;
+        /** Unit desire saturation information per job (ordered as in meta) */
+        float* jobSaturation;
 
         /** Internal AI state of the unit */
         MP_AI_Info* ai;
@@ -78,7 +71,7 @@ extern "C" {
      * @param position the position at which to spawn the unit, in map space.
      * @return the added unit, or NULL on failure.
      */
-    MP_Unit* MP_AddUnit(MP_Player player, const MP_UnitMeta* type, const vec2* position);
+    MP_Unit* MP_AddUnit(MP_Player player, const MP_UnitType* type, const vec2* position);
 
     /**
      * Make a unit working on the specified job cancel it (if one is working on
@@ -102,5 +95,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* UNITS_H */
-
+#endif

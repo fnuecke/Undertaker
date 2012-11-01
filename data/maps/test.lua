@@ -1,8 +1,8 @@
 -- Get default definitions.
-meta "defaults"
+import "defaults"
 
 -- Map size in blocks, always squared.
-size(16, "dirt")
+mapsize(16, "dirt")
 
 -- Terrain definition.
 --local map = {}

@@ -127,5 +127,5 @@ void MP_CameraZoomOut(void) {
 }
 
 void MP_InitCamera(void) {
-    MP_OnUpdate(update);
+    MP_AddUpdateEventListener(update);
 }

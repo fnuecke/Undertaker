@@ -54,7 +54,7 @@ static void updateLevel(MP_CursorLevel level, float z, int mouseX, int mouseY) {
 /**
  * Updates cursor positions; muse be called after camera was set up.
  */
-static void update(void) {
+static void onPreRender(void) {
     // Get environment info.
     int mouseX, mouseY;
 
@@ -75,5 +75,5 @@ const vec2* MP_GetCursor(MP_CursorLevel level) {
 }
 
 void MP_InitCursor(void) {
-    MP_OnPreRender(update);
+    MP_AddPreRenderEventListener(onPreRender);
 }

@@ -1,5 +1,4 @@
 /* 
- * File:   types.h
  * Author: fnuecke
  *
  * Created on May 5, 2012, 4:32 PM
@@ -16,23 +15,24 @@ extern "C" {
     // Struct typedefs / forward declarations
     ///////////////////////////////////////////////////////////////////////////
 
+    typedef struct MP_Type MP_Type;
+
     typedef struct MP_Ability MP_Ability;
-    typedef struct MP_AbilityMeta MP_AbilityMeta;
+    typedef struct MP_AbilityType MP_AbilityType;
 
     typedef struct MP_Block MP_Block;
-    typedef struct MP_BlockMeta MP_BlockMeta;
+    typedef struct MP_BlockType MP_BlockType;
 
     typedef struct MP_Job MP_Job;
-    typedef struct MP_JobMeta MP_JobMeta;
+    typedef struct MP_JobType MP_JobType;
 
     typedef struct MP_Room MP_Room;
-    typedef struct MP_RoomMeta MP_RoomMeta;
+    typedef struct MP_RoomType MP_RoomType;
 
     typedef struct MP_Unit MP_Unit;
-    typedef struct MP_UnitMeta MP_UnitMeta;
-    typedef struct MP_UnitSatisfaction MP_UnitSatisfaction;
-    typedef struct MP_UnitSatisfactionMeta MP_UnitSatisfactionMeta;
-    typedef struct MP_UnitJobSaturationMeta MP_UnitJobSaturationMeta;
+    typedef struct MP_UnitType MP_UnitType;
+    typedef struct MP_UnitAbilityType MP_UnitAbilityType;
+    typedef struct MP_UnitJobType MP_UnitJobType;
     typedef struct MP_AI_Info MP_AI_Info;
 
     ///////////////////////////////////////////////////////////////////////////
@@ -116,5 +116,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* TYPES_H */
-
+#endif

@@ -1,12 +1,11 @@
 /* 
- * File:   units_ai.h
  * Author: fnuecke
  *
  * Created on May 4, 2012, 4:37 PM
  */
 
-#ifndef UNITS_AI_H
-#define	UNITS_AI_H
+#ifndef UNIT_AI_H
+#define	UNIT_AI_H
 
 #include "astar.h"
 #include "config.h"
@@ -91,5 +90,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* UNITS_AI_H */
-
+#endif

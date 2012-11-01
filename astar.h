@@ -1,5 +1,4 @@
 /* 
- * File:   astar.h
  * Author: fnuecke
  *
  * Created on April 18, 2012, 3:07 PM
@@ -53,4 +52,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* ASTAR_H */
+#endif

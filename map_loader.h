@@ -1,5 +1,4 @@
 /* 
- * File:   map_loader.h
  * Author: fnuecke
  *
  * Created on May 5, 2012, 5:53 PM
@@ -17,9 +16,9 @@ extern "C" {
     ///////////////////////////////////////////////////////////////////////////
 
     /**
-     * Load the current map from a file with the specified name.
+     * Load the map with the specified name.
      */
-    void MP_LoadMap(const char* filename);
+    void MP_LoadMap(const char* name);
 
     /**
      * Save the current map to a file with the specified name.
@@ -37,5 +36,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* MAP_LOADER_H */
-
+#endif

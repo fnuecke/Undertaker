@@ -1,5 +1,4 @@
 /* 
- * File:   log.h
  * Author: fnuecke
  *
  * Created on May 9, 2012, 4:13 PM
@@ -9,6 +8,7 @@
 #define	LOG_H
 
 #include <stdio.h>
+#include <string.h>
 
 #include "config.h"
 
@@ -16,8 +16,20 @@
 extern "C" {
 #endif
 
+    static const char* fileNameFromPath(const char* path) {
+        char* lastForwardSeparator = strrchr(path, '/');
+        char* lastBackwardSeparator = strrchr(path, '\\');
+        char* lastSeparator = lastForwardSeparator > lastBackwardSeparator ? lastForwardSeparator : lastBackwardSeparator;
+        if (lastSeparator) {
+            return lastSeparator + 1;
+        } else {
+            return path;
+        }
+    }
+#define __FILENAME__ fileNameFromPath(__FILE__)
+
 #define MP_log(level, ...) \
-fprintf(MP_logTarget, "%s: ", level); \
+fprintf(MP_logTarget, "%s in %s@%d: ", level, __FILENAME__, __LINE__); \
 fprintf(MP_logTarget, __VA_ARGS__); \
 fflush(MP_logTarget)
 
@@ -30,5 +42,4 @@ fflush(MP_logTarget)
 }
 #endif
 
-#endif	/* LOG_H */
-
+#endif

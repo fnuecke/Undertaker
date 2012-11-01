@@ -1,27 +1,36 @@
 /* 
- * File:   job_names.h
  * Author: fnuecke
  *
  * Created on May 12, 2012, 1:28 AM
  */
 
-#ifndef JOB_NAMES_H
-#define	JOB_NAMES_H
+#ifndef SCRIPT_EVENTS_H
+#define	SCRIPT_EVENTS_H
+
+#include "types.h"
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-    static const char* JOB_EVENT_NAME[MP_JOB_EVENT_COUNT] = {
-        [MP_JOB_EVENT_UNIT_ADDED] = "onUnitAdded",
-        [MP_JOB_EVENT_BLOCK_SELECTION_CHANGED] = "onBlockSelectionChanged",
-        [MP_JOB_EVENT_BLOCK_META_CHANGED] = "onBlockMetaChanged",
-        [MP_JOB_EVENT_BLOCK_OWNER_CHANGED] = "onBlockOwnerChanged"
-    };
+#define MP_LUA_EVENT(NAME) \
+void MP_Lua_Add##NAME##EventListener(lua_State* L, const char* jobName); \
+void MP_Lua_Remove##NAME##EventListeners(lua_State* L, const char* jobName)
+
+    MP_LUA_EVENT(UnitAdded);
+
+    MP_LUA_EVENT(BlockSelectionChanged);
+
+    MP_LUA_EVENT(BlockTypeChanged);
+
+    MP_LUA_EVENT(BlockOwnerChanged);
+
+#undef MP_LUA_EVENT
+
+    void MP_InitLuaEvents(void);
 
 #ifdef	__cplusplus
 }
 #endif
 
-#endif	/* JOB_NAMES_H */
-
+#endif

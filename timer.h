@@ -1,5 +1,4 @@
 /* 
- * File:   timer.h
  * Author: fnuecke
  *
  * Created on May 6, 2012, 5:07 AM
@@ -36,5 +35,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* TIMER_H */
-
+#endif

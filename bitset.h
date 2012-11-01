@@ -1,5 +1,4 @@
 /* 
- * File:   bitset.h
  * Author: fnuecke
  *
  * Created on April 17, 2012, 3:36 PM
@@ -62,5 +61,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* BITSET_H */
-
+#endif

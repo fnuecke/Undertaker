@@ -1,61 +1,62 @@
-#include "script_loading.h"
-
 #include "ability.h"
-#include "log.h"
-#include "meta_ability.h"
-#include "script_loading_aux.h"
+#include "script.h"
+#include "type_impl.h"
 
-int lua_ImportAbility(lua_State* L) {
-    MP_Lua_BuildImportPath(L, "data/abilities/%s.lua");
-    MP_Lua_Import(L);
-    return 0;
+// <editor-fold defaultstate="collapsed" desc="ability parsers">
+
+static void run(lua_State* L, MP_AbilityType* type, bool forDefaults) {
+    luaL_checktype(L, -1, LUA_TFUNCTION);
+    if (type->runMethod != LUA_REFNIL) {
+        luaL_unref(L, LUA_REGISTRYINDEX, type->runMethod);
+    }
+    lua_pushvalue(L, -1);
+    type->runMethod = luaL_ref(L, LUA_REGISTRYINDEX);
 }
 
-static const luaL_Reg abilitylib[] = {
-    {"import", lua_ImportAbility},
-    {"export", MP_Lua_Export},
+static MP_AbilityType* getAbilityTarget(lua_State* L, MP_AbilityType* type) {
+    const MP_AbilityType* existing;
+
+    // Get the name.
+    lua_getfield(L, -1, "name");
+    // Check if that type is already known (override).
+    if ((existing = MP_GetAbilityTypeByName(luaL_checkstring(L, -1)))) {
+        // Yes, this will be an override.
+        *type = *existing;
+    } else {
+        // New entry.
+        *type = *MP_GetAbilityTypeDefaults();
+        type->info.name = lua_tostring(L, -1);
+    }
+    lua_pop(L, 1); // pop name
+
+    return type;
+}
+
+TYPE_PARSER(MP_AbilityType, Ability, getAbilityTarget(L, type), MP_AbilityType* type)
+// </editor-fold>
+
+static const AbilityParserEntry abilityParsers[] = {
+    {"run", run},
     {NULL, NULL}
 };
 
-int MP_Lua_AddAbilityMeta(lua_State* L) {
+int MP_LuaCallback_AddAbilityType(lua_State* L) {
     // New type, start with defaults.
-    MP_AbilityMeta meta = *MP_GetAbilityMetaDefaults();
+    MP_AbilityType type;
 
-    // Validate input.
-    luaL_argcheck(L, lua_gettop(L) == 1 && lua_isstring(L, 1), 0, "one 'string' expected");
+    luaL_argcheck(L, lua_gettop(L) == 1, 1, "wrong number of arguments");
 
-    // Get name.
-    meta.name = lua_tostring(L, 1);
+    // Build the block meta using the given properties.
+    parseAbilityTable(L, abilityParsers, false, &type);
 
-    // Skip if we already know this job (no overrides for job types).
-    if (MP_GetAbilityMetaByName(meta.name)) {
-        MP_log_info("Duplicate ability declaration for '%s', skipping.\n", meta.name);
-        return 0;
-    }
+    // We require for at least the name and run method to be set.
+    luaL_argcheck(L, type.info.name != NULL && strlen(type.info.name) > 0, 1, "invalid or no 'name'");
+    luaL_argcheck(L, type.runMethod != LUA_REFNIL, 1, "'run' is required but not set");
 
-    MP_log_info("Start loading ability '%s'.\n", meta.name);
-
-    // Load the script.
-    MP_PushScriptGlobals(L, abilitylib);
-    MP_CreateScriptLocalsTable(L);
-
-    lua_ImportAbility(L);
-
-    // Check script capabilities. Check for the run callback (job active logic).
-    lua_getglobal(L, "run");
-    if (lua_isfunction(L, -1)) {
-        meta.hasRunMethod = true;
-        MP_log_info("Found run callback.\n");
-    }
-    lua_pop(L, 1); // pop field
-
-    // Try to add the job.
-    if (!MP_AddAbilityMeta(&meta)) {
+    // All green, add the type.
+    if (!MP_AddAbilityType(&type)) {
         return luaL_argerror(L, 1, "bad ability meta");
     }
 
-    MP_log_info("Done loading job '%s'.\n", meta.name);
-
-    MP_PopScriptGlobals(L);
     return 0;
 }

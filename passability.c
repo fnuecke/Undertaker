@@ -12,7 +12,7 @@
 static char* gPassabilityTypes[PASSABILITY_TYPES_MAX] = {NULL};
 static unsigned int gPassabilityTypeCount = 0;
 
-static void onMapSizeChange(void) {
+static void onMapChange(void) {
     for (unsigned int i = 0; i < gPassabilityTypeCount; ++i) {
         free(gPassabilityTypes[i]);
         gPassabilityTypes[i] = NULL;
@@ -70,5 +70,5 @@ int MP_Lua_AddPassability(lua_State* L) {
 }
 
 void MP_InitPassability(void) {
-    MP_OnMapSizeChange(onMapSizeChange);
+    MP_AddMapChangeEventListener(onMapChange);
 }

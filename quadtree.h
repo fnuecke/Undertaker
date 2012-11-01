@@ -1,5 +1,4 @@
 /* 
- * File:   quadtree.h
  * Author: fnuecke
  *
  * Created on April 30, 2012, 1:34 AM
@@ -62,5 +61,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* QUADTREE_H */
-
+#endif

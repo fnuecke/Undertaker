@@ -9,7 +9,7 @@
 #include "selection.h"
 #include "unit.h"
 #include "map.h"
-#include "meta_block.h"
+#include "block_type.h"
 #include "hand.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -52,7 +52,7 @@ static void key_down(const SDL_Event* e) {
         {
             vec2 p = *MP_GetCursor(MP_CURSOR_LEVEL_FLOOR);
             v2idivs(&p, MP_BLOCK_SIZE);
-            MP_AddUnit(MP_PLAYER_ONE, MP_GetUnitMeta(1), &p);
+            MP_AddUnit(MP_PLAYER_ONE, MP_GetUnitType(1), &p);
             break;
         }
         case SDLK_F5:
@@ -92,25 +92,25 @@ static void key_down(const SDL_Event* e) {
             MP_SetBlockOwner(MP_GetBlockUnderCursor(), MP_PLAYER_ONE);
             break;
         case SDLK_1:
-            MP_SetBlockMeta(MP_GetBlockUnderCursor(), MP_GetBlockMeta(1));
+            MP_SetBlockType(MP_GetBlockUnderCursor(), MP_GetBlockType(1));
             break;
         case SDLK_2:
-            MP_SetBlockMeta(MP_GetBlockUnderCursor(), MP_GetBlockMeta(2));
+            MP_SetBlockType(MP_GetBlockUnderCursor(), MP_GetBlockType(2));
             break;
         case SDLK_3:
-            MP_SetBlockMeta(MP_GetBlockUnderCursor(), MP_GetBlockMeta(3));
+            MP_SetBlockType(MP_GetBlockUnderCursor(), MP_GetBlockType(3));
             break;
         case SDLK_4:
-            MP_SetBlockMeta(MP_GetBlockUnderCursor(), MP_GetBlockMeta(4));
+            MP_SetBlockType(MP_GetBlockUnderCursor(), MP_GetBlockType(4));
             break;
         case SDLK_5:
-            MP_SetBlockMeta(MP_GetBlockUnderCursor(), MP_GetBlockMeta(5));
+            MP_SetBlockType(MP_GetBlockUnderCursor(), MP_GetBlockType(5));
             break;
         case SDLK_6:
-            MP_SetBlockMeta(MP_GetBlockUnderCursor(), MP_GetBlockMeta(6));
+            MP_SetBlockType(MP_GetBlockUnderCursor(), MP_GetBlockType(6));
             break;
         case SDLK_7:
-            MP_SetBlockMeta(MP_GetBlockUnderCursor(), MP_GetBlockMeta(7));
+            MP_SetBlockType(MP_GetBlockUnderCursor(), MP_GetBlockType(7));
             break;
         default:
             break;
@@ -189,7 +189,7 @@ static void mouse_up(const SDL_Event* e) {
 // Header implementation
 ///////////////////////////////////////////////////////////////////////////////
 
-void MP_Events(void) {
+void MP_Input(void) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
@@ -213,3 +213,45 @@ void MP_Events(void) {
         }
     }
 }
+
+#define MP_EVENT_IMPL(NAME, CALL, ...) \
+static struct { \
+    MP_##NAME##EventCallback* list; \
+    unsigned int length; \
+    unsigned int capacity; \
+} g##NAME##Callbacks = {NULL, 0, 0}; \
+void MP_Add##NAME##EventListener(MP_##NAME##EventCallback callback) { \
+    if (g##NAME##Callbacks.length >= g##NAME##Callbacks.capacity) { \
+        g##NAME##Callbacks.capacity = g##NAME##Callbacks.capacity * 2 + 1; \
+        g##NAME##Callbacks.list = (MP_##NAME##EventCallback*)realloc(g##NAME##Callbacks.list, g##NAME##Callbacks.capacity * sizeof(MP_##NAME##EventCallback)); \
+    } \
+    g##NAME##Callbacks.list[g##NAME##Callbacks.length] = callback; \
+    ++g##NAME##Callbacks.length; \
+} \
+void MP_Dispatch##NAME##Event(__VA_ARGS__) { \
+    for (unsigned int i = 0; i < g##NAME##Callbacks.length; ++i) { \
+        g##NAME##Callbacks.list[i]CALL; \
+    } \
+}
+
+MP_EVENT_IMPL(Update, (), void)
+
+MP_EVENT_IMPL(MapChange, (), void)
+
+MP_EVENT_IMPL(PreRender, (), void)
+
+MP_EVENT_IMPL(Render, (), void)
+
+MP_EVENT_IMPL(PostRender, (), void)
+
+MP_EVENT_IMPL(ModelMatrixChanged, (), void)
+
+MP_EVENT_IMPL(UnitAdded, (unit), MP_Unit* unit)
+
+MP_EVENT_IMPL(BlockTypeChanged, (block), MP_Block* block)
+
+MP_EVENT_IMPL(BlockOwnerChanged, (block), MP_Block* block)
+
+MP_EVENT_IMPL(BlockSelectionChanged, (player, block), MP_Player player, MP_Block* block)
+
+#undef MP_EVENT_IMPL

@@ -1,27 +1,23 @@
 /* 
- * File:   room_meta.h
  * Author: fnuecke
  *
  * Created on May 5, 2012, 5:27 PM
  */
 
-#ifndef META_ROOM_H
-#define	META_ROOM_H
+#ifndef ROOM_TYPE_H
+#define	ROOM_TYPE_H
 
-#include "meta.h"
+#include "type.h"
 #include "types.h"
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-    /** Meta description of a room type */
-    struct MP_RoomMeta {
-        /** The ID of this block type */
-        unsigned int id;
-
-        /** The name of this block type */
-        const char* name;
+    /** Description of a room type */
+    struct MP_RoomType {
+        /** The type information */
+        MP_Type info;
 
         /** The type of underground the room can be built on */
         MP_Passability canBuildOn;
@@ -39,11 +35,10 @@ extern "C" {
         unsigned int health;
     };
 
-    META_header(MP_RoomMeta, Room);
+    TYPE_HEADER(MP_RoomType, Room);
 
 #ifdef	__cplusplus
 }
 #endif
 
-#endif	/* META_ROOM_H */
-
+#endif

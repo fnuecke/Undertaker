@@ -64,7 +64,7 @@ void MP_DropTopHandEntry(MP_Player player, const vec2* position) {
         if (MP_IsBlockPassable(block) && block->owner == player) {
             switch (entry->type) {
                 case UNIT:
-                    if (MP_IsBlockPassableBy(block, entry->unit->meta)) {
+                    if (MP_IsBlockPassableBy(block, entry->unit->type)) {
                         entry->unit->position = *position;
                         entry->unit->ai->isInHand = false;
                         // Don't continue moving (would jump the unit to that path).

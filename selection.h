@@ -1,5 +1,4 @@
 /* 
- * File:   selection.h
  * Author: fnuecke
  *
  * Created on April 18, 2012, 3:57 PM
@@ -121,5 +120,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* SELECTION_H */
-
+#endif

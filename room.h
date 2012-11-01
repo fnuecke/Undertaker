@@ -1,5 +1,4 @@
 /* 
- * File:   room.h
  * Author: fnuecke
  *
  * Created on May 2, 2012, 5:07 PM
@@ -8,7 +7,7 @@
 #ifndef ROOM_H
 #define	ROOM_H
 
-#include "meta_room.h"
+#include "room_type.h"
 
 #ifdef	__cplusplus
 extern "C" {
@@ -21,7 +20,7 @@ extern "C" {
     /** Represents a single room in the world */
     struct MP_Room {
         /** Info on the room type */
-        const MP_RoomMeta* meta;
+        const MP_RoomType* meta;
 
         /** Blocks this room covers */
         MP_Block* blocks;
@@ -34,5 +33,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* ROOM_H */
-
+#endif

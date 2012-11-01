@@ -21,8 +21,8 @@
 #include "picking.h"
 #include "render.h"
 #include "unit_ai.h"
-#include "update.h"
 #include "vmath.h"
+#include "ability.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Global variables
@@ -161,7 +161,8 @@ float MP_GetUnitDepthUnderCursor(void) {
     return gCursorZ;
 }
 
-MP_Unit* MP_AddUnit(MP_Player player, const MP_UnitMeta* meta, const vec2* position) {
+MP_Unit* MP_AddUnit(MP_Player player, const MP_UnitType* meta, const vec2* position) {
+    lua_State* L = MP_Lua();
     MP_Unit* unit;
 
     // Can that kind of unit be spawned at the specified position? Also checks
@@ -177,9 +178,38 @@ MP_Unit* MP_AddUnit(MP_Player player, const MP_UnitMeta* meta, const vec2* posit
     if (!(unit = calloc(1, sizeof (MP_Unit)))) {
         MP_log_fatal("Out of memory while allocating a job.\n");
     }
-    unit->meta = meta;
+    unit->type = meta;
     unit->owner = player;
     unit->position = *position;
+
+    // Allocate ability list.
+    if (!(unit->abilities = calloc(unit->type->abilityCount, sizeof (MP_Ability)))) {
+        MP_log_fatal("Out of memory while allocating unit abilities.\n");
+    }
+    
+    // Create shallow copy of ability property list.
+    for (unsigned int number = 0; number < unit->type->abilityCount; ++number) {
+        unit->abilities[number].unit = unit;
+        lua_rawgeti(L, LUA_REGISTRYINDEX, unit->type->abilities[number].properties);
+        lua_newtable(L);
+        lua_pushnil(L);
+        while (lua_next(L, -3)) {
+            lua_pushvalue(L, -2); // duplicate key
+            lua_insert(L, -2); // and move it in front of our value
+            lua_settable(L, -4); // then add it to the new table
+        }
+        unit->abilities[number].properties = luaL_ref(L, LUA_REGISTRYINDEX);
+    }
+    
+    // Allocate job saturation memory.
+    if (!(unit->jobSaturation = calloc(unit->type->jobCount, sizeof (float)))) {
+        MP_log_fatal("Out of memory while allocating job saturation.\n");
+    }
+
+    // Set initial job saturations.
+    for (unsigned int number = 0; number < unit->type->jobCount; ++number) {
+        unit->jobSaturation[number] = unit->type->jobs[number].initialSaturation;
+    }
 
     // OK, allocate AI data, if necessary.
     if (!(unit->ai = calloc(1, sizeof (MP_AI_Info)))) {
@@ -189,22 +219,11 @@ MP_Unit* MP_AddUnit(MP_Player player, const MP_UnitMeta* meta, const vec2* posit
     // Disable movement initially.
     unit->ai->pathing.index = 1;
 
-    // Allocate job saturation memory.
-    if (!(unit->satisfaction.jobSaturation = calloc(unit->meta->jobCount, sizeof (float)))) {
-        MP_log_fatal("Out of memory while allocating job saturation.\n");
-    }
-
-    // Set initial job saturations.
-    for (unsigned int number = 0; number < unit->meta->jobCount; ++number) {
-        unit->satisfaction.jobSaturation[number] =
-                unit->meta->satisfaction.jobSaturation[number].initialValue;
-    }
-
     // Store it in our list.
     gUnits[player][gUnitCount[player]++] = unit;
 
     // Send event to AI scripts.
-    MP_Lua_OnUnitAdded(unit);
+    MP_DispatchUnitAddedEvent(unit);
 
     return unit;
 }
@@ -242,9 +261,9 @@ void MP_ClearUnits(void) {
 }
 
 void MP_InitUnits(void) {
-    MP_OnUpdate(onUpdate);
-    MP_OnPreRender(onPreRender);
-    MP_OnRender(onRender);
+    MP_AddUpdateEventListener(onUpdate);
+    MP_AddPreRenderEventListener(onPreRender);
+    MP_AddRenderEventListener(onRender);
 
     memset(gUnits, 0, MP_PLAYER_COUNT * sizeof (MP_Unit**));
     memset(gUnitCount, 0, MP_PLAYER_COUNT * sizeof (unsigned short));

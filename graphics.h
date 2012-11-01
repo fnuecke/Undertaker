@@ -1,5 +1,4 @@
 /* 
- * File:   graphics.h
  * Author: fnuecke
  *
  * Created on April 25, 2012, 5:41 PM
@@ -79,5 +78,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* GRAPHICS_H */
-
+#endif

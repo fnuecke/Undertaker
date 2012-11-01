@@ -7,7 +7,6 @@
 #include <SDL/SDL.h>
 #include <GL/glew.h>
 
-#include "callbacks.h"
 #include "camera.h"
 #include "config.h"
 #include "cursor.h"
@@ -202,15 +201,6 @@ static unsigned int gLightCount = 0;
 /** Used for rendering light volumes */
 static GLuint gSphereArrayID = 0;
 static GLuint gSphereBufferID = 0;
-
-///////////////////////////////////////////////////////////////////////////////
-// Event callback
-///////////////////////////////////////////////////////////////////////////////
-
-/** Callbacks/hooks for different render stages */
-static Callbacks* gPreRenderCallbacks = 0;
-static Callbacks* gRenderCallbacks = 0;
-static Callbacks* gPostRenderCallbacks = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Sphere rendering (for light volumes)
@@ -957,7 +947,7 @@ void MP_Render(void) {
     glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
     // Trigger pre render hooks.
-    CB_Call(gPreRenderCallbacks);
+    MP_DispatchPreRenderEvent();
 
     if (isDeferredShadingPossible()) {
         beginGeometryPass();
@@ -966,7 +956,7 @@ void MP_Render(void) {
     }
 
     // Render game components.
-    CB_Call(gRenderCallbacks);
+    MP_DispatchRenderEvent();
 
     if (isDeferredShadingPossible()) {
         // Stop using geometry shader.
@@ -977,7 +967,7 @@ void MP_Render(void) {
     }
 
     // Trigger post render hooks.
-    CB_Call(gPostRenderCallbacks);
+    MP_DispatchPostRenderEvent();
 
     MP_PopModelMatrix();
     MP_EndPerspective();
@@ -1024,7 +1014,7 @@ void MP_InitRender(void) {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    MP_OnModelMatrixChanged(onModelMatrixChanged);
+    MP_AddModelMatrixChangedEventListener(onModelMatrixChanged);
 
     initSphere();
 }
@@ -1145,29 +1135,4 @@ bool MP_RemoveLight(const MP_Light* light) {
         }
     }
     return false;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Events
-///////////////////////////////////////////////////////////////////////////////
-
-void MP_OnPreRender(callback method) {
-    if (!gPreRenderCallbacks) {
-        gPreRenderCallbacks = CB_New();
-    }
-    CB_Add(gPreRenderCallbacks, method);
-}
-
-void MP_OnRender(callback method) {
-    if (!gRenderCallbacks) {
-        gRenderCallbacks = CB_New();
-    }
-    CB_Add(gRenderCallbacks, method);
-}
-
-void MP_OnPostRender(callback method) {
-    if (!gPostRenderCallbacks) {
-        gPostRenderCallbacks = CB_New();
-    }
-    CB_Add(gPostRenderCallbacks, method);
 }

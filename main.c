@@ -7,7 +7,6 @@
 #include "events.h"
 #include "render.h"
 #include "timer.h"
-#include "update.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Global data
@@ -37,8 +36,8 @@ int main(int argc, char** argv) {
     while (running) {
         T_Start();
 
-        MP_Events();
-        MP_Update();
+        MP_Input();
+        MP_DispatchUpdateEvent();
         MP_Render();
 
         SDL_GL_SwapBuffers();

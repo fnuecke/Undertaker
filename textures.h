@@ -1,5 +1,4 @@
 /* 
- * File:   textures.h
  * Author: fnuecke
  *
  * Created on April 14, 2012, 9:48 AM
@@ -53,5 +52,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* TEXTURES_H */
-
+#endif

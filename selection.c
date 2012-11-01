@@ -6,7 +6,6 @@
 #include "job.h"
 #include "script.h"
 #include "map.h"
-#include "update.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
@@ -169,7 +168,7 @@ void MP_SelectBlock(MP_Player player, int x, int y) {
         if (!BS_Test(gPlayerSelection[player], idx)) {
             BS_Set(gPlayerSelection[player], idx);
             // Send event to AI scripts.
-            MP_Lua_OnBlockSelectionChanged(player, MP_GetBlockAt(x, y), x, y);
+            MP_DispatchBlockSelectionChangedEvent(player, MP_GetBlockAt(x, y));
         }
     }
 }
@@ -182,7 +181,7 @@ void MP_DeselectBlock(MP_Player player, int x, int y) {
         if (BS_Test(gPlayerSelection[player], idx)) {
             BS_Unset(gPlayerSelection[player], idx);
             // Send event to AI scripts.
-            MP_Lua_OnBlockSelectionChanged(player, MP_GetBlockAt(x, y), x, y);
+            MP_DispatchBlockSelectionChangedEvent(player, MP_GetBlockAt(x, y));
         }
     }
 }
@@ -192,6 +191,6 @@ void MP_DeselectBlock(MP_Player player, int x, int y) {
 ///////////////////////////////////////////////////////////////////////////////
 
 void MP_InitSelection(void) {
-    MP_OnUpdate(onUpdate);
-    MP_OnMapSizeChange(onMapChange);
+    MP_AddUpdateEventListener(onUpdate);
+    MP_AddMapChangeEventListener(onMapChange);
 }

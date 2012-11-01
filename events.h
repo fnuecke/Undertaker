@@ -1,5 +1,4 @@
 /* 
- * File:   input.h
  * Author: fnuecke
  *
  * Created on April 16, 2012, 1:25 PM
@@ -8,68 +7,46 @@
 #ifndef INPUT_H
 #define	INPUT_H
 
-#include "callbacks.h"
+#include "types.h"
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
+#define MP_EVENT(NAME, ...) \
+typedef void (*MP_##NAME##EventCallback)(__VA_ARGS__); \
+void MP_Add##NAME##EventListener(MP_##NAME##EventCallback callback); \
+void MP_Dispatch##NAME##Event(__VA_ARGS__)
+
+    MP_EVENT(Update, void);
+
+    MP_EVENT(MapChange, void);
+
+    MP_EVENT(PreRender, void);
+
+    MP_EVENT(Render, void);
+
+    MP_EVENT(PostRender, void);
+
+    MP_EVENT(ModelMatrixChanged, void);
+
+    MP_EVENT(UnitAdded, MP_Unit*);
+
+    MP_EVENT(BlockTypeChanged, MP_Block*);
+
+    MP_EVENT(BlockOwnerChanged, MP_Block*);
+
+    MP_EVENT(BlockSelectionChanged, MP_Player, MP_Block*);
+
+#undef MP_EVENT
+
     /**
      * Handle SDL events.
      */
-    void MP_Events(void);
-
-    /**
-     * Register a method that should be called when an update is performed.
-     * Methods are called in the order in which they are registered.
-     * @param callback the method to call.
-     */
-    void MP_OnUpdate(callback method);
-
-    /**
-     * Register a method that should be called when the map size changes.
-     * Methods are called in the order in which they are registered.
-     * This should be used for disposing old data and register new meta data.
-     * @param callback the method to call.
-     */
-    void MP_OnMapSizeChange(callback method);
-
-    /**
-     * Register methods here that need to execute before rendering, but after
-     * the view has been set up.
-     * @param callback the method to call.
-     */
-    void MP_OnPreRender(callback method);
-
-    /**
-     * Register a method that should be called when an render pass is performed.
-     * Methods are called in the order in which they are registered.
-     * @param callback the method to call.
-     */
-    void MP_OnRender(callback method);
-
-    /**
-     * Register methods that need to render on top of the finished world render,
-     * such as overlays.
-     * @param callback the method to call.
-     */
-    void MP_OnPostRender(callback method);
-
-    /**
-     * Register a method to be notified whenever the model matrix changes.
-     * @param method the method to call when the model matrix changes.
-     */
-    void MP_OnModelMatrixChanged(callback method);
-
-    /**
-     * 
-     * @param method
-     */
-    void MP_OnUnitAdded(callback method);
+    void MP_Input(void);
 
 #ifdef	__cplusplus
 }
 #endif
 
-#endif	/* INPUT_H */
-
+#endif

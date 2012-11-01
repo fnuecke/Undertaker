@@ -1,5 +1,4 @@
 /* 
- * File:   astar_mp.h
  * Author: fnuecke
  *
  * Created on May 12, 2012, 12:47 AM
@@ -31,4 +30,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* ASTAR_MP_H */
+#endif

@@ -1,5 +1,4 @@
 /* 
- * File:   init.h
  * Author: fnuecke
  *
  * Created on April 23, 2012, 2:24 PM
@@ -21,5 +20,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* INIT_H */
-
+#endif

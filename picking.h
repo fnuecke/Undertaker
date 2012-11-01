@@ -1,5 +1,4 @@
 /* 
- * File:   picking.h
  * Author: fnuecke
  *
  * Created on April 18, 2012, 3:19 AM
@@ -31,4 +30,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* PICKING_H */
+#endif

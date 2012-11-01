@@ -11,7 +11,6 @@
 #include "astar.h"
 #include "bitset.h"
 #include "block.h"
-#include "callbacks.h"
 #include "camera.h"
 #include "config.h"
 #include "cursor.h"
@@ -70,9 +69,6 @@ static MP_Light gHandLight;
 
 /** Potential light sources on walls */
 static MP_Light* gWallLights = NULL;
-
-/** List of methods to call when map size changes */
-static Callbacks* gMapSizeChangeCallbacks = NULL;
 
 /** Currently doing a picking (select) render pass? */
 static bool gIsPicking = false;
@@ -135,7 +131,7 @@ inline static int MP_NLT(unsigned int a, unsigned int b) {
 }
 
 inline static int isBlockOpen(const MP_Block * block) {
-    return block && block->meta && (block->meta->level < MP_BLOCK_LEVEL_HIGH);
+    return block && block->type && (block->type->level < MP_BLOCK_LEVEL_HIGH);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -431,17 +427,17 @@ static void updateNormalsAt(int x, int y) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static bool lightOnWall(const MP_Block* block, unsigned int i) {
-    return block && block->meta &&
-            block->meta->level == MP_BLOCK_LEVEL_HIGH &&
-            block->meta->lightFrequency &&
+    return block && block->type &&
+            block->type->level == MP_BLOCK_LEVEL_HIGH &&
+            block->type->lightFrequency &&
             i % (block->owner == MP_PLAYER_NONE
-            ? block->meta->lightFrequency
-            : block->meta->lightFrequency >> 1) == 0;
+            ? block->type->lightFrequency
+            : block->type->lightFrequency >> 1) == 0;
 }
 
 static void updateLightLocal(int x, int y) {
     MP_Block* block = MP_GetBlockAt(x, y);
-    if (block && block->meta && block->meta->level < MP_BLOCK_LEVEL_HIGH) {
+    if (block && block->type && block->type->level < MP_BLOCK_LEVEL_HIGH) {
         // Check for nearby walls.
         if (lightOnWall(MP_GetBlockAt(x, y + 1), x) ||
             lightOnWall(MP_GetBlockAt(x, y - 1), x) ||
@@ -543,7 +539,7 @@ static void autoConvert(MP_Block* block, MP_Player player) {
     // We must be one of the three marked blocks, and the ones marked 'b'
     // must be walls, the one marked be 'o' must be an open tile. An that
     // in all possible orientations.
-    if (block->meta->level == MP_BLOCK_LEVEL_HIGH) {
+    if (block->type->level == MP_BLOCK_LEVEL_HIGH) {
         // We're one of the 'b' blocks (possibly). Check our surroundings.
         for (int nx = -1; nx < 2; nx += 2) {
             for (int ny = -1; ny < 2; ny += 2) {
@@ -551,27 +547,27 @@ static void autoConvert(MP_Block* block, MP_Player player) {
                 // neighbors, meaning they have to be owned blocks.
                 if ((block = MP_GetBlockAt(x + nx, y + ny)) &&
                     block->owner == player &&
-                    block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+                    block->type->level == MP_BLOCK_LEVEL_HIGH &&
                     // OK so far, now wee need to check if one of the
                     // blocks completing the square is open and the
                     // other un-owned.
                     ((
                     (block = MP_GetBlockAt(x, y + ny)) &&
                     block->owner == player &&
-                    block->meta->level < MP_BLOCK_LEVEL_HIGH &&
+                    block->type->level < MP_BLOCK_LEVEL_HIGH &&
                     (block = MP_GetBlockAt(x + nx, y)) &&
                     block->owner == MP_PLAYER_NONE &&
-                    block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+                    block->type->level == MP_BLOCK_LEVEL_HIGH &&
                     MP_IsBlockConvertible(block)
                     ) || (
                     // If it didn't work that way around, check the
                     // other way.
                     (block = MP_GetBlockAt(x + nx, y)) &&
                     block->owner == player &&
-                    block->meta->level < MP_BLOCK_LEVEL_HIGH &&
+                    block->type->level < MP_BLOCK_LEVEL_HIGH &&
                     (block = MP_GetBlockAt(x, y + ny)) &&
                     block->owner == MP_PLAYER_NONE &&
-                    block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+                    block->type->level == MP_BLOCK_LEVEL_HIGH &&
                     MP_IsBlockConvertible(block)
                     ))) {
                     // All conditions are met for converting the block.
@@ -588,15 +584,15 @@ static void autoConvert(MP_Block* block, MP_Player player) {
                 // neighbors, meaning they have to be un-owned blocks.
                 if ((block = MP_GetBlockAt(x + nx, y + ny)) &&
                     block->owner == MP_PLAYER_NONE &&
-                    block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+                    block->type->level == MP_BLOCK_LEVEL_HIGH &&
                     // OK so far, now wee need to check if the blocks
                     // completing the square are high and owned.
                     (block = MP_GetBlockAt(x, y + ny)) &&
                     block->owner == player &&
-                    block->meta->level == MP_BLOCK_LEVEL_HIGH &&
+                    block->type->level == MP_BLOCK_LEVEL_HIGH &&
                     (block = MP_GetBlockAt(x + nx, y)) &&
                     block->owner == player &&
-                    block->meta->level == MP_BLOCK_LEVEL_HIGH) {
+                    block->type->level == MP_BLOCK_LEVEL_HIGH) {
                     // All conditions are met for converting the block.
                     MP_SetBlockOwner(block, player);
                 }
@@ -1055,12 +1051,12 @@ static void onRender(void) {
     const int x_end = mapclamp(x_begin + MP_RENDER_AREA_X);
     const int y_end = mapclamp(y_begin + MP_RENDER_AREA_Y);
 
-    const MP_BlockMeta* defaultMeta = MP_GetBlockMeta(1);
-    const MP_BlockMeta* meta;
+    const MP_BlockType* defaultType = MP_GetBlockType(1);
+    const MP_BlockType* type;
     MP_Player owner;
 
     // Cannot render if there are no block types.
-    if (!defaultMeta) {
+    if (!defaultType) {
         return;
     }
 
@@ -1073,17 +1069,17 @@ static void onRender(void) {
 
             // Get block info.
             if (block) {
-                meta = block->meta;
+                type = block->type;
                 owner = block->owner;
             } else {
                 // Out of bounds, use default block type.
-                meta = defaultMeta;
+                type = defaultType;
                 owner = MP_PLAYER_NONE;
             }
 
             // Set up material.
             MP_InitMaterial(&gMaterial);
-            pushTexture(x, y, meta->level, meta->texturesTop[MP_BLOCK_TEXTURE_TOP]);
+            pushTexture(x, y, type->level, type->texturesTop[MP_BLOCK_TEXTURE_TOP]);
             if (owner != MP_PLAYER_NONE) {
                 // Check surroundings for blocks of the same type, to know which
                 // overlay to show. We first check the four direct neighbors
@@ -1111,22 +1107,22 @@ static void onRender(void) {
                 Edges edges = EDGE_NONE;
                 MP_Block* b;
                 if ((b = MP_GetBlockAt(x, y + 1)) &&
-                    b->meta->id == meta->id &&
+                    b->type->info.id == type->info.id &&
                     b->owner == owner) {
                     edges |= EDGE_TOP;
                 }
                 if ((b = MP_GetBlockAt(x + 1, y)) &&
-                    b->meta->id == meta->id &&
+                    b->type->info.id == type->info.id &&
                     b->owner == owner) {
                     edges |= EDGE_RIGHT;
                 }
                 if ((b = MP_GetBlockAt(x, y - 1)) &&
-                    b->meta->id == meta->id &&
+                    b->type->info.id == type->info.id &&
                     b->owner == owner) {
                     edges |= EDGE_BOTTOM;
                 }
                 if ((b = MP_GetBlockAt(x - 1, y)) &&
-                    b->meta->id == meta->id &&
+                    b->type->info.id == type->info.id &&
                     b->owner == owner) {
                     edges |= EDGE_LEFT;
                 }
@@ -1136,7 +1132,7 @@ static void onRender(void) {
                 }
 
                 // Finally, the marker of the player's color on top of it all.
-                pushTexture(x, y, meta->level, meta->texturesTop[MP_BLOCK_TEXTURE_TOP_OWNED_OVERLAY]);
+                pushTexture(x, y, type->level, type->texturesTop[MP_BLOCK_TEXTURE_TOP_OWNED_OVERLAY]);
             }
 
             // Highlight if hovered (selectable or no).
@@ -1149,22 +1145,22 @@ static void onRender(void) {
             LN(x, y);
 
             // Render top element.
-            drawTop(x, y, (meta->level - 1) * 2);
+            drawTop(x, y, (type->level - 1) * 2);
 
             // Check for walling, for this level and the lower ones.
-            for (MP_BlockLevel level = meta->level; level < MP_BLOCK_LEVEL_HIGH; ++level) {
+            for (MP_BlockLevel level = type->level; level < MP_BLOCK_LEVEL_HIGH; ++level) {
                 // North wall.
                 if ((block = MP_GetBlockAt(x, y + 1))) {
-                    meta = block->meta;
+                    type = block->type;
                     owner = block->owner;
                 } else {
-                    meta = defaultMeta;
+                    type = defaultType;
                     owner = MP_PLAYER_NONE;
                 }
-                if (meta->level > level) {
+                if (type->level > level) {
                     // Set up material.
                     MP_InitMaterial(&gMaterial);
-                    pushTexture(x, y + 1, level, meta->texturesSide[level][MP_BLOCK_TEXTURE_SIDE]);
+                    pushTexture(x, y + 1, level, type->texturesSide[level][MP_BLOCK_TEXTURE_SIDE]);
 
                     // Mark for select mode, coordinates of that block.
                     LN(x, y + 1);
@@ -1175,16 +1171,16 @@ static void onRender(void) {
 
                 // South wall.
                 if ((block = MP_GetBlockAt(x, y - 1))) {
-                    meta = block->meta;
+                    type = block->type;
                     owner = block->owner;
                 } else {
-                    meta = defaultMeta;
+                    type = defaultType;
                     owner = MP_PLAYER_NONE;
                 }
-                if (meta->level > level) {
+                if (type->level > level) {
                     // Set up material.
                     MP_InitMaterial(&gMaterial);
-                    pushTexture(x, y - 1, level, meta->texturesSide[level][MP_BLOCK_TEXTURE_SIDE]);
+                    pushTexture(x, y - 1, level, type->texturesSide[level][MP_BLOCK_TEXTURE_SIDE]);
 
                     // Mark for select mode, coordinates of that block.
                     LN(x, y - 1);
@@ -1195,16 +1191,16 @@ static void onRender(void) {
 
                 // West wall.
                 if ((block = MP_GetBlockAt(x - 1, y))) {
-                    meta = block->meta;
+                    type = block->type;
                     owner = block->owner;
                 } else {
-                    meta = defaultMeta;
+                    type = defaultType;
                     owner = MP_PLAYER_NONE;
                 }
-                if (meta->level > level) {
+                if (type->level > level) {
                     // Set up material.
                     MP_InitMaterial(&gMaterial);
-                    pushTexture(x - 1, y, level, meta->texturesSide[level][MP_BLOCK_TEXTURE_SIDE]);
+                    pushTexture(x - 1, y, level, type->texturesSide[level][MP_BLOCK_TEXTURE_SIDE]);
 
                     // Mark for select mode, coordinates of that block.
                     LN(x - 1, y);
@@ -1215,16 +1211,16 @@ static void onRender(void) {
 
                 // East wall.
                 if ((block = MP_GetBlockAt(x + 1, y))) {
-                    meta = block->meta;
+                    type = block->type;
                     owner = block->owner;
                 } else {
-                    meta = defaultMeta;
+                    type = defaultType;
                     owner = MP_PLAYER_NONE;
                 }
-                if (meta->level > level) {
+                if (type->level > level) {
                     // Set up material.
                     MP_InitMaterial(&gMaterial);
-                    pushTexture(x + 1, y, level, meta->texturesSide[level][MP_BLOCK_TEXTURE_SIDE]);
+                    pushTexture(x + 1, y, level, type->texturesSide[level][MP_BLOCK_TEXTURE_SIDE]);
 
                     // Mark for select mode, coordinates of that block.
                     LN(x + 1, y);
@@ -1313,7 +1309,7 @@ float MP_GetBlockDepthUnderCursor(void) {
 // Modifiers
 ///////////////////////////////////////////////////////////////////////////////
 
-void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith) {
+void MP_SetMapSize(unsigned short size, const MP_BlockType* fillWith) {
     gCursorBlock = NULL;
 
     // Reallocate data only if the size changed.
@@ -1355,13 +1351,13 @@ void MP_SetMapSize(unsigned short size, const MP_BlockMeta* fillWith) {
     gMapSize = size;
 
     // Update whatever depends on the map size.
-    CB_Call(gMapSizeChangeCallbacks);
+    MP_DispatchMapChangeEvent();
 
     // Initialize map data.
     for (unsigned int x = 0; x < gMapSize; ++x) {
         for (unsigned int y = 0; y < gMapSize; ++y) {
             MP_Block* block = MP_GetBlockAt(x, y);
-            block->meta = fillWith;
+            block->type = fillWith;
             block->room = NULL;
             block->owner = MP_PLAYER_NONE;
             if (fillWith) {
@@ -1486,10 +1482,10 @@ void MP_InitMap(void) {
     gHandLight.specularRange = MP_HAND_LIGHT_RANGE;
     MP_AddLight(&gHandLight);
 
-    MP_OnPreRender(onPreRender);
-    MP_OnRender(onRender);
-    MP_OnPostRender(renderSelectionOverlay);
-    MP_OnPostRender(renderSelectionOutline);
+    MP_AddPreRenderEventListener(onPreRender);
+    MP_AddRenderEventListener(onRender);
+    MP_AddPostRenderEventListener(renderSelectionOverlay);
+    MP_AddPostRenderEventListener(renderSelectionOutline);
 }
 
 bool MP_DamageBlock(MP_Block* block, unsigned int damage) {
@@ -1511,7 +1507,7 @@ bool MP_DamageBlock(MP_Block* block, unsigned int damage) {
 
     // Block is destroyed.
     block->owner = MP_PLAYER_NONE;
-    MP_SetBlockMeta(block, block->meta->becomes);
+    MP_SetBlockType(block, block->type->becomes);
 
     return true;
 }
@@ -1534,7 +1530,7 @@ bool MP_ConvertBlock(MP_Block* block, MP_Player player, unsigned int strength) {
         MP_SetBlockOwner(block, player);
     } else {
         // Owned by this player, repair it.
-        const unsigned int max_strength = block->meta->strength;
+        const unsigned int max_strength = block->type->strength;
         block->strength += strength;
         if (block->strength < max_strength) {
             return false;
@@ -1550,25 +1546,25 @@ bool MP_ConvertBlock(MP_Block* block, MP_Player player, unsigned int strength) {
     return true;
 }
 
-void MP_SetBlockMeta(MP_Block* block, const MP_BlockMeta* meta) {
+void MP_SetBlockType(MP_Block* block, const MP_BlockType* type) {
     unsigned short x, y;
     if (!block || !MP_GetBlockCoordinates(&x, &y, block)) {
         // Out of bounds, ignore.
         return;
     }
 
-    block->meta = meta;
+    block->type = type;
 
     // Update values.
-    block->durability = block->meta->durability;
-    block->strength = block->meta->strength;
-    block->gold = block->meta->gold;
+    block->durability = block->type->durability;
+    block->strength = block->type->strength;
+    block->gold = block->type->gold;
 
     updateBlock(block);
 
     // Fire event for AI scripts.
     for (int i = 0; i < MP_PLAYER_COUNT; ++i) {
-        MP_Lua_OnBlockMetaChanged(block, x, y);
+        MP_DispatchBlockTypeChangedEvent(block);
     }
 }
 
@@ -1582,26 +1578,15 @@ void MP_SetBlockOwner(MP_Block* block, MP_Player player) {
     block->owner = player;
 
     // Update values.
-    block->durability = block->meta->durability;
-    block->strength = block->meta->strength;
+    block->durability = block->type->durability;
+    block->strength = block->type->strength;
 
     updateBlock(block);
 
     // Fire event for AI scripts.
     for (int i = 0; i < MP_PLAYER_COUNT; ++i) {
-        MP_Lua_OnBlockOwnerChanged(block, x, y);
+        MP_DispatchBlockOwnerChangedEvent(block);
     }
 
     autoConvert(block, player);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// Events
-///////////////////////////////////////////////////////////////////////////////
-
-void MP_OnMapSizeChange(callback method) {
-    if (!gMapSizeChangeCallbacks) {
-        gMapSizeChangeCallbacks = CB_New();
-    }
-    CB_Add(gMapSizeChangeCallbacks, method);
 }

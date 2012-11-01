@@ -3,7 +3,6 @@
 #include <math.h>
 #include <GL/glew.h>
 
-#include "callbacks.h"
 #include "config.h"
 #include "events.h"
 #include "vmath.h"
@@ -51,9 +50,6 @@ static struct {
     unsigned int model;
 } stack;
 
-/** Methods to call when the model matrix changes */
-static Callbacks* gModelMatrixChangedCallbacks = 0;
-
 ///////////////////////////////////////////////////////////////////////////////
 // Utility methods
 ///////////////////////////////////////////////////////////////////////////////
@@ -76,7 +72,7 @@ static void updateMatrices(int modelViewChanged) {
     mmulm(&matrix.mvp, MP_GetProjectionMatrix(), &matrix.mv);
 
     if (modelViewChanged) {
-        CB_Call(gModelMatrixChangedCallbacks);
+        MP_DispatchModelMatrixChangedEvent();
     }
 }
 
@@ -427,11 +423,4 @@ void MP_InitGraphics(void) {
     stack.model = MATRIX_STACK_SIZE - 1;
     stack.projection = MATRIX_STACK_SIZE - 1;
     stack.view = MATRIX_STACK_SIZE - 1;
-}
-
-void MP_OnModelMatrixChanged(callback method) {
-    if (!gModelMatrixChangedCallbacks) {
-        gModelMatrixChangedCallbacks = CB_New();
-    }
-    CB_Add(gModelMatrixChangedCallbacks, method);
 }

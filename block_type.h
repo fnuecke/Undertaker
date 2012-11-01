@@ -1,5 +1,4 @@
 /* 
- * File:   meta_block.h
  * Author: fnuecke
  *
  * Created on May 5, 2012, 5:15 PM
@@ -8,19 +7,16 @@
 #ifndef META_BLOCK_H
 #define	META_BLOCK_H
 
-#include "meta.h"
+#include "type.h"
 #include "types.h"
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-    struct MP_BlockMeta {
-        /** The ID of this block type */
-        unsigned int id;
-
-        /** The name of this block type */
-        const char* name;
+    struct MP_BlockType {
+        /** The type information */
+        MP_Type info;
 
         /** The level (height) at which to render this block type */
         MP_BlockLevel level;
@@ -41,17 +37,17 @@ extern "C" {
         unsigned int gold;
 
         /** The type of block this one becomes upon destruction */
-        const MP_BlockMeta* becomes;
+        const MP_BlockType* becomes;
 
         /** IDs of textures to use for rendering at different levels */
         MP_TextureID texturesTop[MP_BLOCK_TEXTURE_TOP_COUNT];
         MP_TextureID texturesSide[MP_BLOCK_LEVEL_COUNT][MP_BLOCK_TEXTURE_SIDE_COUNT];
     };
 
-    META_header(MP_BlockMeta, Block);
+    TYPE_HEADER(MP_BlockType, Block);
 
 #ifdef	__cplusplus
 }
 #endif
 
-#endif	/* META_BLOCK_H */
+#endif

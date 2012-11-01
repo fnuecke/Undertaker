@@ -1,5 +1,4 @@
 /* 
- * File:   cursor.h
  * Author: fnuecke
  *
  * Created on April 21, 2012, 3:05 PM
@@ -42,5 +41,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* CURSOR_H */
-
+#endif

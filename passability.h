@@ -1,5 +1,4 @@
 /* 
- * File:   passability.h
  * Author: fnuecke
  *
  * Created on May 7, 2012, 9:33 PM
@@ -47,5 +46,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* PASSABILITY_H */
-
+#endif

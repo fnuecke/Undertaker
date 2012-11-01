@@ -1,5 +1,4 @@
 /* 
- * File:   hand.h
  * Author: fnuecke
  *
  * Created on May 17, 2012, 3:14 AM
@@ -27,5 +26,4 @@ extern "C" {
 }
 #endif
 
-#endif	/* HAND_H */
-
+#endif

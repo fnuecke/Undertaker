@@ -11,7 +11,7 @@
 #include "graphics.h"
 #include "job.h"
 #include "map.h"
-#include "meta_job.h"
+#include "job_type.h"
 #include "render.h"
 #include "unit.h"
 
@@ -20,12 +20,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 /** Computes additional job weight based on saturation */
-static float weightedPreference(float saturation, float preference, const MP_UnitJobSaturationMeta* meta) {
+static float weightedPreference(float saturation, float preference, const MP_UnitJobType* type) {
     // Map saturation to interval between unsatisfied and satisfied thresh so
     // that unsatisfiedThreshold = 1 and satisfiedThreshold = 0.
-    const float delta = meta->satisfiedThreshold - meta->unsatisfiedThreshold;
+    const float delta = type->satisfiedThreshold - type->unsatisfiedThreshold;
     if (delta > 0.0f && preference > 0.0f) {
-        return preference * (meta->satisfiedThreshold - saturation) / delta;
+        return preference * (type->satisfiedThreshold - saturation) / delta;
     }
 
     // Handle preference <= 0 as a special case where it's only considered
@@ -56,7 +56,7 @@ static void updateMove(MP_Unit* unit) {
     }
 
     // AI is moving. Apply movement.
-    path->traveled += unit->meta->moveSpeed / MP_FRAMERATE;
+    path->traveled += unit->type->moveSpeed / MP_FRAMERATE;
 
     // Test if we reached the way point. Do this in a loop to allow skipping
     // way points when moving really fast.
@@ -127,19 +127,19 @@ static void updateMove(MP_Unit* unit) {
 /** Updates unit desire saturation based on currently performed job and such */
 static void updateSaturation(MP_Unit* unit) {
     const AI_State* state = &unit->ai->state;
-    const MP_JobMeta* activeJob = state->active ? state->job->meta : NULL;
-    const MP_UnitJobSaturationMeta* metaSaturation = unit->meta->satisfaction.jobSaturation;
-    float* saturation = unit->satisfaction.jobSaturation;
+    const MP_JobType* activeJob = state->active ? state->job->type : NULL;
+    const MP_UnitJobType* jobTypes = unit->type->jobs;
+    float* saturation = unit->jobSaturation;
 
     // Update job saturation values.
-    for (int number = unit->meta->jobCount - 1; number >= 0; --number) {
+    for (int number = unit->type->jobCount - 1; number >= 0; --number) {
         // Yes, check it's currently performing it.
-        if (state->active && activeJob == unit->meta->jobs[number]) {
+        if (state->active && activeJob == unit->type->jobs[number].type) {
             // Yes, it's active, update for the respective delta.
-            saturation[number] += metaSaturation[number].performingDelta;
+            saturation[number] += jobTypes[number].performingDelta;
         } else {
             // Inactive, update for the respective delta.
-            saturation[number] += metaSaturation[number].notPerformingDelta;
+            saturation[number] += jobTypes[number].notPerformingDelta;
         }
 
         // Make sure it's in bounds.
@@ -154,8 +154,7 @@ static void updateSaturation(MP_Unit* unit) {
 /** Looks for the most desirable job for the unit */
 static void updateCurrentJob(MP_Unit* unit) {
     AI_State* state = &unit->ai->state;
-    const MP_JobMeta** jobs;
-    const MP_UnitJobSaturationMeta* metaSaturation;
+    const MP_UnitJobType* jobTypes;
     const float* saturation;
 
     MP_Job* bestJob;
@@ -167,7 +166,7 @@ static void updateCurrentJob(MP_Unit* unit) {
     }
 
     // Make sure our job still has a run method.
-    if (state->job && !state->job->meta->hasRunMethod) {
+    if (state->job && state->job->type->runMethod == LUA_REFNIL) {
         MP_StopJob(state->job);
     }
 
@@ -178,34 +177,33 @@ static void updateCurrentJob(MP_Unit* unit) {
     }
 
     // Initialize.
-    jobs = unit->meta->jobs;
-    metaSaturation = unit->meta->satisfaction.jobSaturation;
-    saturation = unit->satisfaction.jobSaturation;
+    jobTypes = unit->type->jobs;
+    saturation = unit->jobSaturation;
 
     bestJob = NULL;
     bestWeightedDistance = FLT_MAX;
 
     // Find the closest job, weighted based on the unit's preferences.
-    for (int number = unit->meta->jobCount - 1; number >= 0; --number) {
+    for (int number = unit->type->jobCount - 1; number >= 0; --number) {
         float distance;
         MP_Job* job;
 
         // Skip jobs that cannot be executed.
-        if (!jobs[number]->hasRunMethod) {
+        if (jobTypes[number].type->runMethod == LUA_REFNIL) {
             continue;
         }
 
         // Find closest job opening.
-        if (!(job = MP_FindJob(unit, jobs[number], &distance))) {
+        if (!(job = MP_FindJob(unit, jobTypes[number].type, &distance))) {
             // Didn't find a job of this type.
             continue;
         }
 
         // Weigh the distance based on the saturation and preference.
-        if (jobs[number]->hasDynamicPreference) {
-            distance -= weightedPreference(saturation[number], MP_GetDynamicPreference(unit, jobs[number]), &metaSaturation[number]);
+        if (jobTypes[number].type->dynamicPreference != LUA_REFNIL) {
+            distance -= weightedPreference(saturation[number], MP_GetDynamicPreference(unit, jobTypes[number].type), &jobTypes[number]);
         } else {
-            distance -= weightedPreference(saturation[number], metaSaturation[number].preference, &metaSaturation[number]);
+            distance -= weightedPreference(saturation[number], jobTypes[number].preference, &jobTypes[number]);
         }
 
         // Better than other jobs we have found?
@@ -248,7 +246,7 @@ static void updateJob(MP_Unit* unit) {
             --state->jobRunDelay;
         } else {
             // Otherwise update the unit based on its current job.
-            assert(state->job->meta->hasRunMethod);
+            assert(state->job->type->runMethod != LUA_REFNIL);
             state->active = MP_RunJob(unit, state->job, &state->jobRunDelay);
         }
     }
@@ -359,7 +357,7 @@ float MP_MoveTo(const MP_Unit* unit, const vec2* position) {
         }
 
         // Success.
-        return distance / unit->meta->moveSpeed;
+        return distance / unit->type->moveSpeed;
     }
 
     // Could not find a path.

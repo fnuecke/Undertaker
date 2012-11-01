@@ -1,16 +1,15 @@
-#include "script.h"
-
 #include <string.h>
 
 #include "job.h"
-#include "meta_job.h"
+#include "job_type.h"
+#include "script.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Getters
 ///////////////////////////////////////////////////////////////////////////////
 
 typedef struct JobIter {
-    MP_Job * const* jobs;
+    MP_Job* const* jobs;
     unsigned int i;
 } JobIter;
 
@@ -19,7 +18,7 @@ static int lua_JobIter(lua_State* L) {
 
     // We iterate back to front, to allow deletion of current entry.
     if (iter->i > 0) {
-        luaMP_pushjob(L, iter->jobs[--iter->i]);
+        MP_Lua_PushJob(L, iter->jobs[--iter->i]);
         return 1;
     }
 
@@ -27,8 +26,8 @@ static int lua_JobIter(lua_State* L) {
 }
 
 static int lua_GetByType(lua_State* L) {
-    const MP_Player player = luaMP_checkplayer(L, 1);
-    const MP_JobMeta* meta = luaMP_checkjobmeta(L, 2);
+    const MP_Player player = MP_Lua_CheckPlayer(L, 1);
+    const MP_JobType* meta = MP_Lua_CheckJobType(L, 2);
 
     JobIter* iter = (JobIter*) lua_newuserdata(L, sizeof (JobIter));
     iter->jobs = MP_GetJobs(player, meta, &iter->i);
@@ -38,14 +37,14 @@ static int lua_GetByType(lua_State* L) {
 }
 
 static int lua_GetOffset(lua_State* L) {
-    MP_Job* job = luaMP_checkjob(L, 1);
+    MP_Job* job = MP_Lua_CheckJob(L, 1);
     lua_pushnumber(L, job->offset.d.x);
     lua_pushnumber(L, job->offset.d.y);
     return 2;
 }
 
 static int lua_GetPosition(lua_State* L) {
-    MP_Job* job = luaMP_checkjob(L, 1);
+    MP_Job* job = MP_Lua_CheckJob(L, 1);
     vec2 p;
     MP_GetJobPosition(&p, job);
     lua_pushnumber(L, p.d.x);
@@ -53,18 +52,27 @@ static int lua_GetPosition(lua_State* L) {
     return 2;
 }
 
-static int lua_GetTargetBlock(lua_State* L) {
-    luaMP_pushblock(L, luaMP_checkjob(L, 1)->block);
+static int lua_GetTargetType(lua_State* L) {
+    lua_pushinteger(L, MP_Lua_CheckJob(L, 1)->targetType);
     return 1;
 }
 
-static int lua_GetTargetRoom(lua_State* L) {
-    luaMP_pushroom(L, luaMP_checkjob(L, 1)->room);
-    return 1;
-}
-
-static int lua_GetTargetUnit(lua_State* L) {
-    luaMP_pushunit(L, luaMP_checkjob(L, 1)->unit);
+static int lua_GetTarget(lua_State* L) {
+    MP_Job* job = MP_Lua_CheckJob(L, 1);
+    switch (job->targetType) {
+        case MP_JOB_TARGET_BLOCK:
+            MP_Lua_PushBlock(L, (MP_Block*)job->target);
+            break;
+        case MP_JOB_TARGET_ROOM:
+            MP_Lua_PushRoom(L, (MP_Room*)job->target);
+            break;
+        case MP_JOB_TARGET_UNIT:
+            MP_Lua_PushUnit(L, (MP_Unit*)job->target);
+            break;
+        default:
+            lua_pushnil(L);
+            break;
+    }
     return 1;
 }
 
@@ -74,7 +82,7 @@ static int lua_GetTargetUnit(lua_State* L) {
 
 static int lua_CreateJob(lua_State* L) {
     MP_Player player = MP_PLAYER_NONE;
-    MP_Job job = {NULL, NULL, NULL, NULL, NULL, ZERO_VEC2};
+    MP_Job job = {NULL, NULL, MP_JOB_TARGET_NONE, NULL, ZERO_VEC2};
 
     // Keep track at which table entry we are.
     int narg = 1;
@@ -84,7 +92,7 @@ static int lua_CreateJob(lua_State* L) {
 
     // Get job meta data.
     lua_getfield(L, -1, "name");
-    job.meta = luaMP_checkjobmeta(L, -1);
+    job.type = MP_Lua_CheckJobType(L, -1);
     lua_pop(L, 1);
 
     // Now loop through the table. Push initial 'key' -- nil means start.
@@ -101,14 +109,19 @@ static int lua_CreateJob(lua_State* L) {
         if (strcmp(key, "name") == 0) {
             // Silently skip it.
 
-        } else if (strcmp(key, "block") == 0) {
-            job.block = luaMP_checkblock(L, -1);
-
-        } else if (strcmp(key, "room") == 0) {
-            job.room = luaMP_checkroom(L, -1);
-
-        } else if (strcmp(key, "unit") == 0) {
-            job.unit = luaMP_checkunit(L, -1);
+        } else if (strcmp(key, "target") == 0) {
+            if (MP_Lua_IsBlock(L, -1)) {
+                job.targetType = MP_JOB_TARGET_BLOCK;
+                job.target = MP_Lua_ToBlock(L, -1);
+            } else if (MP_Lua_IsRoom(L, -1)) {
+                job.targetType = MP_JOB_TARGET_ROOM;
+                job.target = MP_Lua_ToRoom(L, -1);
+            } else if (MP_Lua_IsUnit(L, -1)) {
+                job.targetType = MP_JOB_TARGET_UNIT;
+                job.target = MP_Lua_ToUnit(L, -1);
+            } else {
+                return luaL_argerror(L, narg, "invalid target type");
+            }
 
         } else if (strcmp(key, "offset") == 0) {
             vec2 p = ZERO_VEC2;
@@ -144,45 +157,47 @@ static int lua_CreateJob(lua_State* L) {
             job.offset = p;
 
         } else if (strcmp(key, "player") == 0) {
-            player = luaMP_checkplayer(L, -1);
+            player = MP_Lua_CheckPlayer(L, -1);
 
         } else {
             return luaL_argerror(L, narg, "unknown key");
         }
 
         lua_pop(L, 1);
+
+        ++narg;
     }
 
-    luaL_argcheck(L, job.block != NULL || job.room != NULL || job.unit != NULL, 1, "must set at least one target");
+    luaL_argcheck(L, job.target != NULL, 1, "must set 'target'");
     luaL_argcheck(L, player != MP_PLAYER_NONE, 1, "must set 'player'");
 
     // Allocate job and set values.
-    *MP_NewJob(player, job.meta) = job;
+    *MP_NewJob(player, job.type) = job;
 
     return 0;
 }
 
 static int lua_DeleteJob(lua_State* L) {
-    const MP_Player player = luaMP_checkplayer(L, 1);
-    MP_DeleteJob(player, luaMP_checkjob(L, 2));
+    const MP_Player player = MP_Lua_CheckPlayer(L, 1);
+    MP_DeleteJob(player, MP_Lua_CheckJob(L, 2));
     return 0;
 }
 
 static int lua_DeleteJobWhereTarget(lua_State* L) {
     // Get player.
-    const MP_Player player = luaMP_checkplayer(L, 1);
+    const MP_Player player = MP_Lua_CheckPlayer(L, 1);
     // Get job type to delete.
-    const MP_JobMeta* meta = luaMP_checkjobmeta(L, 2);
+    const MP_JobType* meta = MP_Lua_CheckJobType(L, 2);
     // Get the target. Figure out what it is.
-    if (luaMP_isblock(L, 3)) {
+    if (MP_Lua_IsBlock(L, 3)) {
         // It's a block.
-        MP_DeleteJobsTargetingBlock(player, meta, luaMP_toblock(L, 3));
-    } else if (luaMP_isroom(L, 3)) {
+        MP_DeleteJobsTargetingBlock(player, meta, MP_Lua_ToBlock(L, 3));
+    } else if (MP_Lua_IsRoom(L, 3)) {
         // It's a room.
-        MP_DeleteJobsTargetingRoom(player, meta, luaMP_toroom(L, 3));
-    } else if (luaMP_isunit(L, 3)) {
+        MP_DeleteJobsTargetingRoom(player, meta, MP_Lua_ToRoom(L, 3));
+    } else if (MP_Lua_IsUnit(L, 3)) {
         // It's a unit.
-        MP_DeleteJobsTargetingUnit(player, meta, luaMP_tounit(L, 3));
+        MP_DeleteJobsTargetingUnit(player, meta, MP_Lua_ToUnit(L, 3));
     } else {
         // Invalid target.
         luaL_argerror(L, 3, "expected '" LUA_BLOCKLIBNAME "', '" LUA_ROOMLIBNAME "' or '" LUA_UNITLIBNAME "'");
@@ -199,9 +214,8 @@ static const luaL_Reg lib[] = {
     {"getByType", lua_GetByType},
     {"getOffset", lua_GetOffset},
     {"getPosition", lua_GetPosition},
-    {"getTargetBlock", lua_GetTargetBlock},
-    {"getTargetRoom", lua_GetTargetRoom},
-    {"getTargetUnit", lua_GetTargetUnit},
+    {"getTargetType", lua_GetTargetType},
+    {"getTarget", lua_GetTarget},
 
     {"create", lua_CreateJob},
     {"delete", lua_DeleteJob},
@@ -209,27 +223,7 @@ static const luaL_Reg lib[] = {
     {NULL, NULL}
 };
 
-int luaopen_job(lua_State* L) {
+int MP_Lua_OpenJob(lua_State* L) {
     luaL_newlib(L, lib);
     return 1;
-}
-
-void luaMP_pushjob(lua_State* L, MP_Job* job) {
-    MP_Job** ud = (MP_Job**) lua_newuserdata(L, sizeof (MP_Job*));
-    *ud = job;
-    luaL_setmetatable(L, LUA_JOBLIBNAME);
-}
-
-bool luaMP_isjob(lua_State* L, int narg) {
-    return luaL_checkudata(L, narg, LUA_JOBLIBNAME) != NULL;
-}
-
-MP_Job* luaMP_tojob(lua_State* L, int narg) {
-    return *(MP_Job**) lua_touserdata(L, narg);
-}
-
-MP_Job* luaMP_checkjob(lua_State* L, int narg) {
-    void* ud = luaL_checkudata(L, narg, LUA_JOBLIBNAME);
-    luaL_argcheck(L, ud != NULL, narg, "'" LUA_JOBLIBNAME "' expected");
-    return *(MP_Job**) ud;
 }

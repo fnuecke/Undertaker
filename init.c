@@ -20,7 +20,7 @@
 #include "camera.h"
 #include "cursor.h"
 #include "job.h"
-#include "meta_room.h"
+#include "room_type.h"
 
 static void shutdown(void) {
     MP_log_info("Game shutting down...\n");
@@ -99,5 +99,5 @@ void MP_Init(void) {
     MP_log_info("Done initializing internal hooks.\n");
 
     // Initialize a test map.
-    MP_LoadMap("defaults");
+    MP_LoadMap("test");
 }
