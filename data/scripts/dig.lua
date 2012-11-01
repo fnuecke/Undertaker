@@ -12,7 +12,7 @@ ability {
             return properties.cooldown
         else
             -- Not in range, report failure.
-            return false
+            return -1
         end
     end
 }
@@ -20,9 +20,9 @@ ability {
 job {
     name = "dig",
     run = function(unit, job)
-        local ability = unit:getAbility("dig")
-        if ability:use() then
-            return ability:getCooldown()
+        local result = unit:getAbility("dig"):use()
+        if result >= 0 then
+            return result
         else
             local jx, jy = job:getPosition()
             return unit:move(jx, jy)

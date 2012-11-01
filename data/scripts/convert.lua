@@ -12,7 +12,7 @@ ability {
             return properties.cooldown
         else
             -- Not in range, report failure.
-            return false
+            return -1
         end
     end
 }
@@ -62,9 +62,9 @@ end
 job {
     name = "convert_floor",
     run = function(unit, job)
-        local success, cooldown = unit:getAbility("convert"):use()
-        if success then
-            return cooldown
+        local result = unit:getAbility("convert"):use()
+        if result >= 0 then
+            return result
         else
             local jx, jy = job:getPosition()
             return unit:move(jx, jy)
@@ -110,9 +110,9 @@ end
 job {
     name = "convert_wall",
     run = function(unit, job)
-        local success, cooldown = unit:getAbility("convert"):use()
-        if success then
-            return cooldown
+        local result = unit:getAbility("convert"):use()
+        if result >= 0 then
+            return result
         else
             local jx, jy = job:getPosition()
             return unit:move(jx, jy)

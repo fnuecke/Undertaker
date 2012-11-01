@@ -28,8 +28,8 @@ extern "C" {
     };
 
     /** Activates the specified ability, if it is not on cooldown. */
-    bool MP_UseAbility(MP_Ability* ability);
-    
+    float MP_UseAbility(MP_Ability* ability);
+
 #ifdef	__cplusplus
 }
 #endif

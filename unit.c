@@ -68,6 +68,12 @@ static void onUpdate(void) {
             for (unsigned short unitId = 0; unitId < gUnitCount[player]; ++unitId) {
                 // Update the unit's AI state.
                 MP_UpdateAI(gUnits[player][unitId]);
+                // Update ability cooldowns.
+                for (unsigned int i = 0; i < gUnits[player][unitId]->type->abilityCount; ++i) {
+                    if (gUnits[player][unitId]->abilities[i].cooldown > 0) {
+                        --gUnits[player][unitId]->abilities[i].cooldown;
+                    }
+                }
             }
         }
     }

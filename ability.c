@@ -2,18 +2,18 @@
 #include "script.h"
 #include "log.h"
 
-bool MP_UseAbility(MP_Ability* ability) {
+float MP_UseAbility(MP_Ability* ability) {
     lua_State* L = MP_Lua();
 
     // Fail if we don't have a run method.
     if (ability->type->runMethod == LUA_REFNIL) {
         MP_log_warning("Trying to run ability '%s', which has no 'run' method.\n", ability->type->info.name);
-        return false;
+        return -1;
     }
 
     // Skip if we're on cooldown.
     if (ability->cooldown > 0) {
-        return false;
+        return ability->cooldown / (float) MP_FRAMERATE;
     }
 
     // Try to get the callback.
@@ -21,23 +21,14 @@ bool MP_UseAbility(MP_Ability* ability) {
     if (lua_isfunction(L, -1)) {
         MP_Lua_PushAbility(L, ability);
         if (MP_Lua_pcall(L, 1, 1) == LUA_OK) {
-            // We may have gotten a delay (in seconds) to wait (cooldown).
-            bool success = false;
-            if (lua_isnumber(L, -1)) {
-                float cooldown = lua_tonumber(L, -1);
-                if (cooldown > 0) {
-                    // OK, multiply with frame rate to get tick count.
-                    ability->cooldown = (unsigned int) (MP_FRAMERATE * cooldown);
-                }
-                success = true;
-            } else if (lua_isboolean(L, -1)) {
-                success = lua_toboolean(L, -1);
-            } else {
-                MP_log_warning("In 'run' for ability '%s': returned invalid result.\n", ability->type->info.name);
+            float cooldown = luaL_checknumber(L, -1);
+            if (cooldown > 0) {
+                // OK, multiply with frame rate to get tick count.
+                ability->cooldown = (unsigned int) (MP_FRAMERATE * cooldown);
             }
-            lua_pop(L, 2); // pop result
+            lua_pop(L, 1); // pop result
 
-            return success;
+            return cooldown;
         } else {
             // Something went wrong.
             MP_log_error("In 'run' for ability '%s': %s\n", ability->type->info.name, lua_tostring(L, -1));
@@ -53,5 +44,5 @@ bool MP_UseAbility(MP_Ability* ability) {
     // so we don't try this again.
     MP_DisableAbilityRunMethod(ability->type);
 
-    return false;
+    return -1;
 }

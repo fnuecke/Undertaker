@@ -1,6 +1,6 @@
-#include "script.h"
-
 #include "ability.h"
+#include "config.h"
+#include "script.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Getters
@@ -14,7 +14,7 @@ static int lua_GetUnit(lua_State* L) {
 
 static int lua_GetCooldown(lua_State* L) {
     MP_Ability* ability = MP_Lua_CheckAbility(L, 1);
-    lua_pushunsigned(L, ability->cooldown);
+    lua_pushnumber(L, ability->cooldown / (float)MP_FRAMERATE);
     return 1;
 }
 
@@ -30,7 +30,7 @@ static int lua_GetProperties(lua_State* L) {
 
 static int lua_Use(lua_State* L) {
     MP_Ability* ability = MP_Lua_CheckAbility(L, 1);
-    lua_pushboolean(L, MP_UseAbility(ability));
+    lua_pushnumber(L, MP_UseAbility(ability));
     return 1;
 }
 
