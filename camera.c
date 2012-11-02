@@ -39,7 +39,7 @@ static float gCameraZoomTarget = 0;
 // Updating
 ///////////////////////////////////////////////////////////////////////////////
 
-static void update(void) {
+static void onUpdate(void) {
     if (gCameraDirection & MP_CAMERA_DIRECTION_NORTH) {
         gCameraVelocity.v[1] = MP_scrollSpeed;
     }
@@ -127,5 +127,5 @@ void MP_CameraZoomOut(void) {
 }
 
 void MP_InitCamera(void) {
-    MP_AddUpdateEventListener(update);
+    MP_AddUpdateEventListener(onUpdate);
 }

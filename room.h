@@ -20,7 +20,7 @@ extern "C" {
     /** Represents a single room in the world */
     struct MP_Room {
         /** Info on the room type */
-        const MP_RoomType* meta;
+        const MP_RoomType* type;
 
         /** Blocks this room covers */
         MP_Block* blocks;

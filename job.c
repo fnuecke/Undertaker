@@ -1,22 +1,14 @@
 #include <assert.h>
 #include <float.h>
-#include <malloc.h>
-#include <stdio.h>
-#include <string.h>
+#include <stdlib.h>
 
 #include "astar_mp.h"
-#include "block.h"
-#include "config.h"
-#include "events.h"
-#include "log.h"
 #include "job.h"
 #include "job_type.h"
+#include "log.h"
 #include "map.h"
-#include "render.h"
 #include "script.h"
-#include "selection.h"
 #include "unit.h"
-#include "vmath.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
@@ -38,7 +30,7 @@ static unsigned int gJobTypeCapacityAndCount[MP_PLAYER_COUNT];
 // Allocation
 ///////////////////////////////////////////////////////////////////////////////
 
-static void ensureJobListSize(MP_Player player, unsigned int typeId) {
+static void ensureListCapacity(MP_Player player, unsigned int typeId) {
     if (typeId >= gJobTypeCapacityAndCount[player]) {
         unsigned int newCapacity = typeId + 1;
 
@@ -66,10 +58,6 @@ static void ensureJobListSize(MP_Player player, unsigned int typeId) {
 
         gJobTypeCapacityAndCount[player] = newCapacity;
     }
-}
-
-static void ensureJobTypeListSize(MP_Player player, unsigned int typeId) {
-    ensureJobListSize(player, typeId);
 
     if (gJobsCount[player][typeId] >= gJobsCapacity[player][typeId]) {
         gJobsCapacity[player][typeId] = gJobsCapacity[player][typeId] * 2 + 1;
@@ -78,30 +66,6 @@ static void ensureJobTypeListSize(MP_Player player, unsigned int typeId) {
             MP_log_fatal("Out of memory while resizing job list.\n");
         }
     }
-}
-
-/** Allocate a job and track it in our list */
-MP_Job* MP_NewJob(MP_Player player, const MP_JobType* type) {
-    MP_Job* job;
-
-    assert(type);
-    if (!type) {
-        return NULL;
-    }
-
-    // Ensure we have the capacity to add the job.
-    ensureJobTypeListSize(player, type->info.id);
-
-    // Allocate the actual job.
-    if (!(job = calloc(1, sizeof (MP_Job)))) {
-        MP_log_fatal("Out of memory while allocating a job.\n");
-    }
-    job->type = type;
-
-    // Store it in our list.
-    gJobs[player][type->info.id][gJobsCount[player][type->info.id]++] = job;
-
-    return job;
 }
 
 static void deleteJob(MP_Player player, unsigned int typeId, unsigned int number) {
@@ -117,9 +81,35 @@ static void deleteJob(MP_Player player, unsigned int typeId, unsigned int number
             (gJobsCount[player][typeId] - number) * sizeof (MP_Job*));
 }
 
+/** Allocate a job and track it in our list */
+MP_Job* MP_NewJob(MP_Player player, const MP_JobType* type) {
+    MP_Job* job;
+
+    assert(player > MP_PLAYER_NONE && player < MP_PLAYER_COUNT);
+    assert(type);
+
+    // Ensure we have the capacity to add the job.
+    ensureListCapacity(player, type->info.id);
+
+    // Allocate the actual job.
+    if (!(job = calloc(1, sizeof (MP_Job)))) {
+        MP_log_fatal("Out of memory while allocating a job.\n");
+    }
+    job->type = type;
+
+    // Store it in our list.
+    gJobs[player][type->info.id][gJobsCount[player][type->info.id]++] = job;
+
+    return job;
+}
+
 /** Delete a job that is no longer used */
 void MP_DeleteJob(MP_Player player, MP_Job* job) {
-    if (!job || !job->type || job->type->info.id >= gJobTypeCapacityAndCount[player]) {
+    assert(player > MP_PLAYER_NONE && player < MP_PLAYER_COUNT);
+    assert(!job || (job->type && job->type->info.id < gJobTypeCapacityAndCount[player]));
+
+    // If we got a null pointer we have nothing to do.
+    if (!job) {
         return;
     }
 
@@ -133,7 +123,16 @@ void MP_DeleteJob(MP_Player player, MP_Job* job) {
     }
 }
 
-void MP_DeleteJobsTargetingBlock(MP_Player player, const MP_JobType* type, const MP_Block* block) {
+static void deleteJobsTargeting(MP_Player player, const MP_JobType* type, MP_JobTargetType targetType, const void* target) {
+    assert(player > MP_PLAYER_NONE && player < MP_PLAYER_COUNT);
+    assert(type);
+
+    // If there's no target there's nothing to delete.
+    if (!target) {
+        return;
+    }
+
+    // Skip if no jobs for that type were added before.
     if (type->info.id >= gJobTypeCapacityAndCount[player]) {
         return;
     }
@@ -141,41 +140,22 @@ void MP_DeleteJobsTargetingBlock(MP_Player player, const MP_JobType* type, const
     // Run back to front so that deletions don't matter.
     for (unsigned int number = gJobsCount[player][type->info.id]; number > 0; --number) {
         MP_Job* job = gJobs[player][type->info.id][number - 1];
-        if (job->targetType == MP_JOB_TARGET_BLOCK &&
-            (const MP_Block*)job->target == block) {
+        if (job->targetType == targetType && job->target == target) {
             deleteJob(player, job->type->info.id, number - 1);
         }
     }
 }
 
-void MP_DeleteJobsTargetingRoom(MP_Player player, const MP_JobType* meta, const MP_Room* room) {
-    if (meta->info.id >= gJobTypeCapacityAndCount[player]) {
-        return;
-    }
-
-    // Run back to front so that deletions don't matter.
-    for (unsigned int number = gJobsCount[player][meta->info.id]; number > 0; --number) {
-        MP_Job* job = gJobs[player][meta->info.id][number - 1];
-        if (job->targetType == MP_JOB_TARGET_ROOM &&
-            (const MP_Room*)job->target == room) {
-            deleteJob(player, job->type->info.id, number - 1);
-        }
-    }
+void MP_DeleteJobsTargetingBlock(MP_Player player, const MP_JobType* type, const MP_Block* block) {
+    deleteJobsTargeting(player, type, MP_JOB_TARGET_BLOCK, block);
 }
 
-void MP_DeleteJobsTargetingUnit(MP_Player player, const MP_JobType* meta, const MP_Unit* unit) {
-    if (meta->info.id >= gJobTypeCapacityAndCount[player]) {
-        return;
-    }
+void MP_DeleteJobsTargetingRoom(MP_Player player, const MP_JobType* type, const MP_Room* room) {
+    deleteJobsTargeting(player, type, MP_JOB_TARGET_ROOM, room);
+}
 
-    // Run back to front so that deletions don't matter.
-    for (unsigned int number = gJobsCount[player][meta->info.id]; number > 0; --number) {
-        MP_Job* job = gJobs[player][meta->info.id][number - 1];
-        if (job->targetType == MP_JOB_TARGET_UNIT &&
-            (const MP_Unit*)job->target == unit) {
-            deleteJob(player, job->type->info.id, number - 1);
-        }
-    }
+void MP_DeleteJobsTargetingUnit(MP_Player player, const MP_JobType* type, const MP_Unit* unit) {
+    deleteJobsTargeting(player, type, MP_JOB_TARGET_UNIT, unit);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -185,9 +165,10 @@ void MP_DeleteJobsTargetingUnit(MP_Player player, const MP_JobType* meta, const 
 void MP_GetJobPosition(vec2* position, const MP_Job* job) {
     // Get position based on job type.
     switch (job->targetType) {
-        case MP_JOB_TARGET_BLOCK: {
+        case MP_JOB_TARGET_BLOCK:
+        {
             unsigned short x, y;
-            if (MP_GetBlockCoordinates(&x, &y, (MP_Block*)job->target)) {
+            if (MP_GetBlockCoordinates(&x, &y, (MP_Block*) job->target)) {
                 position->d.x = x + 0.5f;
                 position->d.y = y + 0.5f;
             }
@@ -197,7 +178,7 @@ void MP_GetJobPosition(vec2* position, const MP_Job* job) {
             // TODO
             break;
         case MP_JOB_TARGET_UNIT:
-            *position = ((MP_Unit*)job->target)->position;
+            *position = ((MP_Unit*) job->target)->position;
             break;
         default:
             position->d.x = 0;
@@ -215,6 +196,9 @@ void MP_GetJobPosition(vec2* position, const MP_Job* job) {
 
 bool MP_RunJob(MP_Unit* unit, MP_Job* job, unsigned int* delay) {
     lua_State* L = MP_Lua();
+
+    assert(unit);
+    assert(job);
 
     if (job->type->runMethod == LUA_REFNIL) {
         MP_log_warning("Trying to run job '%s', which has no 'run' method.\n", job->type->info.name);
@@ -271,6 +255,9 @@ bool MP_RunJob(MP_Unit* unit, MP_Job* job, unsigned int* delay) {
 float MP_GetDynamicPreference(MP_Unit* unit, const MP_JobType* type) {
     lua_State* L = MP_Lua();
 
+    assert(unit);
+    assert(type);
+
     if (type->dynamicPreference == LUA_REFNIL) {
         MP_log_warning("Trying to get dynamic preference for job '%s', which has no 'preference' callback.\n", type->info.name);
         return 0;
@@ -309,113 +296,11 @@ float MP_GetDynamicPreference(MP_Unit* unit, const MP_JobType* type) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Rendering
-///////////////////////////////////////////////////////////////////////////////
-
-static const vec4 colors[] = {
-    {
-        {1, 0, 0, 1}
-    },
-    {
-        {0, 1, 0, 1}
-    },
-    {
-        {0, 0, 1, 1}
-    },
-    {
-        {0.9f, 0.3f, 0.3f, 1}
-    },
-    {
-        {0.3f, 0.9f, 0.3f, 1}
-    },
-    {
-        {0.3f, 0.3f, 0.9f, 1}
-    },
-    {
-        {0.8f, 0.5f, 0.5f, 1}
-    },
-    {
-        {0.5f, 0.8f, 0.5f, 1}
-    },
-    {
-        {0.5f, 0.5f, 0.8f, 1}
-    },
-};
-static const unsigned int colorCount = sizeof (colors) / sizeof (vec4);
-
-/** Debug rendering of where jobs are */
-static void onRender(void) {
-    if (MP_DBG_drawJobs) {
-        MP_Material material;
-        MP_InitMaterial(&material);
-        material.emissivity = 1.0f;
-
-        for (unsigned int typeId = 0; typeId < gJobTypeCapacityAndCount[MP_PLAYER_ONE]; ++typeId) {
-            for (unsigned int number = 0; number < gJobsCount[MP_PLAYER_ONE][typeId]; ++number) {
-                const MP_Job* job = gJobs[MP_PLAYER_ONE][typeId][number];
-
-                // Pick a color for the job.
-                material.diffuseColor = colors[typeId % colorCount];
-                /*
-                                switch (type) {
-                                    case MP_JOB_DIG:
-                                        material.diffuseColor.c.r = 0.4f;
-                                        material.diffuseColor.c.g = 0.8f;
-                                        material.diffuseColor.c.b = 0.4f;
-                                        break;
-                                    case MP_JOB_CONVERT_TILE:
-                                    case MP_JOB_CONVERT_WALL:
-                                        material.diffuseColor.c.r = 0.4f;
-                                        material.diffuseColor.c.g = 0.4f;
-                                        material.diffuseColor.c.b = 0.8f;
-                                        break;
-
-                                    default:
-                                        material.diffuseColor.c.r = 0.4f;
-                                        material.diffuseColor.c.g = 0.4f;
-                                        material.diffuseColor.c.b = 0.4f;
-                                        break;
-                                }
-                 */
-
-                // Highlight if it's being worked on.
-                if (job->worker) {
-                    material.diffuseColor.c.r += 0.2f;
-                    material.diffuseColor.c.g += 0.2f;
-                    material.diffuseColor.c.b += 0.2f;
-                }
-
-                // Apply material and draw quad.
-                MP_SetMaterial(&material);
-                glBegin(GL_QUADS);
-                {
-                    vec2 position;
-                    MP_GetJobPosition(&position, job);
-                    glVertex3f((position.d.x - 0.1f) * MP_BLOCK_SIZE,
-                               (position.d.y - 0.1f) * MP_BLOCK_SIZE,
-                               MP_D_DRAW_PATH_HEIGHT + 0.1f);
-                    glVertex3f((position.d.x + 0.1f) * MP_BLOCK_SIZE,
-                               (position.d.y - 0.1f) * MP_BLOCK_SIZE,
-                               MP_D_DRAW_PATH_HEIGHT + 0.1f);
-                    glVertex3f((position.d.x + 0.1f) * MP_BLOCK_SIZE,
-                               (position.d.y + 0.1f) * MP_BLOCK_SIZE,
-                               MP_D_DRAW_PATH_HEIGHT + 0.1f);
-                    glVertex3f((position.d.x - 0.1f) * MP_BLOCK_SIZE,
-                               (position.d.y + 0.1f) * MP_BLOCK_SIZE,
-                               MP_D_DRAW_PATH_HEIGHT + 0.1f);
-                }
-                glEnd();
-            }
-        }
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
 // Accessors
 ///////////////////////////////////////////////////////////////////////////////
 
-MP_Job* const* MP_GetJobs(MP_Player player, const MP_JobType* type, unsigned int* count) {
-    ensureJobTypeListSize(player, type->info.id);
+MP_Job * const* MP_GetJobs(MP_Player player, const MP_JobType* type, unsigned int* count) {
+    ensureListCapacity(player, type->info.id);
     *count = gJobsCount[player][type->info.id];
     return gJobs[player][type->info.id];
 }
@@ -428,7 +313,7 @@ MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobType* type, float* distance)
         return NULL;
     }
 
-    ensureJobTypeListSize(unit->owner, type->info.id);
+    ensureListCapacity(unit->owner, type->info.id);
 
     // Loop through all jobs of the specified type for the owner of the unit.
     for (unsigned int number = 0; number < gJobsCount[unit->owner][type->info.id]; ++number) {
@@ -507,8 +392,6 @@ void MP_ClearJobs(void) {
 }
 
 void MP_InitJobs(void) {
-    MP_AddRenderEventListener(onRender);
-
     memset(gJobs, 0, MP_PLAYER_COUNT * sizeof (MP_Job***));
     memset(gJobsCount, 0, MP_PLAYER_COUNT * sizeof (unsigned int*));
     memset(gJobsCapacity, 0, MP_PLAYER_COUNT * sizeof (unsigned int*));

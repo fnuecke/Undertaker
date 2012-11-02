@@ -1,11 +1,10 @@
-#include "astar.h"
-
 #include <assert.h>
 #include <malloc.h>
 #include <math.h>
 #include <memory.h>
 #include <stdio.h>
 
+#include "astar.h"
 #include "bitset.h"
 
 ///////////////////////////////////////////////////////////////////////////////

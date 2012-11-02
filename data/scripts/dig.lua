@@ -22,7 +22,7 @@ job {
     run = function(unit, job)
         local result = unit:getAbility("dig"):use()
         if result >= 0 then
-            return result
+            return result, true
         else
             local jx, jy = job:getPosition()
             return unit:move(jx, jy)
@@ -36,7 +36,7 @@ job {
                 return block:isPassable()
             end
             local function validateTarget(block)
-                return block:isSelectedBy(player)
+                return block:isSelectedBy(player) 
             end
             local x, y = block:getPosition()
             util.addJobsForBlock(player, block, "dig", validateLocation, validateTarget)

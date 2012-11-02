@@ -127,14 +127,14 @@ static void updateMove(MP_Unit* unit) {
 /** Updates unit desire saturation based on currently performed job and such */
 static void updateSaturation(MP_Unit* unit) {
     const AI_State* state = &unit->ai->state;
-    const MP_JobType* activeJob = state->active ? state->job->type : NULL;
+    const MP_JobType* activeJob = (state->active && state->job) ? state->job->type : NULL;
     const MP_UnitJobType* jobTypes = unit->type->jobs;
     float* saturation = unit->jobSaturation;
 
     // Update job saturation values.
     for (int number = unit->type->jobCount - 1; number >= 0; --number) {
         // Yes, check it's currently performing it.
-        if (state->active && activeJob == unit->type->jobs[number].type) {
+        if (activeJob == unit->type->jobs[number].type) {
             // Yes, it's active, update for the respective delta.
             saturation[number] += jobTypes[number].performingDelta;
         } else {
@@ -222,9 +222,9 @@ static void updateCurrentJob(MP_Unit* unit) {
         MP_StopJob(state->job);
 
         // Pursue that job now.
-        state->active = false;
-        state->job = bestJob;
         state->jobRunDelay = 0;
+        state->job = bestJob;
+        state->active = false;
 
         // We found work, reserve it for ourself.
         bestJob->worker = unit;
@@ -247,7 +247,8 @@ static void updateJob(MP_Unit* unit) {
         } else {
             // Otherwise update the unit based on its current job.
             assert(state->job->type->runMethod != LUA_REFNIL);
-            state->active = MP_RunJob(unit, state->job, &state->jobRunDelay);
+            // Set active only if the job still exists after execution!
+            state->active = MP_RunJob(unit, state->job, &state->jobRunDelay) && state->job;
         }
     }
 }

@@ -1,11 +1,10 @@
-#include "block_type.h"
-
 #include <stdio.h>
+#include <string.h>
 
-#include "type_impl.h"
-#include "passability.h"
+#include "block_type.h"
 #include "script.h"
 #include "textures.h"
+#include "type_impl.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Constants / globals

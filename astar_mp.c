@@ -1,8 +1,7 @@
-#include "astar_mp.h"
-
 #include <math.h>
 
 #include "astar.h"
+#include "astar_mp.h"
 #include "block.h"
 #include "map.h"
 #include "unit.h"

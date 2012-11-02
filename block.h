@@ -48,7 +48,7 @@ extern "C" {
 
     bool MP_IsBlockPassable(const MP_Block* block);
 
-    bool MP_IsBlockPassableBy(const MP_Block* block, const MP_UnitType* meta);
+    bool MP_IsBlockPassableBy(const MP_Block* block, const MP_UnitType* unitType);
 
     bool MP_IsBlockDestructible(const MP_Block* block);
 

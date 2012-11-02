@@ -1,9 +1,13 @@
+#include <assert.h>
+
 #include "ability.h"
 #include "script.h"
 #include "log.h"
 
 float MP_UseAbility(MP_Ability* ability) {
     lua_State* L = MP_Lua();
+
+    assert(ability);
 
     // Fail if we don't have a run method.
     if (ability->type->runMethod == LUA_REFNIL) {

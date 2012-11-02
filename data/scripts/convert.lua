@@ -112,7 +112,7 @@ job {
     run = function(unit, job)
         local result = unit:getAbility("convert"):use()
         if result >= 0 then
-            return result
+            return result, true
         else
             local jx, jy = job:getPosition()
             return unit:move(jx, jy)

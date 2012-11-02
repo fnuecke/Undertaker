@@ -182,17 +182,17 @@ static int lua_DeleteJobWhereTarget(lua_State* L) {
     // Get player.
     const MP_Player player = MP_Lua_CheckPlayer(L, 1);
     // Get job type to delete.
-    const MP_JobType* meta = MP_Lua_CheckJobType(L, 2);
+    const MP_JobType* jobType = MP_Lua_CheckJobType(L, 2);
     // Get the target. Figure out what it is.
     if (MP_Lua_IsBlock(L, 3)) {
         // It's a block.
-        MP_DeleteJobsTargetingBlock(player, meta, MP_Lua_ToBlock(L, 3));
+        MP_DeleteJobsTargetingBlock(player, jobType, MP_Lua_ToBlock(L, 3));
     } else if (MP_Lua_IsRoom(L, 3)) {
         // It's a room.
-        MP_DeleteJobsTargetingRoom(player, meta, MP_Lua_ToRoom(L, 3));
+        MP_DeleteJobsTargetingRoom(player, jobType, MP_Lua_ToRoom(L, 3));
     } else if (MP_Lua_IsUnit(L, 3)) {
         // It's a unit.
-        MP_DeleteJobsTargetingUnit(player, meta, MP_Lua_ToUnit(L, 3));
+        MP_DeleteJobsTargetingUnit(player, jobType, MP_Lua_ToUnit(L, 3));
     } else {
         // Invalid target.
         luaL_argerror(L, 3, "expected '" LUA_BLOCKLIBNAME "', '" LUA_ROOMLIBNAME "' or '" LUA_UNITLIBNAME "'");

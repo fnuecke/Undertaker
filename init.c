@@ -98,6 +98,8 @@ void MP_Init(void) {
     MP_InitJobs();
     MP_InitLuaEvents();
 
+    MP_Debug_InitJobs();
+
     MP_log_info("Done initializing internal hooks.\n");
 
     // Initialize a test map.

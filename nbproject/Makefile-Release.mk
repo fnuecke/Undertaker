@@ -57,6 +57,7 @@ OBJECTFILES= \
 	${OBJECTDIR}/_ext/51285538/astar.o \
 	${OBJECTDIR}/lua/ldebug.o \
 	${OBJECTDIR}/script_loading_ability.o \
+	${OBJECTDIR}/dbg_job.o \
 	${OBJECTDIR}/_ext/51285538/textures.o \
 	${OBJECTDIR}/script_lib_unit.o \
 	${OBJECTDIR}/lua/ltm.o \
@@ -252,6 +253,11 @@ ${OBJECTDIR}/script_loading_ability.o: script_loading_ability.c
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
 	$(COMPILE.c) -O2 -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/script_loading_ability.o script_loading_ability.c
+
+${OBJECTDIR}/dbg_job.o: dbg_job.c 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} $@.d
+	$(COMPILE.c) -O2 -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/dbg_job.o dbg_job.c
 
 ${OBJECTDIR}/_ext/51285538/textures.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/textures.c 
 	${MKDIR} -p ${OBJECTDIR}/_ext/51285538

@@ -94,28 +94,28 @@ extern "C" {
      * Deletes all jobs targeting the specified block. Same effects as for the
      * normal DeleteJob method apply.
      * @param player the player for whom to delete the jobs.
-     * @param meta the type of job to delete.
+     * @param type the type of job to delete.
      * @param block the targeted block to check for.
      */
-    void MP_DeleteJobsTargetingBlock(MP_Player player, const MP_JobType* meta, const MP_Block* block);
+    void MP_DeleteJobsTargetingBlock(MP_Player player, const MP_JobType* type, const MP_Block* block);
 
     /**
      * Deletes all jobs targeting the specified room. Same effects as for the
      * normal DeleteJob method apply.
      * @param player the player for whom to delete the jobs.
-     * @param meta the type of job to delete.
+     * @param type the type of job to delete.
      * @param room the targeted room to check for.
      */
-    void MP_DeleteJobsTargetingRoom(MP_Player player, const MP_JobType* meta, const MP_Room* room);
+    void MP_DeleteJobsTargetingRoom(MP_Player player, const MP_JobType* type, const MP_Room* room);
 
     /**
      * Deletes all jobs targeting the specified unit. Same effects as for the
      * normal DeleteJob method apply.
      * @param player the player for whom to delete the jobs.
-     * @param meta the type of job to delete.
+     * @param type the type of job to delete.
      * @param unit the targeted unit to check for.
      */
-    void MP_DeleteJobsTargetingUnit(MP_Player player, const MP_JobType* meta, const MP_Unit* unit);
+    void MP_DeleteJobsTargetingUnit(MP_Player player, const MP_JobType* type, const MP_Unit* unit);
 
     /**
      * Get a list of all jobs of the specified type, as well as the size of that
@@ -174,6 +174,7 @@ extern "C" {
      * Initialize job system.
      */
     void MP_InitJobs(void);
+    void MP_Debug_InitJobs(void);
 
 #ifdef	__cplusplus
 }

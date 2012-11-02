@@ -1,8 +1,8 @@
-#include "bitset.h"
-
 #include <assert.h>
 #include <malloc.h>
 #include <memory.h>
+
+#include "bitset.h"
 
 BitSet BS_New(unsigned int size) {
     return calloc(size / 8 + 1, sizeof (char));
