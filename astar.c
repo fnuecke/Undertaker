@@ -486,6 +486,10 @@ int AStar(const vec2* start, const vec2* goal,
     float gscore, fscore;
     PathNode *current, *node;
 
+    assert(start);
+    assert(goal);
+
+
     // We need a passability method.
     if (!passable) {
         return 0;

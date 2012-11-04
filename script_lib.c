@@ -7,9 +7,13 @@
 
 #define MP_LUA_LIBRARY_IMPL(NAME, LIBNAME) \
 void MP_Lua_Push##NAME(lua_State* L, MP_##NAME* value) { \
-    MP_##NAME** ud = (MP_##NAME**) lua_newuserdata(L, sizeof (MP_##NAME*)); \
-    *ud = value; \
-    luaL_setmetatable(L, LIBNAME); \
+    if (value) { \
+        MP_##NAME** ud = (MP_##NAME**) lua_newuserdata(L, sizeof (MP_##NAME*)); \
+        *ud = value; \
+        luaL_setmetatable(L, LIBNAME); \
+    } else { \
+        lua_pushnil(L); \
+    } \
 } \
 bool MP_Lua_Is##NAME(lua_State* L, int narg) { \
     return luaL_testudata(L, narg, LIBNAME) != NULL; \

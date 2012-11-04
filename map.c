@@ -1,5 +1,6 @@
 #include "map.h"
 
+#include <assert.h>
 #include <float.h>
 #include <math.h>
 #include <string.h>
@@ -148,10 +149,10 @@ typedef enum {
 /** Get influence of a specific block on noise */
 static double getNoiseFromBlock(MP_Offset* offset, const MP_Block* block) {
     *offset = OFFSET_NONE;
-    if (isBlockOpen(block) && block->owner == MP_PLAYER_NONE) {
+    if (isBlockOpen(block) && block->player == MP_PLAYER_NONE) {
         *offset = OFFSET_INCREASE;
         return 1.5;
-    } else if (block->owner != MP_PLAYER_NONE) {
+    } else if (block->player != MP_PLAYER_NONE) {
         *offset = OFFSET_DECREASE;
         return 0.5;
     }
@@ -430,7 +431,7 @@ static bool lightOnWall(const MP_Block* block, unsigned int i) {
     return block && block->type &&
             block->type->level == MP_BLOCK_LEVEL_HIGH &&
             block->type->lightFrequency &&
-            i % (block->owner == MP_PLAYER_NONE
+            i % (block->player == MP_PLAYER_NONE
             ? block->type->lightFrequency
             : block->type->lightFrequency >> 1) == 0;
 }
@@ -478,16 +479,7 @@ inline static unsigned int clamp(int coordinate) {
 
 static void updateBlock(MP_Block* block) {
     unsigned short x, y;
-
-    // Ignore requests for invalid blocks.
-    if (!block) {
-        return;
-    }
-
-    if (!MP_GetBlockCoordinates(&x, &y, block)) {
-        // Out of bounds, ignore.
-        return;
-    }
+    MP_GetBlockCoordinates(block, &x, &y);
 
     // Update model.
     {
@@ -513,9 +505,9 @@ static void updateBlock(MP_Block* block) {
     updateLightsAt(x, y);
 
     // Deselect block for players it's no longer selectable by.
-    for (int player = 0; player < MP_PLAYER_COUNT; ++player) {
-        if (!MP_IsBlockSelectable(player, block)) {
-            MP_DeselectBlock(player, x, y);
+    for (int player = MP_PLAYER_ONE; player < MP_PLAYER_COUNT; ++player) {
+        if (!MP_IsBlockSelectable(block, player)) {
+            MP_DeselectBlock(block, player);
         }
     }
 }
@@ -523,8 +515,8 @@ static void updateBlock(MP_Block* block) {
 /** Check for tiles to automatically convert after a block conversion */
 static void autoConvert(MP_Block* block, MP_Player player) {
     // Get the actual coordinates.
-    unsigned short x = 0, y = 0;
-    MP_GetBlockCoordinates(&x, &y, block);
+    unsigned short x, y;
+    MP_GetBlockCoordinates(block, &x, &y);
 
     // See if we're now cornering a neutral block. In that case we
     // automatically convert that one, too.
@@ -546,27 +538,27 @@ static void autoConvert(MP_Block* block, MP_Player player) {
                 // This double loop gives us the coordinates of our diagonal
                 // neighbors, meaning they have to be owned blocks.
                 if ((block = MP_GetBlockAt(x + nx, y + ny)) &&
-                    block->owner == player &&
+                    block->player == player &&
                     block->type->level == MP_BLOCK_LEVEL_HIGH &&
                     // OK so far, now wee need to check if one of the
                     // blocks completing the square is open and the
                     // other un-owned.
                     ((
                     (block = MP_GetBlockAt(x, y + ny)) &&
-                    block->owner == player &&
+                    block->player == player &&
                     block->type->level < MP_BLOCK_LEVEL_HIGH &&
                     (block = MP_GetBlockAt(x + nx, y)) &&
-                    block->owner == MP_PLAYER_NONE &&
+                    block->player == MP_PLAYER_NONE &&
                     block->type->level == MP_BLOCK_LEVEL_HIGH &&
                     MP_IsBlockConvertible(block)
                     ) || (
                     // If it didn't work that way around, check the
                     // other way.
                     (block = MP_GetBlockAt(x + nx, y)) &&
-                    block->owner == player &&
+                    block->player == player &&
                     block->type->level < MP_BLOCK_LEVEL_HIGH &&
                     (block = MP_GetBlockAt(x, y + ny)) &&
-                    block->owner == MP_PLAYER_NONE &&
+                    block->player == MP_PLAYER_NONE &&
                     block->type->level == MP_BLOCK_LEVEL_HIGH &&
                     MP_IsBlockConvertible(block)
                     ))) {
@@ -583,15 +575,15 @@ static void autoConvert(MP_Block* block, MP_Player player) {
                 // This double loop gives us the coordinates of our diagonal
                 // neighbors, meaning they have to be un-owned blocks.
                 if ((block = MP_GetBlockAt(x + nx, y + ny)) &&
-                    block->owner == MP_PLAYER_NONE &&
+                    block->player == MP_PLAYER_NONE &&
                     block->type->level == MP_BLOCK_LEVEL_HIGH &&
                     // OK so far, now wee need to check if the blocks
                     // completing the square are high and owned.
                     (block = MP_GetBlockAt(x, y + ny)) &&
-                    block->owner == player &&
+                    block->player == player &&
                     block->type->level == MP_BLOCK_LEVEL_HIGH &&
                     (block = MP_GetBlockAt(x + nx, y)) &&
-                    block->owner == player &&
+                    block->player == player &&
                     block->type->level == MP_BLOCK_LEVEL_HIGH) {
                     // All conditions are met for converting the block.
                     MP_SetBlockOwner(block, player);
@@ -845,7 +837,8 @@ static void renderSelectionOutline(void) {
         const int x = (map_x + (MP_MAP_BORDER >> 1)) * 2;
         for (int map_y = selection.startY; map_y <= selection.endY; ++map_y) {
             const int y = (map_y + (MP_MAP_BORDER >> 1)) * 2;
-            if (!MP_IsBlockSelectable(MP_PLAYER_ONE, MP_GetBlockAt(map_x, map_y))) {
+            const MP_Block* block = MP_GetBlockAt(map_x, map_y);
+            if (!block || !MP_IsBlockSelectable(block, MP_PLAYER_ONE)) {
                 continue;
             }
 
@@ -994,7 +987,7 @@ static void renderSelectionOverlay(void) {
         for (int y = y_begin; y < y_end; ++y) {
             // Selected by the local player?
             if (x >= 0 && y >= 0 && x < gMapSize && y < gMapSize &&
-                MP_IsBlockSelected(MP_PLAYER_ONE, x, y)) {
+                MP_IsBlockSelected(MP_GetBlockAt(x, y), MP_PLAYER_ONE)) {
                 MP_PushModelMatrix();
                 MP_TranslateModelMatrix(0, 0, MP_MAP_SELECTION_OFFSET);
 
@@ -1070,7 +1063,7 @@ static void onRender(void) {
             // Get block info.
             if (block) {
                 type = block->type;
-                owner = block->owner;
+                owner = block->player;
             } else {
                 // Out of bounds, use default block type.
                 type = defaultType;
@@ -1108,22 +1101,22 @@ static void onRender(void) {
                 MP_Block* b;
                 if ((b = MP_GetBlockAt(x, y + 1)) &&
                     b->type->info.id == type->info.id &&
-                    b->owner == owner) {
+                    b->player == owner) {
                     edges |= EDGE_TOP;
                 }
                 if ((b = MP_GetBlockAt(x + 1, y)) &&
                     b->type->info.id == type->info.id &&
-                    b->owner == owner) {
+                    b->player == owner) {
                     edges |= EDGE_RIGHT;
                 }
                 if ((b = MP_GetBlockAt(x, y - 1)) &&
                     b->type->info.id == type->info.id &&
-                    b->owner == owner) {
+                    b->player == owner) {
                     edges |= EDGE_BOTTOM;
                 }
                 if ((b = MP_GetBlockAt(x - 1, y)) &&
                     b->type->info.id == type->info.id &&
-                    b->owner == owner) {
+                    b->player == owner) {
                     edges |= EDGE_LEFT;
                 }
 
@@ -1152,7 +1145,7 @@ static void onRender(void) {
                 // North wall.
                 if ((block = MP_GetBlockAt(x, y + 1))) {
                     type = block->type;
-                    owner = block->owner;
+                    owner = block->player;
                 } else {
                     type = defaultType;
                     owner = MP_PLAYER_NONE;
@@ -1172,7 +1165,7 @@ static void onRender(void) {
                 // South wall.
                 if ((block = MP_GetBlockAt(x, y - 1))) {
                     type = block->type;
-                    owner = block->owner;
+                    owner = block->player;
                 } else {
                     type = defaultType;
                     owner = MP_PLAYER_NONE;
@@ -1192,7 +1185,7 @@ static void onRender(void) {
                 // West wall.
                 if ((block = MP_GetBlockAt(x - 1, y))) {
                     type = block->type;
-                    owner = block->owner;
+                    owner = block->player;
                 } else {
                     type = defaultType;
                     owner = MP_PLAYER_NONE;
@@ -1212,7 +1205,7 @@ static void onRender(void) {
                 // East wall.
                 if ((block = MP_GetBlockAt(x + 1, y))) {
                     type = block->type;
-                    owner = block->owner;
+                    owner = block->player;
                 } else {
                     type = defaultType;
                     owner = MP_PLAYER_NONE;
@@ -1271,21 +1264,28 @@ unsigned short MP_GetMapSize(void) {
 }
 
 MP_Block * MP_GetBlockAt(int x, int y) {
+    assert(gMap);
+
     if (x >= 0 && y >= 0 && x < gMapSize && y < gMapSize) {
         return &gMap[y * gMapSize + x];
     }
     return NULL;
 }
 
-bool MP_GetBlockCoordinates(unsigned short* x, unsigned short* y, const MP_Block * block) {
-    if (block) {
-        unsigned int idx = block - gMap;
-        *x = idx % gMapSize;
-        *y = idx / gMapSize;
+void MP_GetBlockCoordinates(const MP_Block * block, unsigned short* x, unsigned short* y) {
+    unsigned int idx;
 
-        return true;
+    assert(block);
+    assert(gMap);
+
+    idx = block - gMap;
+
+    if (x) {
+        *x = idx % gMapSize;
     }
-    return false;
+    if (y) {
+        *y = idx / gMapSize;
+    }
 }
 
 MP_Block* MP_GetBlockUnderCursor(void) {
@@ -1359,7 +1359,7 @@ void MP_SetMapSize(unsigned short size, const MP_BlockType* fillWith) {
             MP_Block* block = MP_GetBlockAt(x, y);
             block->type = fillWith;
             block->room = NULL;
-            block->owner = MP_PLAYER_NONE;
+            block->player = MP_PLAYER_NONE;
             if (fillWith) {
                 block->durability = fillWith->durability;
                 block->strength = fillWith->strength;
@@ -1489,10 +1489,7 @@ void MP_InitMap(void) {
 }
 
 bool MP_DamageBlock(MP_Block* block, unsigned int damage) {
-    // Skip if the block is invalid.
-    if (!block) {
-        return false;
-    }
+    assert(block);
 
     // Already destroyed (nothing to do)?
     if (block->durability <= 0) {
@@ -1506,23 +1503,21 @@ bool MP_DamageBlock(MP_Block* block, unsigned int damage) {
     }
 
     // Block is destroyed.
-    block->owner = MP_PLAYER_NONE;
+    block->player = MP_PLAYER_NONE;
     MP_SetBlockType(block, block->type->becomes);
 
     return true;
 }
 
-bool MP_ConvertBlock(MP_Block* block, MP_Player player, unsigned int strength) {
-    // Skip if the block is invalid.
-    if (!block) {
-        return false;
-    }
+bool MP_ConvertBlock(MP_Block* block, MP_Player player, float strength) {
+    assert(block);
+    assert(player > MP_PLAYER_NONE && player < MP_PLAYER_COUNT);
 
     // First reduce any enemy influence.
-    if (block->owner != player) {
+    if (block->player != player) {
         // Not this player's, reduce strength.
-        if (block->strength > strength) {
-            block->strength -= strength;
+        block->strength -= strength;
+        if (block->strength > 0) {
             return false;
         }
 
@@ -1530,32 +1525,23 @@ bool MP_ConvertBlock(MP_Block* block, MP_Player player, unsigned int strength) {
         MP_SetBlockOwner(block, player);
     } else {
         // Owned by this player, repair it.
-        const unsigned int max_strength = block->type->strength;
         block->strength += strength;
-        if (block->strength < max_strength) {
+        if (block->strength < block->type->strength) {
             return false;
-        } else {
-            // Get the actual coordinates.
-            unsigned short x = 0, y = 0;
-            MP_GetBlockCoordinates(&x, &y, block);
-
-            // Completely repaired.
-            block->strength = max_strength;
         }
+
+        // Completely repaired.
+        block->strength = block->type->strength;
     }
+
     return true;
 }
 
 void MP_SetBlockType(MP_Block* block, const MP_BlockType* type) {
-    unsigned short x, y;
-    if (!block || !MP_GetBlockCoordinates(&x, &y, block)) {
-        // Out of bounds, ignore.
-        return;
-    }
+    assert(block);
+    assert(type);
 
     block->type = type;
-
-    // Update values.
     block->durability = block->type->durability;
     block->strength = block->type->strength;
     block->gold = block->type->gold;
@@ -1566,21 +1552,15 @@ void MP_SetBlockType(MP_Block* block, const MP_BlockType* type) {
 }
 
 void MP_SetBlockOwner(MP_Block* block, MP_Player player) {
-    unsigned short x, y;
-    if (!block || !MP_GetBlockCoordinates(&x, &y, block)) {
-        // Out of bounds, ignore.
-        return;
-    }
+    assert(block);
+    assert(player < MP_PLAYER_COUNT);
 
-    block->owner = player;
-
-    // Update values.
+    block->player = player;
     block->durability = block->type->durability;
     block->strength = block->type->strength;
 
     updateBlock(block);
 
-    // Fire event for AI scripts.
     MP_DispatchBlockOwnerChangedEvent(block);
 
     autoConvert(block, player);

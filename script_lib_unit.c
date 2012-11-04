@@ -1,18 +1,17 @@
-#include "script.h"
-
-#include "unit.h"
-#include "unit_type.h"
-#include "unit_ai.h"
-#include "job_type.h"
-#include "ability_type.h"
 #include "ability.h"
+#include "ability_type.h"
+#include "job_type.h"
+#include "script.h"
+#include "unit.h"
+#include "unit_ai.h"
+#include "unit_type.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Getters
 ///////////////////////////////////////////////////////////////////////////////
 
 static int lua_GetAbility(lua_State* L) {
-    MP_Unit* unit = MP_Lua_CheckUnit(L, 1);
+    const MP_Unit* unit = MP_Lua_CheckUnit(L, 1);
     const MP_AbilityType* ability = MP_Lua_CheckAbilityType(L, 2);
 
     // Find an ability of that type.
@@ -25,33 +24,47 @@ static int lua_GetAbility(lua_State* L) {
 
     // No such ability, push null.
     lua_pushnil(L);
+
     return 1;
 }
 
 static int lua_GetCanPass(lua_State* L) {
-    lua_pushinteger(L, MP_Lua_CheckUnit(L, 1)->type->canPass);
+    const MP_Unit* unit = MP_Lua_CheckUnit(L, 1);
+
+    lua_pushinteger(L, unit->type->canPass);
+
     return 1;
 }
 
 static int lua_GetJob(lua_State* L) {
-    MP_Lua_PushJob(L, MP_Lua_CheckUnit(L, 1)->ai->state.job);
+    const MP_Unit* unit = MP_Lua_CheckUnit(L, 1);
+
+    MP_Lua_PushJob(L, unit->ai->state.job);
+
     return 1;
 }
 
-static int lua_GetOwner(lua_State* L) {
-    lua_pushinteger(L, MP_Lua_CheckUnit(L, 1)->owner);
+static int lua_GetPlayer(lua_State* L) {
+    const MP_Unit* unit = MP_Lua_CheckUnit(L, 1);
+
+    lua_pushinteger(L, unit->owner);
+
     return 1;
 }
 
 static int lua_GetPosition(lua_State* L) {
-    MP_Unit* unit = MP_Lua_CheckUnit(L, 1);
-    lua_pushnumber(L, unit->position.d.x);
-    lua_pushnumber(L, unit->position.d.y);
+    const MP_Unit* unit = MP_Lua_CheckUnit(L, 1);
+
+    MP_Lua_PushVec2(L, unit->position);
+
     return 2;
 }
 
 static int lua_GetType(lua_State* L) {
-    lua_pushinteger(L, MP_Lua_CheckUnit(L, 1)->type->info.id);
+    const MP_Unit* unit = MP_Lua_CheckUnit(L, 1);
+
+    lua_pushinteger(L, unit->type->info.id);
+
     return 1;
 }
 
@@ -60,10 +73,13 @@ static int lua_GetType(lua_State* L) {
 ///////////////////////////////////////////////////////////////////////////////
 
 static int lua_Move(lua_State* L) {
+    const MP_Unit* unit = MP_Lua_CheckUnit(L, 1);
+
     vec2 position;
     position.d.x = luaL_checknumber(L, 2);
     position.d.y = luaL_checknumber(L, 3);
-    lua_pushnumber(L, MP_MoveTo(MP_Lua_CheckUnit(L, 1), &position));
+    lua_pushnumber(L, MP_MoveTo(unit, &position));
+
     return 1;
 }
 
@@ -75,7 +91,7 @@ static const luaL_Reg lib[] = {
     {"getAbility", lua_GetAbility},
     {"getCanPass", lua_GetCanPass},
     {"getJob", lua_GetJob},
-    {"getOwner", lua_GetOwner},
+    {"getOwner", lua_GetPlayer},
     {"getPosition", lua_GetPosition},
     {"getType", lua_GetType},
 

@@ -11,6 +11,7 @@
 #include "lua/lauxlib.h"
 
 #include "types.h"
+#include "vmath.h"
 
 #ifdef	__cplusplus
 extern "C" {
@@ -45,6 +46,7 @@ extern "C" {
     
 #undef MP_LUA_LIBRARY    
 
+    void MP_Lua_PushVec2(lua_State* L, vec2 v);
     MP_Passability MP_Lua_CheckPassability(lua_State* L, int narg);
     MP_Player MP_Lua_CheckPlayer(lua_State* L, int narg);
     MP_BlockLevel MP_Lua_CheckLevel(lua_State* L, int narg);

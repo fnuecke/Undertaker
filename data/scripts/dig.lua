@@ -29,8 +29,8 @@ job {
         end
     end,
     events = {
-        onBlockSelectionChanged = function(player, block)
-            Job.deleteByTypeWhereTarget(player, "dig", block)
+        onBlockSelectionChanged = function(block, player)
+            Job.deleteByTypeWhereTarget("dig", block, player)
 
             local function validateLocation(block)
                 return block:isPassable()
@@ -38,7 +38,6 @@ job {
             local function validateTarget(block)
                 return block:isSelectedBy(player) 
             end
-            local x, y = block:getPosition()
             util.addJobsForBlock(player, block, "dig", validateLocation, validateTarget)
         end,
 
@@ -50,7 +49,7 @@ job {
         onBlockTypeChanged = function(block)
             local x, y = block:getPosition()
             for player = 1, 4 do
-                Job.deleteByTypeWhereTarget(player, "dig", block)
+                Job.deleteByTypeWhereTarget("dig", block, player)
 
                 local function validateLocation(block)
                     return block:isPassable()
@@ -69,7 +68,7 @@ job {
         onBlockOwnerChanged = function(block)
             for player = 1, 4 do
                 if player ~= block:getOwner() then
-                    Job.deleteByTypeWhereTarget(player, "dig", block)
+                    Job.deleteByTypeWhereTarget("dig", block, player)
                 end
             end
         end

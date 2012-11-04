@@ -88,8 +88,7 @@ static void onRender(void) {
                 MP_SetMaterial(&material);
                 glBegin(GL_QUADS);
                 {
-                    vec2 position;
-                    MP_GetJobPosition(&position, job);
+                    vec2 position = MP_GetJobPosition(job);
                     glVertex3f((position.d.x - 0.1f) * MP_BLOCK_SIZE,
                                (position.d.y - 0.1f) * MP_BLOCK_SIZE,
                                MP_D_DRAW_PATH_HEIGHT + 0.1f);

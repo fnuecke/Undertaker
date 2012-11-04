@@ -132,8 +132,13 @@ void MP_Lua_Close(void) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Validation
+// General types
 ///////////////////////////////////////////////////////////////////////////////
+
+void MP_Lua_PushVec2(lua_State* L, vec2 v) {
+    lua_pushnumber(L, v.d.x);
+    lua_pushnumber(L, v.d.y);
+}
 
 MP_Passability MP_Lua_CheckPassability(lua_State* L, int narg) {
     const MP_Passability passability = MP_GetPassability(luaL_checkstring(L, narg));

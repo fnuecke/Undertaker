@@ -24,6 +24,7 @@ Floor conversion.
 ]]--
 
 local function checkJob(player, block, x, y)
+    if not block then return end
     if block:isConvertible() and block:isPassable() then
         if block:getOwner() ~= player then
             if util.isFloorOwnedBy(Block.at(x - 1, y), player) or
@@ -41,7 +42,7 @@ local function checkJob(player, block, x, y)
         end
     end
     -- Fail case -- not valid for being converted.
-    Job.deleteByTypeWhereTarget(player, "convert_floor", block)
+    Job.deleteByTypeWhereTarget("convert_floor", block, player)
 end
 
 --[[
@@ -64,7 +65,7 @@ job {
     run = function(unit, job)
         local result = unit:getAbility("convert"):use()
         if result >= 0 then
-            return result
+            return result, true
         else
             local jx, jy = job:getPosition()
             return unit:move(jx, jy)
@@ -90,7 +91,7 @@ open (location validity changed).
 --]]
 local function convertWallBlockChangeHandler(block)
     for player = 1, 4 do
-        Job.deleteByTypeWhereTarget(player, "convert_wall", block)
+        Job.deleteByTypeWhereTarget("convert_wall", block, player)
 
         local function validateLocation(block)
             return block:isPassable() and block:getOwner() == player
@@ -121,8 +122,8 @@ job {
     events = {
         onBlockTypeChanged = convertWallBlockChangeHandler,
         onBlockOwnerChanged = convertWallBlockChangeHandler,
-        onBlockSelectionChanged = function(player, block)
-            Job.deleteByTypeWhereTarget(player, "convert_wall", block)
+        onBlockSelectionChanged = function(block, player)
+            Job.deleteByTypeWhereTarget("convert_wall", block, player)
 
             local function validateLocation(block)
                 return block:isPassable() and block:getOwner() == player

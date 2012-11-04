@@ -58,9 +58,9 @@ static int pushUnit(lua_State* L, MP_Unit* unit) {
     return 1;
 }
 
-static int pushPlayerAndBlock(lua_State* L, MP_Player player, MP_Block* block) {
-    lua_pushinteger(L, player);
+static int pushBlockAndPlayer(lua_State* L, MP_Block* block, MP_Player player) {
     MP_Lua_PushBlock(L, block);
+    lua_pushinteger(L, player);
     return 2;
 }
 
@@ -71,7 +71,7 @@ static int pushBlock(lua_State* L, MP_Block* block) {
 
 MP_LUA_EVENT_IMPL(UnitAdded, pushUnit(L, unit), MP_Unit* unit)
 
-MP_LUA_EVENT_IMPL(BlockSelectionChanged, pushPlayerAndBlock(L, player, block), MP_Player player, MP_Block* block)
+MP_LUA_EVENT_IMPL(BlockSelectionChanged, pushBlockAndPlayer(L, block, player), MP_Block* block, MP_Player player)
 
 MP_LUA_EVENT_IMPL(BlockTypeChanged, pushBlock(L, block), MP_Block* block)
 

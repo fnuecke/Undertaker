@@ -1,11 +1,12 @@
-#include "selection.h"
+#include <assert.h>
 
 #include "bitset.h"
 #include "block.h"
 #include "events.h"
 #include "job.h"
-#include "script.h"
 #include "map.h"
+#include "selection.h"
+#include "script.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
@@ -67,6 +68,13 @@ static void validate(MP_Selection* selection) {
     }
 }
 
+static unsigned int getIndex(const MP_Block* block) {
+    unsigned short x, y;
+    MP_GetBlockCoordinates(block, &x, &y);
+
+    return y * MP_GetMapSize() + x;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Update
 ///////////////////////////////////////////////////////////////////////////////
@@ -96,13 +104,19 @@ MP_Selection MP_GetSelection(void) {
     return currentSelection;
 }
 
-bool MP_IsBlockSelectable(MP_Player player, const MP_Block* block) {
+bool MP_IsBlockSelectable(const MP_Block* block, MP_Player player) {
+    assert(block);
+    assert(player > MP_PLAYER_NONE && player < MP_PLAYER_COUNT);
+
     return MP_IsBlockDestructible(block) &&
-            (block->owner == MP_PLAYER_NONE || block->owner == player);
+            (block->player == MP_PLAYER_NONE || block->player == player);
 }
 
-bool MP_IsBlockSelected(MP_Player player, unsigned short x, unsigned short y) {
-    return BS_Test(gPlayerSelection[player], y * MP_GetMapSize() + x);
+bool MP_IsBlockSelected(const MP_Block* block, MP_Player player) {
+    assert(block);
+    assert(player > MP_PLAYER_NONE && player < MP_PLAYER_COUNT);
+
+    return BS_Test(gPlayerSelection[player], getIndex(block));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -111,9 +125,10 @@ bool MP_IsBlockSelected(MP_Player player, unsigned short x, unsigned short y) {
 
 bool MP_BeginSelection(void) {
     if (gMode == MODE_NONE) {
-        if (MP_IsBlockSelectable(gLocalPlayer, MP_GetBlockAt(gCurrentSelection.startX, gCurrentSelection.startY))) {
+        const MP_Block* block = MP_GetBlockAt(gCurrentSelection.startX, gCurrentSelection.startY);
+        if (MP_IsBlockSelectable(block, gLocalPlayer)) {
             // OK, if it's selectable, start selection.
-            if (MP_IsBlockSelected(gLocalPlayer, gCurrentSelection.startX, gCurrentSelection.startY)) {
+            if (MP_IsBlockSelected(block, gLocalPlayer)) {
                 gMode = MODE_DESELECT;
             } else {
                 gMode = MODE_SELECT;
@@ -143,10 +158,12 @@ void MP_ConfirmSelection(void) {
         // Set selection for the drawn area.
         for (int x = gCurrentSelection.startX; x <= gCurrentSelection.endX; ++x) {
             for (int y = gCurrentSelection.startY; y <= gCurrentSelection.endY; ++y) {
+                MP_Block* block = MP_GetBlockAt(x, y);
+                assert(block);
                 if (gMode == MODE_SELECT) {
-                    MP_SelectBlock(gLocalPlayer, x, y);
+                    MP_SelectBlock(block, gLocalPlayer);
                 } else if (gMode == MODE_DESELECT) {
-                    MP_DeselectBlock(gLocalPlayer, x, y);
+                    MP_DeselectBlock(block, gLocalPlayer);
                 }
             }
         }
@@ -160,28 +177,32 @@ void MP_ConfirmSelection(void) {
 // Modifiers
 ///////////////////////////////////////////////////////////////////////////////
 
-void MP_SelectBlock(MP_Player player, int x, int y) {
-    if (MP_IsBlockSelectable(player, MP_GetBlockAt(x, y))) {
-        const unsigned int idx = y * MP_GetMapSize() + x;
+void MP_SelectBlock(MP_Block* block, MP_Player player) {
+    assert(block);
+    assert(player > MP_PLAYER_NONE && player < MP_PLAYER_COUNT);
+    if (MP_IsBlockSelectable(block, player)) {
+        unsigned int idx = getIndex(block);
 
         // Only update if something changed.
         if (!BS_Test(gPlayerSelection[player], idx)) {
             BS_Set(gPlayerSelection[player], idx);
             // Send event to AI scripts.
-            MP_DispatchBlockSelectionChangedEvent(player, MP_GetBlockAt(x, y));
+            MP_DispatchBlockSelectionChangedEvent(block, player);
         }
     }
 }
 
-void MP_DeselectBlock(MP_Player player, int x, int y) {
-    if (x >= 0 && y >= 0 && x < MP_GetMapSize() && y < MP_GetMapSize()) {
-        const unsigned int idx = y * MP_GetMapSize() + x;
+void MP_DeselectBlock(MP_Block* block, MP_Player player) {
+    assert(block);
+    assert(player > MP_PLAYER_NONE && player < MP_PLAYER_COUNT);
+    {
+        unsigned int idx = getIndex(block);
 
         // Only update if something changed.
         if (BS_Test(gPlayerSelection[player], idx)) {
             BS_Unset(gPlayerSelection[player], idx);
             // Send event to AI scripts.
-            MP_DispatchBlockSelectionChangedEvent(player, MP_GetBlockAt(x, y));
+            MP_DispatchBlockSelectionChangedEvent(block, player);
         }
     }
 }

@@ -26,7 +26,7 @@ extern "C" {
         MP_Room* room;
 
         /** The player owning the block */
-        MP_Player owner;
+        MP_Player player;
 
         /** The actual, current durability of the block */
         float durability;

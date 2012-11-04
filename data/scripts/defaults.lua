@@ -45,14 +45,14 @@ They can be changed using the 'blockdefaults' directive. All fields except the
 name can be set to default to another value. Be careful to not set the 'becomes'
 field to something that isn't declared, yet.
 --]]
-blockdefaults {level="high"}
-block {name="rock", lightfrequency=4}
-block {name="open", level="normal", passability="land", strength=100}
-block {name="dirt", durability=60, strength=200, becomes="open", lightfrequency=4}
-block {name="gold", durability=120, gold=1000, becomes="open"}
-block {name="gem", durability=4000000, gold=40000000, becomes="rock"}
-block {name="water", level="lowered", passability="water"}
-block {name="lava", level="lowered", passability="lava"}
+blockdefaults {level = "high"}
+block {name = "rock", lightfrequency = 4}
+block {name = "open", level = "normal", passability = "land", strength = 100}
+block {name = "dirt", durability = 60, strength = 200, becomes = "open", lightfrequency = 4}
+block {name = "gold", durability = 120, gold = 1000, becomes = "open"}
+block {name = "gem", durability = 4000000, gold = 40000000, becomes = "rock"}
+block {name = "water", level = "lowered", passability = "water"}
+block {name = "lava", level = "lowered", passability = "lava"}
 
 --[[
 Abilities and jobs.
@@ -168,18 +168,21 @@ bored			= 1			the threshold above which a unit is bored
 
 Not all these fields have to be set.
 --]]
-unitdefaults {canpass={"land", "water"}}
-unit {name="imp", movespeed=1.8,
-		abilities={
-			{name="dig", properties={cooldown=0.5, damage=10}},
-			{name="convert", properties={cooldown=0.5, strength=10}}
-		},
-		jobs={
-			{name="wander", satisfied=0},
-			{name="dig", preference=20},
-			{name="convert_floor", preference=10},
-			{name="convert_wall", preference=1}
-		}}
+unitdefaults {canpass = {"land", "water"}}
+unit {
+    name = "imp",
+    movespeed = 1.8,
+    abilities = {
+        {name = "dig", properties = {cooldown = 0.5, damage = 10}},
+        {name = "convert", properties = {cooldown = 0.5, strength = 10}}
+    },
+    jobs = {
+        {name = "wander", satisfied = 0},
+        {name = "dig", preference = 20},
+        {name = "convert_floor", preference = 10},
+        {name = "convert_wall", preference = 1}
+    }
+}
 
 --[[
 Room types.

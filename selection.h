@@ -50,13 +50,13 @@ extern "C" {
      * @param block the block for which to check.
      * @return whether the block is selectable (1) or not (0).
      */
-    bool MP_IsBlockSelectable(MP_Player player, const MP_Block* block);
+    bool MP_IsBlockSelectable(const MP_Block* block, MP_Player player);
 
     /**
      * Checks if the specified block is selected by the specified player.
      * @return whether the block is selected (1) or not (0).
      */
-    bool MP_IsBlockSelected(MP_Player player, unsigned short x, unsigned short y);
+    bool MP_IsBlockSelected(const MP_Block* block, MP_Player player);
 
     ///////////////////////////////////////////////////////////////////////////////
     // User area selection
@@ -88,24 +88,21 @@ extern "C" {
     ///////////////////////////////////////////////////////////////////////////////
 
     /**
-     * Select the block at the specified coordinates for the specified player.
+     * Select the specified block for the specified player.
      * Will do nothing if the block is not selectable. If a selection change
      * took place, this will also trigger an event for AI scripts.
+     * @param the block.
      * @param player the player to select the block for.
-     * @param x the x coordinate of the block, in map space.
-     * @param y the y coordinate of the block, in map space.
      */
-    void MP_SelectBlock(MP_Player player, int x, int y);
+    void MP_SelectBlock(MP_Block* block, MP_Player player);
 
     /**
-     * Deselect the block at the specified coordinates for the specified player.
+     * Deselect the specified block for the specified player.
      * Will do nothing if the coordinates are invalid. If a selection change
      * took place, this will also trigger an event for AI scripts.
      * @param player the player to deselect the block for.
-     * @param x the x coordinate of the block, in map space.
-     * @param y the y coordinate of the block, in map space.
      */
-    void MP_DeselectBlock(MP_Player player, int x, int y);
+    void MP_DeselectBlock(MP_Block* block, MP_Player player);
 
     ///////////////////////////////////////////////////////////////////////////////
     // Initialization / Update

@@ -61,7 +61,7 @@ void MP_DropTopHandEntry(MP_Player player, const vec2* position) {
     if (position && gObjectsInHandCount[player] > 0) {
         const HandEntry* entry = &gHand[player][gObjectsInHandCount[player] - 1];
         const MP_Block* block = MP_GetBlockUnderCursor();
-        if (MP_IsBlockPassable(block) && block->owner == player) {
+        if (block && MP_IsBlockPassable(block) && block->player == player) {
             switch (entry->type) {
                 case UNIT:
                     if (MP_IsBlockPassableBy(block, entry->unit->type)) {

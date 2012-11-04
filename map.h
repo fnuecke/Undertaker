@@ -30,7 +30,7 @@ extern "C" {
     /**
      * Get the coordinates of the specified block.
      */
-    bool MP_GetBlockCoordinates(unsigned short* x, unsigned short* y, const MP_Block* block);
+    void MP_GetBlockCoordinates(const MP_Block* block, unsigned short* x, unsigned short* y);
 
     /**
      * Gets the block currently hovered by the mouse.
@@ -77,7 +77,7 @@ extern "C" {
     /**
      * Apply conversion to a block (dirt, wall, empty); return true if successful.
      */
-    bool MP_ConvertBlock(MP_Block* block, unsigned int strength, MP_Player player);
+    bool MP_ConvertBlock(MP_Block* block, MP_Player player, float strength);
 
     ///////////////////////////////////////////////////////////////////////////
     // Initialization / Events

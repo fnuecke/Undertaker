@@ -252,6 +252,6 @@ MP_EVENT_IMPL(BlockTypeChanged, (block), MP_Block* block)
 
 MP_EVENT_IMPL(BlockOwnerChanged, (block), MP_Block* block)
 
-MP_EVENT_IMPL(BlockSelectionChanged, (player, block), MP_Player player, MP_Block* block)
+MP_EVENT_IMPL(BlockSelectionChanged, (block, player), MP_Block* block, MP_Player player)
 
 #undef MP_EVENT_IMPL

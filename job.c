@@ -82,7 +82,7 @@ static void deleteJob(MP_Player player, unsigned int typeId, unsigned int number
 }
 
 /** Allocate a job and track it in our list */
-MP_Job* MP_NewJob(MP_Player player, const MP_JobType* type) {
+MP_Job* MP_NewJob(const MP_JobType* type, MP_Player player) {
     MP_Job* job;
 
     assert(player > MP_PLAYER_NONE && player < MP_PLAYER_COUNT);
@@ -96,6 +96,7 @@ MP_Job* MP_NewJob(MP_Player player, const MP_JobType* type) {
         MP_log_fatal("Out of memory while allocating a job.\n");
     }
     job->type = type;
+    job->player = player;
 
     // Store it in our list.
     gJobs[player][type->info.id][gJobsCount[player][type->info.id]++] = job;
@@ -104,20 +105,14 @@ MP_Job* MP_NewJob(MP_Player player, const MP_JobType* type) {
 }
 
 /** Delete a job that is no longer used */
-void MP_DeleteJob(MP_Player player, MP_Job* job) {
-    assert(player > MP_PLAYER_NONE && player < MP_PLAYER_COUNT);
-    assert(!job || (job->type && job->type->info.id < gJobTypeCapacityAndCount[player]));
-
-    // If we got a null pointer we have nothing to do.
-    if (!job) {
-        return;
-    }
+void MP_DeleteJob(MP_Job* job) {
+    assert(job);
 
     // Find the job.
-    for (unsigned int number = 0; number < gJobsCount[player][job->type->info.id]; ++number) {
-        if (gJobs[player][job->type->info.id][number] == job) {
+    for (unsigned int number = 0; number < gJobsCount[job->player][job->type->info.id]; ++number) {
+        if (gJobs[job->player][job->type->info.id][number] == job) {
             // Found it.
-            deleteJob(player, job->type->info.id, number);
+            deleteJob(job->player, job->type->info.id, number);
             return;
         }
     }
@@ -126,11 +121,7 @@ void MP_DeleteJob(MP_Player player, MP_Job* job) {
 static void deleteJobsTargeting(MP_Player player, const MP_JobType* type, MP_JobTargetType targetType, const void* target) {
     assert(player > MP_PLAYER_NONE && player < MP_PLAYER_COUNT);
     assert(type);
-
-    // If there's no target there's nothing to delete.
-    if (!target) {
-        return;
-    }
+    assert(target);
 
     // Skip if no jobs for that type were added before.
     if (type->info.id >= gJobTypeCapacityAndCount[player]) {
@@ -162,32 +153,38 @@ void MP_DeleteJobsTargetingUnit(MP_Player player, const MP_JobType* type, const 
 // Utility
 ///////////////////////////////////////////////////////////////////////////////
 
-void MP_GetJobPosition(vec2* position, const MP_Job* job) {
+vec2 MP_GetJobPosition(const MP_Job* job) {
+    vec2 result;
+
+    assert(job);
+    assert(job->targetType == MP_JOB_TARGET_NONE || job->target);
+
     // Get position based on job type.
     switch (job->targetType) {
         case MP_JOB_TARGET_BLOCK:
         {
             unsigned short x, y;
-            if (MP_GetBlockCoordinates(&x, &y, (MP_Block*) job->target)) {
-                position->d.x = x + 0.5f;
-                position->d.y = y + 0.5f;
-            }
+            MP_GetBlockCoordinates((MP_Block*) job->target, &x, &y);
+            result.d.x = x + 0.5f;
+            result.d.y = y + 0.5f;
             break;
         }
         case MP_JOB_TARGET_ROOM:
             // TODO
             break;
         case MP_JOB_TARGET_UNIT:
-            *position = ((MP_Unit*) job->target)->position;
+            result = ((MP_Unit*) job->target)->position;
             break;
         default:
-            position->d.x = 0;
-            position->d.y = 0;
+            result.d.x = 0;
+            result.d.y = 0;
             break;
     }
 
     // Add offset declared in job.
-    v2iadd(position, &job->offset);
+    v2iadd(&result, &job->offset);
+
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -300,8 +297,13 @@ float MP_GetDynamicPreference(MP_Unit* unit, const MP_JobType* type) {
 ///////////////////////////////////////////////////////////////////////////////
 
 MP_Job * const* MP_GetJobs(MP_Player player, const MP_JobType* type, unsigned int* count) {
+    assert(player > MP_PLAYER_NONE && player < MP_PLAYER_COUNT);
+    assert(type);
+
     ensureListCapacity(player, type->info.id);
-    *count = gJobsCount[player][type->info.id];
+    if (count) {
+        *count = gJobsCount[player][type->info.id];
+    }
     return gJobs[player][type->info.id];
 }
 
@@ -309,24 +311,21 @@ MP_Job* MP_FindJob(const MP_Unit* unit, const MP_JobType* type, float* distance)
     MP_Job* closestJob = NULL;
     float closestDistance = FLT_MAX;
 
-    if (!unit || !type) {
-        return NULL;
-    }
+    assert(unit);
+    assert(type);
 
     ensureListCapacity(unit->owner, type->info.id);
 
     // Loop through all jobs of the specified type for the owner of the unit.
     for (unsigned int number = 0; number < gJobsCount[unit->owner][type->info.id]; ++number) {
-        float currentDistance;
-        vec2 position;
         MP_Job* job = gJobs[unit->owner][type->info.id][number];
 
         // Based on the job type we use the target's position.
-        MP_GetJobPosition(&position, job);
+        vec2 position = MP_GetJobPosition(job);
 
         // Test direct distance; if that's longer than our best we
         // can safely skip this one.
-        currentDistance = v2distance(&unit->position, &position);
+        float currentDistance = v2distance(&unit->position, &position);
         if (currentDistance >= closestDistance) {
             continue;
         }

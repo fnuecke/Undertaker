@@ -36,7 +36,7 @@ void MP_Dispatch##NAME##Event(__VA_ARGS__)
 
     MP_EVENT(BlockOwnerChanged, MP_Block*);
 
-    MP_EVENT(BlockSelectionChanged, MP_Player, MP_Block*);
+    MP_EVENT(BlockSelectionChanged, MP_Block*, MP_Player);
 
 #undef MP_EVENT
 

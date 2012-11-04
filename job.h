@@ -59,6 +59,9 @@ extern "C" {
         /** Job type information */
         const MP_JobType* type;
 
+        /** The player that can work on the job */
+        MP_Player player;
+
         /** The unit that is currently assigned to that job */
         MP_Unit* worker;
 
@@ -79,16 +82,15 @@ extern "C" {
      * @param meta the type of the job to create.
      * @return the newly created job.
      */
-    MP_Job* MP_NewJob(MP_Player player, const MP_JobType* type);
+    MP_Job* MP_NewJob(const MP_JobType* type, MP_Player player);
 
     /**
      * Deletes a job. This frees the memory the job occupies, so all pointers to
      * it will be invalid after calling this. It will also tell any units
      * working on this job to stop doing so.
-     * @param player the player to whom the job belongs.
      * @param job the job to delete.
      */
-    void MP_DeleteJob(MP_Player player, MP_Job* job);
+    void MP_DeleteJob(MP_Job* job);
 
     /**
      * Deletes all jobs targeting the specified block. Same effects as for the
@@ -125,15 +127,15 @@ extern "C" {
      * @param count used to return the length of the list.
      * @return the list of jobs.
      */
-    MP_Job* const* MP_GetJobs(MP_Player player, const MP_JobType* meta, unsigned int* count);
+    MP_JobList MP_GetJobs(MP_Player player, const MP_JobType* meta, unsigned int* count);
 
     /**
      * Get the actual position of a job, i.e. that of its target including the
      * set offset.
-     * @param position the position of the job.
      * @param job the job to check for.
+     * @return position the position of the job.
      */
-    void MP_GetJobPosition(vec2* position, const MP_Job* job);
+    vec2 MP_GetJobPosition(const MP_Job* job);
 
     /**
      * Find the job of the specified type closest to the specified unit.

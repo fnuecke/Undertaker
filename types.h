@@ -24,6 +24,7 @@ extern "C" {
     typedef struct MP_BlockType MP_BlockType;
 
     typedef struct MP_Job MP_Job;
+    typedef MP_Job* const* MP_JobList;
     typedef struct MP_JobType MP_JobType;
 
     typedef struct MP_Room MP_Room;

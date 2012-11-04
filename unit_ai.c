@@ -319,12 +319,16 @@ static void renderPathing(const MP_Unit* unit) {
 ///////////////////////////////////////////////////////////////////////////////
 
 float MP_MoveTo(const MP_Unit* unit, const vec2* position) {
-    AI_Path* pathing = &unit->ai->pathing;
+    AI_Path* pathing;
+    unsigned int depth = MP_AI_PATH_DEPTH;
+    float distance = 0;
+
+    assert(unit);
+    assert(position);
 
     // Find a path to it. Use temporary output data to avoid
     // overriding existing path that may be shorter.
-    unsigned int depth = MP_AI_PATH_DEPTH;
-    float distance = 0;
+    pathing = &unit->ai->pathing;
     if (MP_AStar(unit, position, &pathing->nodes[1], &depth, &distance)) {
         pathing->depth = depth;
         pathing->index = 1;
