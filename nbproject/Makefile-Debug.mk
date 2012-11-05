@@ -93,6 +93,7 @@ OBJECTFILES= \
 	${OBJECTDIR}/block_type.o \
 	${OBJECTDIR}/ability_type.o \
 	${OBJECTDIR}/_ext/51285538/events.o \
+	${OBJECTDIR}/dbg_unit.o \
 	${OBJECTDIR}/_ext/51285538/map.o \
 	${OBJECTDIR}/lua/lstring.o \
 	${OBJECTDIR}/quadtree.o \
@@ -433,6 +434,11 @@ ${OBJECTDIR}/_ext/51285538/events.o: /C/Users/fnuecke/Documents/NetBeansProjects
 	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/events.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/events.c
+
+${OBJECTDIR}/dbg_unit.o: dbg_unit.c 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} $@.d
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/dbg_unit.o dbg_unit.c
 
 ${OBJECTDIR}/_ext/51285538/map.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/map.c 
 	${MKDIR} -p ${OBJECTDIR}/_ext/51285538

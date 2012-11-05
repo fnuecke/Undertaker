@@ -143,7 +143,7 @@ static int lua_IsTargetOfJobByType(lua_State* L) {
     if (player == MP_PLAYER_NONE) {
         return luaL_argerror(L, 2, "invalid player value");
     } else {
-        MP_JobList jobs = MP_GetJobs(player, meta, &count);
+        MP_JobList jobs = MP_GetJobs(meta, player, &count);
         for (unsigned int i = 0; i < count; ++i) {
             if (jobs[i]->targetType == MP_JOB_TARGET_BLOCK &&
                 (const MP_Block*) jobs[i]->target == block) {

@@ -98,7 +98,7 @@ extern "C" {
     { \
         GLenum error = glGetError(); \
         if (error != GL_NO_ERROR) { \
-            MP_log_fatal("OpenGL broke at %s:%d:\n%s\n", __FILE__, __LINE__, gluErrorString(error)); \
+            MP_log_fatal("OpenGL broke:\n%s\n", gluErrorString(error)); \
         } \
     }
 

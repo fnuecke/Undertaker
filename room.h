@@ -48,7 +48,17 @@ extern "C" {
      * @param count the number of elements in this room.
      * @return the first entry in the list of room elements.
      */
-    MP_Room* MP_GetRoom(MP_Player player, MP_RoomType* type, unsigned int* count);
+    MP_RoomList MP_GetRooms(const MP_RoomType* type, MP_Player player, unsigned int* count);
+
+    /**
+     * Clear all room lists and free all additional memory.
+     */
+    void MP_ClearRooms(void);
+
+    /**
+     * Initialize room system.
+     */
+    void MP_InitRooms(void);
 
 #ifdef	__cplusplus
 }

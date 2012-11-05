@@ -35,7 +35,7 @@ static int lua_GetByType(lua_State* L) {
     }
 
     iter = (JobIter*) lua_newuserdata(L, sizeof (JobIter));
-    iter->jobs = MP_GetJobs(player, type, &iter->i);
+    iter->jobs = MP_GetJobs(type, player, &iter->i);
 
     lua_pushcclosure(L, lua_JobIter, 1);
 

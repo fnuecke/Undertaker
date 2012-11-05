@@ -127,7 +127,7 @@ extern "C" {
      * @param count used to return the length of the list.
      * @return the list of jobs.
      */
-    MP_JobList MP_GetJobs(MP_Player player, const MP_JobType* meta, unsigned int* count);
+    MP_JobList MP_GetJobs(const MP_JobType* meta, MP_Player player, unsigned int* count);
 
     /**
      * Get the actual position of a job, i.e. that of its target including the

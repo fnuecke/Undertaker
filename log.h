@@ -29,7 +29,7 @@ extern "C" {
 #define __FILENAME__ fileNameFromPath(__FILE__)
 
 #define MP_log(level, ...) \
-fprintf(MP_logTarget, "%s in %s@%d: ", level, __FILENAME__, __LINE__); \
+fprintf(MP_logTarget, "%s:%s:%d: ", level, __FILENAME__, __LINE__); \
 fprintf(MP_logTarget, __VA_ARGS__); \
 fflush(MP_logTarget)
 

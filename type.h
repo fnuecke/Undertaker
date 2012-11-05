@@ -12,6 +12,9 @@
 
 #include "types.h"
 
+#define MP_TYPE_ID_NONE 0
+#define MP_TYPE_ID_MAX 255
+
 #ifdef	__cplusplus
 extern "C" {
 #endif

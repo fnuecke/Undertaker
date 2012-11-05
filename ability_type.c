@@ -50,7 +50,7 @@ void MP_DisableAbilityRunMethod(const MP_AbilityType* type) {
     assert(type);
     assert(type->info.id > 0 && type->info.id - 1 < gTypeCount);
     {
-        MP_AbilityType* nonConstType = gTypes[type->info.id - 1];
+        MP_AbilityType* nonConstType = &gTypes[type->info.id - 1];
         if (nonConstType->runMethod != LUA_REFNIL) {
             luaL_unref(MP_Lua(), LUA_REGISTRYINDEX, nonConstType->runMethod);
             nonConstType->runMethod = LUA_REFNIL;

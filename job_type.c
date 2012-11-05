@@ -55,7 +55,7 @@ void MP_DisableDynamicPreference(const MP_JobType* type) {
     assert(type);
     assert(type->info.id > 0 && type->info.id - 1 < gTypeCount);
     {
-        MP_JobType* nonConstType = gTypes[type->info.id - 1];
+        MP_JobType* nonConstType = &gTypes[type->info.id - 1];
         if (nonConstType->dynamicPreference != LUA_REFNIL) {
             luaL_unref(MP_Lua(), LUA_REGISTRYINDEX, nonConstType->dynamicPreference);
             nonConstType->dynamicPreference = LUA_REFNIL;
@@ -68,7 +68,7 @@ void MP_DisableJobRunMethod(const MP_JobType* type) {
     assert(type);
     assert(type->info.id > 0 && type->info.id - 1 < gTypeCount);
     {
-        MP_JobType* nonConstType = gTypes[type->info.id - 1];
+        MP_JobType* nonConstType = &gTypes[type->info.id - 1];
         if (nonConstType->runMethod != LUA_REFNIL) {
             luaL_unref(MP_Lua(), LUA_REGISTRYINDEX, nonConstType->runMethod);
             nonConstType->runMethod = LUA_REFNIL;
