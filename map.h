@@ -59,26 +59,6 @@ extern "C" {
      */
     void MP_SetMapSize(unsigned short size, const MP_BlockType* fillWith);
 
-    /**
-     * Change the type of a block.
-     */
-    void MP_SetBlockType(MP_Block* block, const MP_BlockType* type);
-
-    /**
-     * Change the owner of a block.
-     */
-    void MP_SetBlockOwner(MP_Block* block, MP_Player player);
-
-    /**
-     * Apply damage to a block (dirt, gold or gem); return true if destroyed.
-     */
-    bool MP_DamageBlock(MP_Block* block, unsigned int damage);
-
-    /**
-     * Apply conversion to a block (dirt, wall, empty); return true if successful.
-     */
-    bool MP_ConvertBlock(MP_Block* block, MP_Player player, float strength);
-
     ///////////////////////////////////////////////////////////////////////////
     // Initialization / Events
     ///////////////////////////////////////////////////////////////////////////

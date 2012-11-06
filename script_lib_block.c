@@ -1,6 +1,7 @@
 #include "block.h"
 #include "job.h"
 #include "map.h"
+#include "room.h"
 #include "script.h"
 #include "selection.h"
 #include "unit.h"
@@ -55,7 +56,7 @@ static int lua_GetPosition(lua_State* L) {
 static int lua_GetRoom(lua_State* L) {
     const MP_Block* block = MP_Lua_CheckBlock(L, 1);
 
-    MP_Lua_PushRoom(L, block->room);
+    MP_Lua_PushRoom(L, block->roomNode->room);
 
     return 1;
 }

@@ -31,7 +31,7 @@ extern "C" {
         /** Determines whether the room is a door (can be locked) */
         bool isDoor;
 
-        /** Health of this block (conversion resistance or damage it can take) */
+        /** Health of this room (conversion resistance or damage it can take) */
         unsigned int health;
     };
 

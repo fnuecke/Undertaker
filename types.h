@@ -29,6 +29,7 @@ extern "C" {
 
     typedef struct MP_Room MP_Room;
     typedef MP_Room* const* MP_RoomList;
+    typedef struct MP_RoomNode MP_RoomNode;
     typedef struct MP_RoomType MP_RoomType;
 
     typedef struct MP_Unit MP_Unit;

@@ -13,20 +13,31 @@
 extern "C" {
 #endif
 
-    /** Represents a single room in the world */
+    /** A room consists of multiple nodes, thus spanning multiple blocks */
     struct MP_Room {
         /** Info on the room type */
         const MP_RoomType* type;
 
-        /** Block this room is on */
+        /** First room in the linked list of rooms in this group */
+        MP_RoomNode* head;
+
+        /** The number of nodes in this room, to avoid counting the list */
+        unsigned int count;
+
+        /** Current health of the room (max is base value times node count) */
+        float health;
+    };
+
+    /** Represents a single room in the world */
+    struct MP_RoomNode {
+        /** Block this node is on */
         MP_Block* block;
 
-        /**
-         * Next room this room is connected to. A complete room may be composed
-         * of multiple room instances (each on one block). We track which rooms
-         * belong together by keeping them in a single linked list.
-         */
-        MP_Room* next;
+        /** The room this node belongs to */
+        MP_Room* room;
+
+        /** Next node in the room (linked list) */
+        MP_RoomNode* next;
     };
 
     /**
@@ -35,9 +46,8 @@ extern "C" {
      * rooms.
      * @param block the block to set the room for.
      * @param type the type of room to set.
-     * @return true if the room was set successfully, false otherwise.
      */
-    bool MP_SetRoom(MP_Block* block, MP_RoomType* type);
+    void MP_SetRoom(MP_Block* block, const MP_RoomType* type);
 
     /**
      * Gets all rooms of the specified type for the specified player. This

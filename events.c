@@ -2,6 +2,7 @@
 
 #include <SDL/SDL.h>
 
+#include "block.h"
 #include "camera.h"
 #include "config.h"
 #include "cursor.h"
