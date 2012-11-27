@@ -49,7 +49,7 @@ static void onRender(void) {
 
         for (unsigned int typeId = 0; typeId < MP_GetJobTypeCount(); ++typeId) {
             unsigned int count;
-            MP_Job * const* jobs = MP_GetJobs(MP_GetJobType(typeId + 1), MP_PLAYER_ONE, &count);
+            MP_Job * const* jobs = MP_GetJobs(MP_GetJobTypeById(typeId + 1), MP_PLAYER_ONE, &count);
             for (unsigned int number = 0; number < count; ++number) {
                 const MP_Job* job = jobs[number];
 

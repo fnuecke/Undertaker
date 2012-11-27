@@ -53,6 +53,14 @@ extern "C" {
         } c;
     } vec4;
 
+    typedef union quat {
+        float v[4];
+
+        struct {
+            float x, y, z, w;
+        } d;
+    } quat;
+
     typedef struct mat3 {
         float m[9];
     } mat3;
@@ -94,7 +102,13 @@ extern "C" {
     // Vector math (2d)
     ///////////////////////////////////////////////////////////////////////////
 
+    void v2set(vec2* v, float x, float y);
+
     void v2copy(vec2* into, const vec2* v);
+
+    void v2neg(vec2* into, const vec2* v);
+
+    void v2ineg(vec2* v);
 
     void v2add(vec2* sum, const vec2* va, const vec2* vb);
 
@@ -134,11 +148,19 @@ extern "C" {
 
     void v2inormalize(vec2* v);
 
+    void v2lerp(vec2* v, const vec2* v1, const vec2* v2, float t);
+
     ///////////////////////////////////////////////////////////////////////////
     // Vector math (3d)
     ///////////////////////////////////////////////////////////////////////////
 
+    void v3set(vec3* v, float x, float y, float z);
+
     void v3copy(vec3* into, const vec3* v);
+
+    void v3neg(vec3* into, const vec3* v);
+
+    void v3ineg(vec3* v);
 
     void v3add(vec3* sum, const vec3* va, const vec3* vb);
 
@@ -178,11 +200,19 @@ extern "C" {
 
     void v3inormalize(vec3* v);
 
+    void v3lerp(vec3* v, const vec3* v1, const vec3* v2, float t);
+
     ///////////////////////////////////////////////////////////////////////////
     // Vector math (4d)
     ///////////////////////////////////////////////////////////////////////////
 
+    void v4set(vec4* v, float x, float y, float z, float w);
+
     void v4copy(vec4* into, const vec4* v);
+
+    void v4neg(vec4* into, const vec4* v);
+
+    void v4ineg(vec4* v);
 
     void v4add(vec4* sum, const vec4* va, const vec4* vb);
 
@@ -222,35 +252,71 @@ extern "C" {
 
     void v4inormalize(vec4* v);
 
+    void v4lerp(vec4* v, const vec4* v1, const vec4* v2, float t);
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Quaternion math
+    ///////////////////////////////////////////////////////////////////////////
+
+    void qfromrot(quat* result, const mat4* m);
+
+    void qslerp(quat* result, const quat* q1, const quat* q2, float t);
+
     ///////////////////////////////////////////////////////////////////////////
     // Matrix math
     ///////////////////////////////////////////////////////////////////////////
 
-    void mmulm(mat4* result, const mat4* ma, const mat4* mb);
+    void m4fromq(mat4* result, const quat* q);
 
-    void mimulm(mat4 *ma, const mat4 *mb);
+    void m4mulm(mat4* result, const mat4* ma, const mat4* mb);
 
-    void mmulv(vec4* result, const vec4* v, const mat4* m);
+    void m4imulm(mat4 *ma, const mat4 *mb);
 
-    void mimulv(vec4* v, const mat4* m);
+    void m4mulv(vec4* result, const vec4* v, const mat4* m);
 
-    void mtranspose(mat4* to, const mat4* from);
+    void m4imulv(vec4* v, const mat4* m);
 
-    void mitranspose(mat4* m);
+    void m4transpose(mat4* to, const mat4* from);
 
-    int minvert(mat4* inverse, const mat4* m);
+    void m4itranspose(mat4* m);
 
-    int miinvert(mat4* m);
+    int m4invert(mat4* inverse, const mat4* m);
 
-    void mirotatex(mat4* m, float angle);
+    int m4iinvert(mat4* m);
 
-    void mirotatey(mat4* m, float angle);
+    void m4irotatex(mat4* m, float angle);
 
-    void mirotatez(mat4* m, float angle);
+    void m4irotatey(mat4* m, float angle);
 
-    void miscale(mat4* m, float x, float y, float z);
+    void m4irotatez(mat4* m, float angle);
 
-    void mitranslate(mat4* m, float tx, float ty, float tz);
+    void m4iscale(mat4* m, float x, float y, float z);
+
+    void m4itranslate(mat4* m, float tx, float ty, float tz);
+
+    void m4forward(vec3* result, const mat4* m);
+
+    void m4backward(vec3* result, const mat4* m);
+
+    void m4up(vec3* result, const mat4* m);
+
+    void m4down(vec3* result, const mat4* m);
+
+    void m4left(vec3* result, const mat4* m);
+
+    void m4right(vec3* result, const mat4* m);
+
+    void m4sforward(mat4* m, const vec3* v);
+
+    void m4sbackward(mat4* m, const vec3* v);
+
+    void m4sup(mat4* m, const vec3* v);
+
+    void m4sdown(mat4* m, const vec3* v);
+
+    void m4sleft(mat4* m, const vec3* v);
+
+    void m4sright(mat4* m, const vec3* v);
 
 #ifdef	__cplusplus
 }

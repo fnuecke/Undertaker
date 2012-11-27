@@ -13,21 +13,6 @@
 extern "C" {
 #endif
 
-    /** A room consists of multiple nodes, thus spanning multiple blocks */
-    struct MP_Room {
-        /** Info on the room type */
-        const MP_RoomType* type;
-
-        /** First room in the linked list of rooms in this group */
-        MP_RoomNode* head;
-
-        /** The number of nodes in this room, to avoid counting the list */
-        unsigned int count;
-
-        /** Current health of the room (max is base value times node count) */
-        float health;
-    };
-
     /** Represents a single room in the world */
     struct MP_RoomNode {
         /** Block this node is on */
@@ -40,6 +25,14 @@ extern "C" {
         MP_RoomNode* next;
     };
 
+    const MP_RoomType* MP_GetRoomType(const MP_Room* room);
+    
+    unsigned int MP_GetRoomSize(const MP_Room* room);
+    
+    float MP_GetRoomHealth(const MP_Room* room);
+    
+    void MP_SetRoomHealth(MP_Room* room, float value);
+    
     /**
      * Set the room for the specified block. The block must be empty. Set to
      * null to remove a room. This will take care of creating/destroying joined

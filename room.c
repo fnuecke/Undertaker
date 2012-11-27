@@ -7,6 +7,21 @@
 #include "block.h"
 #include "map.h"
 
+/** A room consists of multiple nodes, thus spanning multiple blocks */
+struct MP_Room {
+    /** Info on the room type */
+    const MP_RoomType* type;
+
+    /** First room in the linked list of rooms in this group */
+    MP_RoomNode* head;
+
+    /** The number of nodes in this room, to avoid counting the list */
+    unsigned int count;
+
+    /** Current health of the room (max is base value times node count) */
+    float health;
+};
+
 /** List of all current room lists (head of each list) */
 MP_Room** gRooms[MP_PLAYER_COUNT][MP_TYPE_ID_MAX];
 
@@ -118,7 +133,7 @@ static MP_Room* neighborFor(MP_Block* block, const MP_RoomType* type) {
 static void addRoom(const MP_RoomType* type, MP_RoomNode* head, unsigned int count, float health) {
     unsigned int player, index;
     MP_Room* room;
-    
+
     if (!(room = calloc(1, sizeof (MP_Room)))) {
         MP_log_fatal("Out of memory while allocating a room.\n");
     }
@@ -233,6 +248,36 @@ void MP_SetRoom(MP_Block* block, const MP_RoomType* type) {
 ///////////////////////////////////////////////////////////////////////////////
 // Accessors
 ///////////////////////////////////////////////////////////////////////////////
+
+const MP_RoomType* MP_GetRoomType(const MP_Room* room) {
+    assert(room);
+
+    return room->type;
+}
+
+unsigned int MP_GetRoomSize(const MP_Room* room) {
+    assert(room);
+
+    return room->count;
+}
+
+float MP_GetRoomHealth(const MP_Room* room) {
+    assert(room);
+
+    return room->health;
+}
+
+void MP_SetRoomHealth(MP_Room* room, float value) {
+    assert(room);
+
+    if (value < 0) {
+        value = 0;
+    }
+    if (value > room->count * room->type->health) {
+        value = room->count * room->type->health;
+    }
+    room->health = value;
+}
 
 MP_RoomList MP_GetRooms(const MP_RoomType* type, MP_Player player, unsigned int* count) {
     unsigned int index;

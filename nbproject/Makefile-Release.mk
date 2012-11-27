@@ -39,6 +39,7 @@ OBJECTFILES= \
 	${OBJECTDIR}/script_loading_block.o \
 	${OBJECTDIR}/lua/lstate.o \
 	${OBJECTDIR}/script_lib_room.o \
+	${OBJECTDIR}/frustum.o \
 	${OBJECTDIR}/_ext/51285538/selection.o \
 	${OBJECTDIR}/script_events.o \
 	${OBJECTDIR}/room_type.o \
@@ -164,6 +165,11 @@ ${OBJECTDIR}/script_lib_room.o: script_lib_room.c
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
 	$(COMPILE.c) -O2 -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/script_lib_room.o script_lib_room.c
+
+${OBJECTDIR}/frustum.o: frustum.c 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} $@.d
+	$(COMPILE.c) -O2 -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/frustum.o frustum.c
 
 ${OBJECTDIR}/_ext/51285538/selection.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/selection.c 
 	${MKDIR} -p ${OBJECTDIR}/_ext/51285538

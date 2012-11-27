@@ -32,7 +32,7 @@ extern "C" {
 #endif
 
 #define TYPE_HEADER(TYPE, NAME) \
-const TYPE* MP_Get##NAME##Type(unsigned int id); \
+const TYPE* MP_Get##NAME##TypeById(unsigned int id); \
 TYPE* MP_Get##NAME##TypeDefaults(void); \
 const TYPE* MP_Get##NAME##TypeByName(const char* name); \
 unsigned int MP_Get##NAME##TypeCount(void); \

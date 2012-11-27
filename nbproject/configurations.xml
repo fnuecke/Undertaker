@@ -15,6 +15,7 @@
       <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/config.h</itemPath>
       <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/cursor.h</itemPath>
       <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/events.h</itemPath>
+      <itemPath>frustum.h</itemPath>
       <itemPath>graphics.h</itemPath>
       <itemPath>hand.h</itemPath>
       <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/init.h</itemPath>
@@ -123,6 +124,7 @@
       <itemPath>dbg_job.c</itemPath>
       <itemPath>dbg_unit.c</itemPath>
       <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/events.c</itemPath>
+      <itemPath>frustum.c</itemPath>
       <itemPath>graphics.c</itemPath>
       <itemPath>hand.c</itemPath>
       <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/init.c</itemPath>

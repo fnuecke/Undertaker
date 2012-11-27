@@ -9,7 +9,7 @@
 
 double gStartTimeInMicroSec; // starting time in micro-second
 double gEndTimeInMicroSec; // ending time in micro-second
-int gStopped; // stop flag 
+int gRunning; // timer currently running?
 #ifdef WIN32
 LARGE_INTEGER gFrequency; // ticks per second
 LARGE_INTEGER gStartCount;
@@ -29,44 +29,45 @@ void T_Init(void) {
     gEndCount.tv_sec = gEndCount.tv_usec = 0;
 #endif
 
-    gStopped = 0;
+    gRunning = 0;
     gStartTimeInMicroSec = 0;
     gEndTimeInMicroSec = 0;
 }
 
 void T_Start(void) {
-    gStopped = 0; // reset stop flag
+    if (!gRunning) {
+        gRunning = 1;
 #ifdef WIN32
-    QueryPerformanceCounter(&gStartCount);
+        QueryPerformanceCounter(&gStartCount);
+        gStartTimeInMicroSec = gStartCount.QuadPart * 1000000.0 / gFrequency.QuadPart;
 #else
-    gettimeofday(&gStartCount, NULL);
+        gettimeofday(&gStartCount, NULL);
+        gStartTimeInMicroSec = (gStartCount.tv_sec * 1000000.0) + gStartCount.tv_usec;
 #endif
+    }
 }
 
 void T_Stop(void) {
-    gStopped = 1; // set timer stopped flag
-
+    if (gRunning) {
+        gRunning = 0;
 #ifdef WIN32
-    QueryPerformanceCounter(&gEndCount);
+        QueryPerformanceCounter(&gEndCount);
 #else
-    gettimeofday(&gEndCount, NULL);
+        gettimeofday(&gEndCount, NULL);
 #endif
+    }
 }
 
 double T_GetElapsedTimeInMicroSec(void) {
 #ifdef WIN32
-    if (!gStopped) {
+    if (gRunning) {
         QueryPerformanceCounter(&gEndCount);
     }
-
-    gStartTimeInMicroSec = gStartCount.QuadPart * (1000000.0 / gFrequency.QuadPart);
-    gEndTimeInMicroSec = gEndCount.QuadPart * (1000000.0 / gFrequency.QuadPart);
+    gEndTimeInMicroSec = gEndCount.QuadPart * 1000000.0 / gFrequency.QuadPart;
 #else
-    if (!gStopped) {
+    if (gRunning) {
         gettimeofday(&gEndCount, NULL);
     }
-
-    gStartTimeInMicroSec = (gStartCount.tv_sec * 1000000.0) + gStartCount.tv_usec;
     gEndTimeInMicroSec = (gEndCount.tv_sec * 1000000.0) + gEndCount.tv_usec;
 #endif
 

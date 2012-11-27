@@ -5,7 +5,7 @@
 
 #include "config.h"
 #include "events.h"
-#include "vmath.h"
+#include "log.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
@@ -36,7 +36,7 @@ static struct {
 
     /** Precomputed surface normal transform (transpose of inverse of current model transform) */
     mat3 normal;
-} matrix;
+} gMatrix;
 
 /** Stack depths for the three matrix stacks */
 static struct {
@@ -48,7 +48,10 @@ static struct {
 
     /** Model transform stack depth */
     unsigned int model;
-} stack;
+} gStack;
+
+/** The frustum for the current model-view-projection matrix */
+static frustum gFrustum;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Utility methods
@@ -57,11 +60,11 @@ static struct {
 static void updateMatrices(int modelViewChanged) {
     if (modelViewChanged) {
         // Pre-compute model-view transform, as either model or view changed.
-        mmulm(&matrix.mv, MP_GetViewMatrix(), MP_GetModelMatrix());
+        m4mulm(&gMatrix.mv, MP_GetViewMatrix(), MP_GetModelMatrix());
 
         // And update OpenGLs model-view matrix.
         glMatrixMode(GL_MODELVIEW);
-        glLoadMatrixf(matrix.mv.m);
+        glLoadMatrixf(gMatrix.mv.m);
     } else {
         // Model and view didn't change, so it was the projection matrix.
         glMatrixMode(GL_PROJECTION);
@@ -69,7 +72,10 @@ static void updateMatrices(int modelViewChanged) {
     }
 
     // Pre-compute model-view-projection transform.
-    mmulm(&matrix.mvp, MP_GetProjectionMatrix(), &matrix.mv);
+    m4mulm(&gMatrix.mvp, MP_GetProjectionMatrix(), &gMatrix.mv);
+
+    // Recompute frustum.
+    MP_FrustumFromMatrix(&gFrustum, &gMatrix.mvp);
 
     if (modelViewChanged) {
         MP_DispatchModelMatrixChangedEvent();
@@ -77,59 +83,65 @@ static void updateMatrices(int modelViewChanged) {
 }
 
 static int pushProjection(void) {
-    if (stack.projection > 0) {
-        --stack.projection;
-        matrix.projection[stack.projection] = IDENTITY_MATRIX4;
+    if (gStack.projection > 0) {
+        --gStack.projection;
+        gMatrix.projection[gStack.projection] = IDENTITY_MATRIX4;
         updateMatrices(0);
         return 1;
     }
+    MP_log_fatal("Trying to push more than the maximum number of projection matrices.");
     return 0;
 }
 
 static int popProjection(void) {
-    if (stack.projection < MATRIX_STACK_SIZE - 1) {
-        ++stack.projection;
+    if (gStack.projection < MATRIX_STACK_SIZE - 1) {
+        ++gStack.projection;
         updateMatrices(0);
         return 1;
     }
+    MP_log_fatal("Trying to pop last projection matrix.");
     return 0;
 }
 
 static int pushView(void) {
-    if (stack.view > 0) {
-        --stack.view;
-        matrix.view[stack.view] = IDENTITY_MATRIX4;
+    if (gStack.view > 0) {
+        --gStack.view;
+        gMatrix.view[gStack.view] = IDENTITY_MATRIX4;
         updateMatrices(1);
         return 1;
     }
+    MP_log_fatal("Trying to push more than the maximum number of view matrices.");
     return 0;
 }
 
 static int popView(void) {
-    if (stack.view < MATRIX_STACK_SIZE - 1) {
-        ++stack.view;
+    if (gStack.view < MATRIX_STACK_SIZE - 1) {
+        ++gStack.view;
         updateMatrices(1);
         return 1;
     }
+    MP_log_fatal("Trying to pop last view matrix.");
     return 0;
 }
 
 static int pushModel(void) {
-    if (stack.model > 0) {
-        --stack.model;
-        matrix.model[stack.model] = matrix.model[stack.model + 1];
+    if (gStack.model > 0) {
+        --gStack.model;
+        gMatrix.model[gStack.model] = gMatrix.model[gStack.model + 1];
         updateMatrices(1);
         return 1;
     }
+    MP_log_fatal("Trying to push more than the maximum number of model matrices.");
     return 0;
 }
 
 static int popModel(void) {
-    if (stack.model < MATRIX_STACK_SIZE - 1) {
-        ++stack.model;
+    if (gStack.model < MATRIX_STACK_SIZE - 1) {
+        ++gStack.model;
         updateMatrices(1);
         return 1;
     }
+    MP_log_fatal("Trying to pop last model matrix.");
     return 0;
 }
 
@@ -138,23 +150,23 @@ static int popModel(void) {
 ///////////////////////////////////////////////////////////////////////////////
 
 const mat4* MP_GetModelMatrix(void) {
-    return &matrix.model[stack.model];
+    return &gMatrix.model[gStack.model];
 }
 
 const mat4* MP_GetViewMatrix(void) {
-    return &matrix.view[stack.view];
+    return &gMatrix.view[gStack.view];
 }
 
 const mat4* MP_GetProjectionMatrix(void) {
-    return &matrix.projection[stack.projection];
+    return &gMatrix.projection[gStack.projection];
 }
 
 const mat4* MP_GetModelViewMatrix(void) {
-    return &matrix.mv;
+    return &gMatrix.mv;
 }
 
 const mat4* MP_GetModelViewProjectionMatrix(void) {
-    return &matrix.mvp;
+    return &gMatrix.mvp;
 }
 
 int MP_PushModelMatrix(void) {
@@ -166,18 +178,22 @@ int MP_PopModelMatrix(void) {
 }
 
 void MP_SetModelMatrix(const mat4* m) {
-    matrix.model[stack.model] = *m;
+    gMatrix.model[gStack.model] = *m;
     updateMatrices(1);
 }
 
 void MP_ScaleModelMatrix(float sx, float sy, float sz) {
-    miscale(&matrix.model[stack.model], sx, sy, sz);
+    m4iscale(&gMatrix.model[gStack.model], sx, sy, sz);
     updateMatrices(1);
 }
 
 void MP_TranslateModelMatrix(float tx, float ty, float tz) {
-    mitranslate(&matrix.model[stack.model], tx, ty, tz);
+    m4itranslate(&gMatrix.model[gStack.model], tx, ty, tz);
     updateMatrices(1);
+}
+
+const frustum* MP_GetRenderFrustum(void) {
+    return &gFrustum;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -192,7 +208,7 @@ int MP_BeginPerspective(void) {
         return 0;
     }
 
-    m = matrix.projection[stack.projection].m;
+    m = gMatrix.projection[gStack.projection].m;
 #define M(row, col) m[col * 4 + row]
     M(0, 0) = f / MP_ASPECT_RATIO;
     M(1, 1) = f;
@@ -218,7 +234,7 @@ int MP_BeginOrthogonal(void) {
         return 0;
     }
 
-    m = matrix.projection[stack.projection].m;
+    m = gMatrix.projection[gStack.projection].m;
 #define M(row, col) m[col * 4 + row]
     M(0, 0) = 2.0f / MP_resolutionX;
     M(0, 1) = 0.0f;
@@ -253,11 +269,11 @@ int MP_EndOrthogonal(void) {
 int MP_BeginPerspectiveForPicking(float x, float y) {
     if (MP_BeginPerspective()) {
         mat4 look = IDENTITY_MATRIX4;
-        mitranslate(&look, MP_resolutionX - 2 * x, MP_resolutionY - 2 * y, 0);
-        miscale(&look, MP_resolutionX, MP_resolutionY, 1.0);
+        m4itranslate(&look, MP_resolutionX - 2 * x, MP_resolutionY - 2 * y, 0);
+        m4iscale(&look, MP_resolutionX, MP_resolutionY, 1.0);
 
-        mimulm(&look, MP_GetProjectionMatrix());
-        matrix.projection[stack.projection] = look;
+        m4imulm(&look, MP_GetProjectionMatrix());
+        gMatrix.projection[gStack.projection] = look;
 
         updateMatrices(0);
 
@@ -277,7 +293,7 @@ int MP_BeginLookAt(float eyex, float eyey, float eyez, float lookatx, float look
         return 0;
     }
 
-    m = &matrix.view[stack.view];
+    m = &gMatrix.view[gStack.view];
 
     // Compute direction vectors and set up base matrix.
     direction.d.x = (lookatx - eyex);
@@ -316,7 +332,7 @@ int MP_BeginLookAt(float eyex, float eyey, float eyez, float lookatx, float look
     m->m[15] = 1.0f;
 
     // Then add translation based on eye position.
-    mitranslate(m, -eyex, -eyey, -eyez);
+    m4itranslate(m, -eyex, -eyey, -eyez);
 
     updateMatrices(1);
 
@@ -341,8 +357,8 @@ int MP_Project(float objx, float objy, float objz,
     in.d.z = objz;
     in.d.w = 1.0f;
 
-    mmulv(&out, &in, MP_GetModelViewMatrix());
-    mmulv(&in, &out, MP_GetProjectionMatrix());
+    m4mulv(&out, &in, MP_GetModelViewMatrix());
+    m4mulv(&in, &out, MP_GetProjectionMatrix());
 
     if (in.d.w * in.d.w < 1e-25) {
         return 0;
@@ -370,11 +386,11 @@ int MP_Project(float objx, float objy, float objz,
 
 int MP_UnProject(float winx, float winy, float winz,
                  float *objx, float *objy, float *objz) {
-    mat4 mvp = matrix.mvp;
+    mat4 mvp = gMatrix.mvp;
     vec4 in;
     vec4 out;
 
-    if (!miinvert(&mvp)) {
+    if (!m4iinvert(&mvp)) {
         return 0;
     }
 
@@ -393,7 +409,7 @@ int MP_UnProject(float winx, float winy, float winz,
     in.d.z = in.d.z * 2.0f - 1.0f;
 
     //__gluMultMatrixVecd(finalMatrix, in, out);
-    mmulv(&out, &in, &mvp);
+    m4mulv(&out, &in, &mvp);
     if (out.d.w * out.d.w < 1e-25) {
         return 0;
     }
@@ -411,16 +427,16 @@ int MP_UnProject(float winx, float winy, float winz,
 
 void MP_InitGraphics(void) {
     for (unsigned int i = 0; i < MATRIX_STACK_SIZE; ++i) {
-        matrix.model[i] = IDENTITY_MATRIX4;
-        matrix.view[i] = IDENTITY_MATRIX4;
-        matrix.projection[i] = IDENTITY_MATRIX4;
+        gMatrix.model[i] = IDENTITY_MATRIX4;
+        gMatrix.view[i] = IDENTITY_MATRIX4;
+        gMatrix.projection[i] = IDENTITY_MATRIX4;
     }
 
-    matrix.mv = IDENTITY_MATRIX4;
-    matrix.mvp = IDENTITY_MATRIX4;
-    matrix.normal = IDENTITY_MATRIX3;
+    gMatrix.mv = IDENTITY_MATRIX4;
+    gMatrix.mvp = IDENTITY_MATRIX4;
+    gMatrix.normal = IDENTITY_MATRIX3;
 
-    stack.model = MATRIX_STACK_SIZE - 1;
-    stack.projection = MATRIX_STACK_SIZE - 1;
-    stack.view = MATRIX_STACK_SIZE - 1;
+    gStack.model = MATRIX_STACK_SIZE - 1;
+    gStack.projection = MATRIX_STACK_SIZE - 1;
+    gStack.view = MATRIX_STACK_SIZE - 1;
 }

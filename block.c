@@ -10,14 +10,14 @@ MP_Passability MP_GetBlockPassability(const MP_Block* block) {
     assert(block);
     assert(block->type);
 
-    return block->roomNode ? block->roomNode->room->type->passability : block->type->passability;
+    return block->roomNode ? MP_GetRoomType(block->roomNode->room)->passability : block->type->passability;
 }
 
 MP_BlockLevel MP_GetBlockLevel(const MP_Block* block) {
     assert(block);
     assert(block->type);
 
-    return block->roomNode ? block->roomNode->room->type->level : block->type->level;
+    return block->roomNode ? MP_GetRoomType(block->roomNode->room)->level : block->type->level;
 }
 
 bool MP_IsBlockPassable(const MP_Block* block) {

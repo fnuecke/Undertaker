@@ -44,17 +44,18 @@ int main(int argc, char** argv) {
 
         T_Stop();
 
+        load_accumulator += T_GetElapsedTimeInMicroSec();
+        if (load_counter++ > MP_FRAMERATE) {
+            char title[128] = {0};
+            snprintf(title, sizeof (title), "Undertaker - Load: %.2f - Lights: %d", load_accumulator / 1000000.0f, MP_DEBUG_VisibleLightCount());
+            SDL_WM_SetCaption(title, NULL);
+            load_counter = 0;
+            load_accumulator = 0;
+        }
+
         // Wait to get a constant frame rate.
         delay = 1000.0f / MP_FRAMERATE - T_GetElapsedTimeInMilliSec();
         if (delay > 0) {
-            load_accumulator += T_GetElapsedTimeInMicroSec();
-            if (load_counter++ > MP_FRAMERATE) {
-                char title[32] = {0};
-                snprintf(title, sizeof (title), "Undertaker - Load: %.2f", load_accumulator / 1000000.0f);
-                SDL_WM_SetCaption(title, NULL);
-                load_counter = 0;
-                load_accumulator = 0;
-            }
             SDL_Delay(delay);
         }
     }

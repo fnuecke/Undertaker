@@ -2,7 +2,7 @@
 import "defaults"
 
 -- Map size in blocks, always squared.
-mapsize(16, "dirt")
+mapsize(32, "dirt")
 
 -- Terrain definition.
 --local map = {}

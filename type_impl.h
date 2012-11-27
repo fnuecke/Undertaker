@@ -61,7 +61,7 @@ TYPE* MP_Get##NAME##TypeDefaults(void) { \
 }
 
 #define TYPE_GET_BY_ID(TYPE, NAME) \
-const TYPE* MP_Get##NAME##Type(unsigned int id) { \
+const TYPE* MP_Get##NAME##TypeById(unsigned int id) { \
     assert(id > 0 && id <= gTypeCount); \
     return &gTypes[id - 1]; \
 }

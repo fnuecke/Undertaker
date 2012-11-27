@@ -53,7 +53,7 @@ static void key_down(const SDL_Event* e) {
         {
             vec2 p = *MP_GetCursor(MP_CURSOR_LEVEL_FLOOR);
             v2idivs(&p, MP_BLOCK_SIZE);
-            MP_AddUnit(MP_PLAYER_ONE, MP_GetUnitType(1), &p);
+            MP_AddUnit(MP_PLAYER_ONE, MP_GetUnitTypeById(1), &p);
             break;
         }
         case SDLK_F5:
@@ -89,30 +89,62 @@ static void key_down(const SDL_Event* e) {
             MP_DBG_drawLightVolumes = 1 - MP_DBG_drawLightVolumes;
             break;
 
-        case SDLK_BACKQUOTE:
-            MP_SetBlockOwner(MP_GetBlockUnderCursor(), MP_PLAYER_ONE);
+        case SDLK_BACKQUOTE: {
+            MP_Block* block = MP_GetBlockUnderCursor();
+            if (block) {
+                MP_SetBlockOwner(block, MP_PLAYER_ONE);
+            }
             break;
-        case SDLK_1:
-            MP_SetBlockType(MP_GetBlockUnderCursor(), MP_GetBlockType(1));
+        }
+        case SDLK_1: {
+            MP_Block* block = MP_GetBlockUnderCursor();
+            if (block) {
+                MP_SetBlockType(block, MP_GetBlockTypeById(1));
+            }
             break;
-        case SDLK_2:
-            MP_SetBlockType(MP_GetBlockUnderCursor(), MP_GetBlockType(2));
+        }
+        case SDLK_2: {
+            MP_Block* block = MP_GetBlockUnderCursor();
+            if (block) {
+                MP_SetBlockType(block, MP_GetBlockTypeById(2));
+            }
             break;
-        case SDLK_3:
-            MP_SetBlockType(MP_GetBlockUnderCursor(), MP_GetBlockType(3));
+        }
+        case SDLK_3: {
+            MP_Block* block = MP_GetBlockUnderCursor();
+            if (block) {
+                MP_SetBlockType(block, MP_GetBlockTypeById(3));
+            }
             break;
-        case SDLK_4:
-            MP_SetBlockType(MP_GetBlockUnderCursor(), MP_GetBlockType(4));
+        }
+        case SDLK_4: {
+            MP_Block* block = MP_GetBlockUnderCursor();
+            if (block) {
+                MP_SetBlockType(block, MP_GetBlockTypeById(4));
+            }
             break;
-        case SDLK_5:
-            MP_SetBlockType(MP_GetBlockUnderCursor(), MP_GetBlockType(5));
+        }
+        case SDLK_5: {
+            MP_Block* block = MP_GetBlockUnderCursor();
+            if (block) {
+                MP_SetBlockType(block, MP_GetBlockTypeById(5));
+            }
             break;
-        case SDLK_6:
-            MP_SetBlockType(MP_GetBlockUnderCursor(), MP_GetBlockType(6));
+        }
+        case SDLK_6: {
+            MP_Block* block = MP_GetBlockUnderCursor();
+            if (block) {
+                MP_SetBlockType(block, MP_GetBlockTypeById(6));
+            }
             break;
-        case SDLK_7:
-            MP_SetBlockType(MP_GetBlockUnderCursor(), MP_GetBlockType(7));
+        }
+        case SDLK_7: {
+            MP_Block* block = MP_GetBlockUnderCursor();
+            if (block) {
+                MP_SetBlockType(block, MP_GetBlockTypeById(7));
+            }
             break;
+        }
         default:
             break;
     }

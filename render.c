@@ -11,6 +11,7 @@
 #include "config.h"
 #include "cursor.h"
 #include "events.h"
+#include "frustum.h"
 #include "graphics.h"
 #include "job.h"
 #include "log.h"
@@ -19,6 +20,11 @@
 #include "textures.h"
 #include "unit.h"
 #include "vmath.h"
+
+/** The maximum number of lights that can show in a tile */
+#define MAX_LIGHTS_PER_TILE 16
+/** The size of a tile when subdividing the screen space for lighting */
+#define LIGHT_TILE_SIZE 32
 
 ///////////////////////////////////////////////////////////////////////////////
 // Deferred shading variables
@@ -147,21 +153,34 @@ static struct {
         /** The position of the camera */
         GLint CameraPosition;
 
+        /** The actual number of lights set in the following arrays */
+        GLint LightCountIndex;
+
         /** The position of the light, in world space */
-        GLint LightPosition;
+        GLint LightPositionIndex;
 
         /** The diffuse color of the light */
-        GLint DiffuseLightColor;
+        GLint DiffuseLightColorIndex;
 
         /** Range of the diffuse light */
-        GLint DiffuseLightRange;
+        GLint DiffuseLightRangeIndex;
 
         /** The specular color of the light */
-        GLint SpecularLightColor;
+        GLint SpecularLightColorIndex;
 
         /** Range of the specular light */
-        GLint SpecularLightRange;
+        GLint SpecularLightRangeIndex;
     } fs_uniforms;
+    
+    /** In-memory block corresponding to uniform buffer with light data */
+    struct {
+        int LightCount;
+        float LightPosition[MAX_LIGHTS_PER_TILE * 3];
+        float LightDiffuseColor[MAX_LIGHTS_PER_TILE * 3];
+        float LightDiffuseRange[MAX_LIGHTS_PER_TILE];
+        float LightSpecularColor[MAX_LIGHTS_PER_TILE * 3];
+        float LightSpecularRange[MAX_LIGHTS_PER_TILE];
+    } fs_uniform_buffer;
 } gLightShader;
 
 static struct {
@@ -193,138 +212,15 @@ static struct {
 /** Flag if we're currently in the geometry rendering stage */
 static bool gIsGeometryPass = false;
 
-/** Represents a single light in a scene */
+/** Represents lights in the scene */
 static const MP_Light** gLights = 0;
 static unsigned int gLightCapacity = 0;
 static unsigned int gLightCount = 0;
 
-/** Used for rendering light volumes */
-static GLuint gSphereArrayID = 0;
-static GLuint gSphereBufferID = 0;
-
-///////////////////////////////////////////////////////////////////////////////
-// Sphere rendering (for light volumes)
-///////////////////////////////////////////////////////////////////////////////
-
-/** Represents a single face on a sphere */
-typedef struct Face {
-    vec3 p0, p1, p2;
-} Face;
-
-/* Six equidistant points lying on the unit sphere */
-#define XPLUS {{  1,  0,  0 }}	/*  X */
-#define XMIN  {{ -1,  0,  0 }}	/* -X */
-#define YPLUS {{  0,  1,  0 }}	/*  Y */
-#define YMIN  {{  0, -1,  0 }}	/* -Y */
-#define ZPLUS {{  0,  0,  1 }}	/*  Z */
-#define ZMIN  {{  0,  0, -1 }}	/* -Z */
-static const Face OCTAHEDRON[] = {
-    {XPLUS, YPLUS, ZPLUS},
-    {YPLUS, XMIN, ZPLUS},
-    {XMIN, YMIN, ZPLUS},
-    {YMIN, XPLUS, ZPLUS},
-    {XPLUS, ZMIN, YPLUS},
-    {YPLUS, ZMIN, XMIN},
-    {XMIN, ZMIN, YMIN},
-    {YMIN, ZMIN, XPLUS}
-};
-#undef XPLUS
-#undef XMIN
-#undef YPLUS
-#undef YMIN
-#undef ZPLUS
-#undef ZMIN
-
-#define ITERATIONS 1
-// Number of faces.
-const unsigned int faceCount = (4 << (ITERATIONS - 1)) * 8;
-
-static void midPoint(vec3* mid, const vec3* va, const vec3* vb) {
-    mid->d.x = (va->d.x + vb->d.x) / 2.0f;
-    mid->d.y = (va->d.y + vb->d.y) / 2.0f;
-    mid->d.z = (va->d.z + vb->d.z) / 2.0f;
-}
-
-static void initSphere(void) {
-    // The actual faces.
-    Face faces[faceCount];
-
-    // Counters for vertices.
-    unsigned int numFaces = 8;
-
-    // Face we're currently building.
-    Face* newFace = &faces[numFaces];
-
-    // Initialize from octahedron.
-    for (unsigned int i = 0; i < 8; ++i) {
-        faces[i] = OCTAHEDRON[i];
-    }
-
-    // Bisect each edge and move to the surface of a unit sphere.
-    for (unsigned int iteration = 0; iteration < ITERATIONS; ++iteration) {
-        for (unsigned int i = 0; i < numFaces; i++) {
-            Face* oldFace = &faces[i];
-            vec3 pa, pb, pc;
-
-            midPoint(&pa, &oldFace->p0, &oldFace->p2);
-            midPoint(&pb, &oldFace->p0, &oldFace->p1);
-            midPoint(&pc, &oldFace->p1, &oldFace->p2);
-
-            v3inormalize(&pa);
-            v3inormalize(&pb);
-            v3inormalize(&pc);
-
-            newFace->p0 = oldFace->p0;
-            newFace->p1 = pb;
-            newFace->p2 = pa;
-            ++newFace;
-
-            newFace->p0 = pb;
-            newFace->p1 = oldFace->p1;
-            newFace->p2 = pc;
-            ++newFace;
-
-            newFace->p0 = pa;
-            newFace->p1 = pc;
-            newFace->p2 = oldFace->p2;
-            ++newFace;
-
-            oldFace->p0 = pa;
-            oldFace->p1 = pb;
-            oldFace->p2 = pc;
-        }
-        numFaces *= 4;
-    }
-
-    assert(numFaces == faceCount);
-
-    glGenVertexArrays(1, &gSphereArrayID);
-    glBindVertexArray(gSphereArrayID);
-    glGenBuffers(1, &gSphereBufferID);
-    glBindBuffer(GL_ARRAY_BUFFER, gSphereBufferID);
-    glBufferData(GL_ARRAY_BUFFER, faceCount * sizeof (Face), faces, GL_STATIC_DRAW);
-}
-
-static void drawSphere(void) {
-    // Bind our vertex buffer as the array we use for attribute lookups.
-    glBindBuffer(GL_ARRAY_BUFFER, gSphereBufferID);
-
-    // Position is at 0 in fixed function pipeline.
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-
-    glDrawArrays(GL_TRIANGLES, 0, faceCount * 3);
-
-    // Done with the rendering, unbind attributes.
-    glDisableVertexAttribArray(0);
-
-    // Unbind vertex buffer.
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    EXIT_ON_OPENGL_ERROR();
-}
-
-#undef ITERATIONS
+/** Temporary reused list with lights in view frustum */
+static const MP_Light** gVisibleLights = 0;
+static unsigned int gVisibleLightCapacity = 0;
+static unsigned int gVisibleLightCount = 0;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Shader and GBuffer setup
@@ -420,16 +316,20 @@ static void initShaders(void) {
 
     gLightShader.fs_uniforms.CameraPosition =
             glGetUniformLocation(gLightShader.program, "CameraPosition");
-    gLightShader.fs_uniforms.LightPosition =
+
+    gLightShader.fs_uniforms.LightCountIndex =
+            glGetUniformLocation(gLightShader.program, "LightCount");
+    gLightShader.fs_uniforms.LightPositionIndex =
             glGetUniformLocation(gLightShader.program, "LightPosition");
-    gLightShader.fs_uniforms.DiffuseLightColor =
+    gLightShader.fs_uniforms.DiffuseLightColorIndex =
             glGetUniformLocation(gLightShader.program, "DiffuseLightColor");
-    gLightShader.fs_uniforms.DiffuseLightRange =
+    gLightShader.fs_uniforms.DiffuseLightRangeIndex =
             glGetUniformLocation(gLightShader.program, "DiffuseLightRange");
-    gLightShader.fs_uniforms.SpecularLightColor =
+    gLightShader.fs_uniforms.SpecularLightColorIndex =
             glGetUniformLocation(gLightShader.program, "SpecularLightColor");
-    gLightShader.fs_uniforms.SpecularLightRange =
+    gLightShader.fs_uniforms.SpecularLightRangeIndex =
             glGetUniformLocation(gLightShader.program, "SpecularLightRange");
+
     EXIT_ON_OPENGL_ERROR();
 
     gFogShader.program = MP_LoadProgram("data/shaders/deferredFogPass.vert",
@@ -539,7 +439,7 @@ static bool isDeferredShadingPossible(void) {
     return MP_DBG_useDeferredShader &&
             gGeometryShader.program &&
             gAmbientShader.program &&
-            gLightShader.program && 
+            gLightShader.program &&
             gFogShader.program;
 }
 
@@ -558,29 +458,6 @@ static void onModelMatrixChanged(void) {
 ///////////////////////////////////////////////////////////////////////////////
 // Deferred lighting
 ///////////////////////////////////////////////////////////////////////////////
-
-static void beginGeometryPass(void) {
-    static const GLenum buffers[] = {GL_COLOR_ATTACHMENT0,
-                                     GL_COLOR_ATTACHMENT1,
-                                     GL_COLOR_ATTACHMENT2};
-
-    // Bind our frame buffer.
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, gBuffer.frameBuffer);
-
-    // Clear the render targets.
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    // Start using the geometry shader.
-    glUseProgram(gGeometryShader.program);
-
-    // Use our three buffers.
-    glDrawBuffers(3, buffers);
-
-    EXIT_ON_OPENGL_ERROR();
-
-    gIsGeometryPass = true;
-}
 
 static void renderQuad(float startX, float startY, float endX, float endY) {
     const float tx0 = startX / MP_resolutionX;
@@ -601,8 +478,6 @@ static void renderQuad(float startX, float startY, float endX, float endY) {
         glVertex3f(0.0f, startX, endY);
     }
     glEnd();
-
-    EXIT_ON_OPENGL_ERROR();
 }
 
 static void ambientPass(void) {
@@ -641,136 +516,6 @@ static void ambientPass(void) {
     // Restore state.
     glDepthMask(GL_TRUE);
     glEnable(GL_DEPTH_TEST);
-
-    EXIT_ON_OPENGL_ERROR();
-}
-
-static void drawLight(const MP_Light* light) {
-    // Get the radius of the light (i.e. how far from the center it has no
-    // noticeable effect anymore). Compensate for octahedron clipping some space
-    // (which is 1/(sqrt(2)/2) = ~1.42
-    const float range = (light->diffuseRange > light->specularRange ? light->diffuseRange : light->specularRange) * 1.42f;
-    const float cameraToLight = v3distance(&light->position, MP_GetCameraPosition());
-    const int cameraIsInLightVolume = cameraToLight <= range + (MP_CLIP_NEAR * 2);
-
-    // Translate to the light.
-    MP_PushModelMatrix();
-    MP_TranslateModelMatrix(light->position.d.x, light->position.d.y, light->position.d.z);
-    MP_ScaleModelMatrix(range, range, range);
-
-    // Disable changing the depth buffer and color output.
-    glDepthMask(GL_FALSE);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
-    // Use stencil buffer to determine which pixels to shade.
-    glEnable(GL_STENCIL_TEST);
-
-    // Clear stencil buffer.
-    glClearStencil(0);
-    glClear(GL_STENCIL_BUFFER_BIT);
-
-    // First pass: front faces, i.e. the light volume from the outside, but only
-    // *if* we're on the outside. Otherwise the second pass will be the deciding
-    // one.
-    if (!cameraIsInLightVolume) {
-        // Take everything we can get.
-        glStencilFunc(GL_ALWAYS, 1, 1);
-        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-
-        // Closer to light than existing geometry.
-        glDepthFunc(GL_LESS);
-
-        drawSphere();
-
-        // For second pass, we un-set those pixels that are visible on the
-        // inside, too, because those are "in thin air".
-        glStencilFunc(GL_EQUAL, 1, 1);
-        glStencilOp(GL_ZERO, GL_ZERO, GL_KEEP);
-    } else {
-        // Only second pass, use everything we get that's "behind" something of
-        // the scene already rendered, meaning the light volume collided with it
-        // (and thus that it is lit).
-        glStencilFunc(GL_ALWAYS, 1, 1);
-        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-    }
-
-    // Second pass: back faces, i.e. light volume from the inside. Only where
-    // it's further away than existing geometry.
-    glDepthFunc(GL_GEQUAL);
-
-    // Draw back faces.
-    glFrontFace(GL_CW);
-
-    drawSphere();
-
-    // Reset to front faces.
-    glFrontFace(GL_CCW);
-
-    // Translate back away from light.
-    MP_PopModelMatrix();
-
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glDepthFunc(GL_LEQUAL);
-
-    glStencilFunc(GL_EQUAL, 1, 1);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-
-    // Blend lights additively.
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_ONE, GL_ONE);
-
-    // No depth testing for orthogonal quad rendering.
-    glDisable(GL_DEPTH_TEST);
-
-    // Set projection matrix to orthogonal, because we want to draw a quad
-    // filling the complete screen.
-    MP_BeginOrthogonal();
-
-    // Set view a bit back to avoid clipping.
-    MP_BeginLookAt(1.0f + MP_CLIP_NEAR, 0, 0, 0, 0, 0);
-
-    // No model transform for us.
-    MP_PushModelMatrix();
-    MP_SetModelMatrix(&IDENTITY_MATRIX4);
-
-    if (MP_DBG_drawLightVolumes) {
-        glColor3f(0.05f, 0.05f, 0.05f);
-        // Render the quad.
-        renderQuad(0, 0, MP_resolutionX, MP_resolutionY);
-        glColor3f(1.0f, 1.0f, 1.0f);
-    }
-
-    // Use lighting shader program.
-    glUseProgram(gLightShader.program);
-    glUniformMatrix4fv(gLightShader.vs_uniforms.ModelViewProjectionMatrix, 1,
-                       GL_FALSE, MP_GetModelViewProjectionMatrix()->m);
-    glUniform1i(gLightShader.fs_uniforms.GBuffer0, 0);
-    glUniform1i(gLightShader.fs_uniforms.GBuffer1, 1);
-    glUniform1i(gLightShader.fs_uniforms.GBuffer2, 2);
-    glUniform3fv(gLightShader.fs_uniforms.CameraPosition, 1, MP_GetCameraPosition()->v);
-    glUniform3fv(gLightShader.fs_uniforms.DiffuseLightColor, 1, light->diffuseColor.v);
-    glUniform1f(gLightShader.fs_uniforms.DiffuseLightRange, light->diffuseRange);
-    glUniform3fv(gLightShader.fs_uniforms.SpecularLightColor, 1, light->specularColor.v);
-    glUniform1f(gLightShader.fs_uniforms.SpecularLightRange, light->specularRange);
-    glUniform3fv(gLightShader.fs_uniforms.LightPosition, 1, light->position.v);
-    EXIT_ON_OPENGL_ERROR();
-
-    // Render the quad.
-    renderQuad(0, 0, MP_resolutionX, MP_resolutionY);
-
-    // Pop the shader.
-    glUseProgram(0);
-
-    // Pop orthogonal view state.
-    MP_PopModelMatrix();
-    MP_EndLookAt();
-    MP_EndOrthogonal();
-
-    // Restore old state.
-    glEnable(GL_DEPTH_TEST);
-    glDisable(GL_BLEND);
-    glDisable(GL_STENCIL_TEST);
-    glDepthMask(GL_TRUE);
 
     EXIT_ON_OPENGL_ERROR();
 }
@@ -821,6 +566,141 @@ static void fogPass(void) {
     EXIT_ON_OPENGL_ERROR();
 }
 
+static float clamp(float f) {
+    if (f < 0.0f) return 0.0f;
+    if (f > 1.0f) return 1.0f;
+    return f;
+}
+
+static void drawLights(void) {
+    int lightCount = 0;
+    float positions[MAX_LIGHTS_PER_TILE * 3] = {0};
+    float diffuseColors[MAX_LIGHTS_PER_TILE * 3] = {0};
+    float diffuseRanges[MAX_LIGHTS_PER_TILE] = {0};
+    float specularColors[MAX_LIGHTS_PER_TILE * 3] = {0};
+    float specularRanges[MAX_LIGHTS_PER_TILE] = {0};
+    frustum viewFrustum, tileFrustum;
+
+    // Get our current (projected view) frustum.
+    viewFrustum = *MP_GetRenderFrustum();
+
+    // Find all lights in view frustum.
+    gVisibleLightCount = 0;
+    for (unsigned int i = 0; i < gLightCount; ++i) {
+        const MP_Light* light = gLights[i];
+        const float radius = light->diffuseRange > light->specularRange ? light->diffuseRange : light->specularRange;
+        if (MP_IsSphereInFrustum(&viewFrustum, &light->position, radius)) {
+            // Make sure our storage is big enough.
+            if (gVisibleLightCount >= gVisibleLightCapacity) {
+                gVisibleLightCapacity = gVisibleLightCapacity * 3 / 2 + 1;
+                if (!(gVisibleLights = realloc(gVisibleLights, sizeof (MP_Light*) * gVisibleLightCapacity))) {
+                    MP_log_fatal("Out of memory while allocating visible light data.\n");
+                }
+            }
+            gVisibleLights[gVisibleLightCount++] = light;
+        }
+    }
+
+    // Skip rest if there are no visible lights.
+    if (gVisibleLightCount == 0) {
+        return;
+    }
+
+    // Disable testing and changing the depth buffer (we just paint on top of
+    // what we have with an orthogonally viewed quad).
+    glDepthMask(GL_FALSE);
+    glDisable(GL_DEPTH_TEST);
+
+    // Blend lights additively.
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+
+    // Set projection matrix to orthogonal, because we want to draw a quad
+    // filling the complete screen.
+    MP_BeginOrthogonal();
+
+    // Set view a bit back to avoid clipping.
+    MP_BeginLookAt(10.0f + MP_CLIP_NEAR, 0, 0, 0, 0, 0);
+
+    // No model transform for us.
+    MP_PushModelMatrix();
+    MP_SetModelMatrix(&IDENTITY_MATRIX4);
+
+    // Use lighting shader program.
+    glUseProgram(gLightShader.program);
+    glUniformMatrix4fv(gLightShader.vs_uniforms.ModelViewProjectionMatrix, 1,
+                       GL_FALSE, MP_GetModelViewProjectionMatrix()->m);
+    glUniform1i(gLightShader.fs_uniforms.GBuffer0, 0);
+    glUniform1i(gLightShader.fs_uniforms.GBuffer1, 1);
+    glUniform1i(gLightShader.fs_uniforms.GBuffer2, 2);
+    glUniform3fv(gLightShader.fs_uniforms.CameraPosition, 1, MP_GetCameraPosition()->v);
+    EXIT_ON_OPENGL_ERROR();
+
+    // Render the screen space in tiles, where for each tile we check the lights
+    // interacting with that tile again (from the already filtered list).
+    for (int y = 0; y < MP_resolutionY; y += LIGHT_TILE_SIZE) {
+        // We generate the frustum for the tile by interpolating the left and
+        // right / top and bottom planes based on our tile position.
+        float v0 = clamp(y / (float) MP_resolutionY);
+        float v1 = clamp((y + LIGHT_TILE_SIZE) / (float) MP_resolutionY);
+        for (int x = 0; x < MP_resolutionX; x += LIGHT_TILE_SIZE) {
+            float u0 = clamp(x / (float) MP_resolutionX);
+            float u1 = clamp((x + LIGHT_TILE_SIZE) / (float) MP_resolutionX);
+            MP_FrustumSegment(&tileFrustum, &viewFrustum, u0, v0, u1, v1);
+            // Find lights relevant to this quad.
+            lightCount = 0;
+            for (unsigned int i = 0; i < gVisibleLightCount && lightCount < MAX_LIGHTS_PER_TILE; ++i) {
+                const MP_Light* light = gVisibleLights[i];
+                const float radius = light->diffuseRange > light->specularRange ? light->diffuseRange : light->specularRange;
+                // Check if the light intersects with the frustum of this tile.
+                if (MP_IsSphereInFrustum(&tileFrustum, &light->position, radius)) {
+                    positions[lightCount * 3] = light->position.v[0];
+                    positions[lightCount * 3 + 1] = light->position.v[1];
+                    positions[lightCount * 3 + 2] = light->position.v[2];
+                    diffuseColors[lightCount * 3] = light->diffuseColor.v[0];
+                    diffuseColors[lightCount * 3 + 1] = light->diffuseColor.v[1];
+                    diffuseColors[lightCount * 3 + 2] = light->diffuseColor.v[2];
+                    diffuseRanges[lightCount] = light->diffuseRange;
+                    specularColors[lightCount * 3] = light->specularColor.v[0];
+                    specularColors[lightCount * 3 + 1] = light->specularColor.v[1];
+                    specularColors[lightCount * 3 + 2] = light->specularColor.v[2];
+                    specularRanges[lightCount] = light->specularRange;
+                    ++lightCount;
+                }
+            }
+            if (lightCount > 0) {
+                // Set data for these lights.
+                glUniform1i(gLightShader.fs_uniforms.LightCountIndex, lightCount);
+                glUniform3fv(gLightShader.fs_uniforms.LightPositionIndex, MAX_LIGHTS_PER_TILE, positions);
+                glUniform3fv(gLightShader.fs_uniforms.DiffuseLightColorIndex, MAX_LIGHTS_PER_TILE, diffuseColors);
+                glUniform1fv(gLightShader.fs_uniforms.DiffuseLightRangeIndex, MAX_LIGHTS_PER_TILE, diffuseRanges);
+                glUniform3fv(gLightShader.fs_uniforms.SpecularLightColorIndex, MAX_LIGHTS_PER_TILE, specularColors);
+                glUniform1fv(gLightShader.fs_uniforms.SpecularLightRangeIndex, MAX_LIGHTS_PER_TILE, specularRanges);
+
+                // Render the quad. OpenGL's coordinate system starts in the
+                // bottom left, but we use one in the upper left, so we need to
+                // invert y-coordinate.
+                renderQuad(x, MP_resolutionY - (y + LIGHT_TILE_SIZE), x + LIGHT_TILE_SIZE, MP_resolutionY - y);
+            }
+        }
+    }
+
+    // Pop the shader.
+    glUseProgram(0);
+
+    // Pop orthogonal view state.
+    MP_PopModelMatrix();
+    MP_EndLookAt();
+    MP_EndOrthogonal();
+
+    // Restore old state.
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+
+    EXIT_ON_OPENGL_ERROR();
+}
+
 static void lightPass(void) {
     // Done with our frame buffer.
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
@@ -847,9 +727,7 @@ static void lightPass(void) {
         ambientPass();
 
         // Draw lights.
-        for (unsigned int i = 0; i < gLightCount; ++i) {
-            drawLight(gLights[i]);
-        }
+        drawLights();
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, gBuffer.texture[3]);
@@ -950,7 +828,28 @@ void MP_Render(void) {
     MP_DispatchPreRenderEvent();
 
     if (isDeferredShadingPossible()) {
-        beginGeometryPass();
+        // Begin geometry pass for deferred shading.
+        static const GLenum buffers[] = {GL_COLOR_ATTACHMENT0,
+                                         GL_COLOR_ATTACHMENT1,
+                                         GL_COLOR_ATTACHMENT2};
+
+        // Bind our frame buffer.
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, gBuffer.frameBuffer);
+
+        // Clear the render targets.
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // Start using the geometry shader.
+        glUseProgram(gGeometryShader.program);
+
+        // Use our three buffers.
+        glDrawBuffers(3, buffers);
+
+        EXIT_ON_OPENGL_ERROR();
+
+        gIsGeometryPass = true;
+
         // Push current matrix state to shader.
         onModelMatrixChanged();
     }
@@ -963,6 +862,7 @@ void MP_Render(void) {
         glUseProgram(0);
         gIsGeometryPass = false;
 
+        // Do our light pass.
         lightPass();
     }
 
@@ -1015,8 +915,6 @@ void MP_InitRender(void) {
     glLoadIdentity();
 
     MP_AddModelMatrixChangedEventListener(onModelMatrixChanged);
-
-    initSphere();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1115,8 +1013,10 @@ void MP_AddLight(const MP_Light* light) {
 
     // Not yet in list.
     if (gLightCount >= gLightCapacity) {
-        gLightCapacity = gLightCapacity * 2 + 1;
-        gLights = realloc(gLights, gLightCapacity * sizeof (MP_Light*));
+        gLightCapacity = gLightCapacity * 3 / 2 + 1;
+        if (!(gLights = realloc(gLights, gLightCapacity * sizeof (MP_Light*)))) {
+            MP_log_fatal("Out of memory while allocating light data.\n");
+        }
     }
 
     // Save pointer.
@@ -1135,4 +1035,8 @@ bool MP_RemoveLight(const MP_Light* light) {
         }
     }
     return false;
+}
+
+int MP_DEBUG_VisibleLightCount(void) {
+    return gVisibleLightCount;
 }

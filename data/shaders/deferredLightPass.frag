@@ -14,6 +14,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #define HALF_LAMBERT 0
+#define MAX_LIGHTS_PER_TILE 16
 
 ///////////////////////////////////////////////////////////////////////////////
 uniform sampler2D GBuffer0;
@@ -22,18 +23,18 @@ uniform sampler2D GBuffer2;
 ///////////////////////////////////////////////////////////////////////////////
 // The position of the camera.
 uniform vec3 CameraPosition;
+// The number of lights we actually have to process.
+uniform int LightCount;
 // The position of the light, in world space.
-uniform vec3 LightPosition;
+uniform vec3 LightPosition[MAX_LIGHTS_PER_TILE];
 // The diffuse color of the light.
-uniform vec3 DiffuseLightColor;
+uniform vec3 DiffuseLightColor[MAX_LIGHTS_PER_TILE];
 // Power of the diffuse light.
-uniform float DiffuseLightRange;
+uniform float DiffuseLightRange[MAX_LIGHTS_PER_TILE];
 // The specular color of the light.
-uniform vec3 SpecularLightColor;
+uniform vec3 SpecularLightColor[MAX_LIGHTS_PER_TILE];
 // Power of the specular light.
-uniform float SpecularLightRange;
-// Power of ambient light (which is presumed to be white).
-uniform float AmbientLightPower;
+uniform float SpecularLightRange[MAX_LIGHTS_PER_TILE];
 ///////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -60,30 +61,32 @@ void main(void) {
 	vec3 normal = tmp.xyz;
 	float specularExponent = tmp.w;
 
-	// Do Blinn-Phong.
-	vec3 toLight = LightPosition - position;
-	float distance = dot(toLight, toLight);
-	vec3 toCamera = CameraPosition - position;
+	//Color = vec3(0.05, 0, 0.05) * LightCount;
+	Color = vec3(0, 0, 0);
+	for (int i = 0; i < LightCount; ++i) {
+		// Do Blinn-Phong.
+		vec3 toLight = LightPosition[i] - position;
+		float distance = dot(toLight, toLight);
+		vec3 toCamera = CameraPosition - position;
 
-	// Diffuse lighting.
-	#if HALF_LAMBERT
-	float lambertTerm = (dot(normalize(toLight), normal) * 0.5 + 0.5);
-	lambertTerm = lambertTerm * lambertTerm;
-	#else
-	float lambertTerm = max(0, dot(normalize(toLight), normal));
-	#endif
-	float mult = distance / (DiffuseLightRange * DiffuseLightRange);
-	mult = 1 - clamp(mult * mult, 0, 1);
-	Color = diffuseAlbedo * DiffuseLightColor * lambertTerm * mult;
+		// Diffuse lighting.
+		#if HALF_LAMBERT
+		float lambertTerm = (dot(normalize(toLight), normal) * 0.5 + 0.5);
+		lambertTerm = lambertTerm * lambertTerm;
+		#else
+		float lambertTerm = max(0, dot(normalize(toLight), normal));
+		#endif
+		float mult = distance / (DiffuseLightRange[i] * DiffuseLightRange[i]);
+		mult = 1 - clamp(mult * mult, 0, 1);
+		Color += diffuseAlbedo * DiffuseLightColor[i] * lambertTerm * mult;
 
-	// Specular lighting.
-	vec3 h = normalize(toLight + toCamera);
-	float hdotn = max(0, dot(h, normal));
-	float specularTerm = pow(hdotn, specularExponent);
-	mult = distance / (SpecularLightRange * SpecularLightRange);
-	mult = 1 - clamp(mult * mult, 0, 1);
-	Color += specularIntensity * diffuseAlbedo * SpecularLightColor * specularTerm * mult;
-
-	if (dot(Color, vec3(1)) == 0) discard;
+		// Specular lighting.
+		vec3 h = normalize(toLight + toCamera);
+		float hdotn = max(0, dot(h, normal));
+		float specularTerm = pow(hdotn, specularExponent);
+		mult = distance / (SpecularLightRange[i] * SpecularLightRange[i]);
+		mult = 1 - clamp(mult * mult, 0, 1);
+		Color += specularIntensity * diffuseAlbedo * SpecularLightColor[i] * specularTerm * mult;
+	}
 }
 ///////////////////////////////////////////////////////////////////////////////

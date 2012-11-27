@@ -7,6 +7,7 @@
 #ifndef GRAPHICS_H
 #define	GRAPHICS_H
 
+#include "frustum.h"
 #include "vmath.h"
 
 #ifdef	__cplusplus
@@ -36,6 +37,8 @@ extern "C" {
     void MP_ScaleModelMatrix(float sx, float sy, float sz);
 
     void MP_TranslateModelMatrix(float tx, float ty, float tz);
+
+    const frustum* MP_GetRenderFrustum(void);
 
     ///////////////////////////////////////////////////////////////////////////
     // Projection and view matrix generation

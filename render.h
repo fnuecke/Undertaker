@@ -141,6 +141,8 @@ extern "C" {
      */
     void MP_Render(void);
 
+    int MP_DEBUG_VisibleLightCount(void);
+
 #ifdef	__cplusplus
 }
 #endif
