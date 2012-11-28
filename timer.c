@@ -11,12 +11,12 @@ double gStartTimeInMicroSec; // starting time in micro-second
 double gEndTimeInMicroSec; // ending time in micro-second
 int gRunning; // timer currently running?
 #ifdef WIN32
-LARGE_INTEGER gFrequency; // ticks per second
-LARGE_INTEGER gStartCount;
-LARGE_INTEGER gEndCount;
+static LARGE_INTEGER gFrequency; // ticks per second
+static LARGE_INTEGER gStartCount;
+static LARGE_INTEGER gEndCount;
 #else
-timeval gStartCount;
-timeval gEndCount;
+static struct timeval gStartCount;
+static struct timeval gEndCount;
 #endif
 
 void T_Init(void) {
@@ -25,7 +25,7 @@ void T_Init(void) {
     gStartCount.QuadPart = 0;
     gEndCount.QuadPart = 0;
 #else
-    gSartCount.tv_sec = gStartCount.tv_usec = 0;
+    gStartCount.tv_sec = gStartCount.tv_usec = 0;
     gEndCount.tv_sec = gEndCount.tv_usec = 0;
 #endif
 

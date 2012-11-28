@@ -14,14 +14,14 @@ GREP=grep
 NM=nm
 CCADMIN=CCadmin
 RANLIB=ranlib
-CC=gcc.exe
-CCC=g++.exe
-CXX=g++.exe
+CC=gcc
+CCC=g++
+CXX=g++
 FC=gfortran
-AS=as.exe
+AS=as
 
 # Macros
-CND_PLATFORM=MinGW-Windows
+CND_PLATFORM=GNU-Linux-x86
 CND_CONF=Debug
 CND_DISTDIR=dist
 CND_BUILDDIR=build
@@ -34,13 +34,16 @@ OBJECTDIR=${CND_BUILDDIR}/${CND_CONF}/${CND_PLATFORM}
 
 # Object Files
 OBJECTFILES= \
-	${OBJECTDIR}/_ext/51285538/job.o \
-	${OBJECTDIR}/graphics.o \
 	${OBJECTDIR}/script_loading_block.o \
 	${OBJECTDIR}/lua/lstate.o \
 	${OBJECTDIR}/script_lib_room.o \
+	${OBJECTDIR}/picking.o \
+	${OBJECTDIR}/bitset.o \
+	${OBJECTDIR}/job.o \
+	${OBJECTDIR}/shader.o \
+	${OBJECTDIR}/graphics.o \
 	${OBJECTDIR}/frustum.o \
-	${OBJECTDIR}/_ext/51285538/selection.o \
+	${OBJECTDIR}/simplexnoise.o \
 	${OBJECTDIR}/script_events.o \
 	${OBJECTDIR}/room_type.o \
 	${OBJECTDIR}/lua/lcode.o \
@@ -49,36 +52,32 @@ OBJECTFILES= \
 	${OBJECTDIR}/timer.o \
 	${OBJECTDIR}/lua/lmathlib.o \
 	${OBJECTDIR}/lua/lfunc.o \
-	${OBJECTDIR}/_ext/51285538/render.o \
 	${OBJECTDIR}/lua/ldblib.o \
-	${OBJECTDIR}/_ext/51285538/unit.o \
-	${OBJECTDIR}/_ext/51285538/cursor.o \
+	${OBJECTDIR}/render.o \
 	${OBJECTDIR}/lua/lstrlib.o \
 	${OBJECTDIR}/lua/loadlib.o \
-	${OBJECTDIR}/_ext/51285538/astar.o \
+	${OBJECTDIR}/unit.o \
+	${OBJECTDIR}/selection.o \
 	${OBJECTDIR}/script_loading_ability.o \
 	${OBJECTDIR}/lua/ldebug.o \
 	${OBJECTDIR}/dbg_job.o \
-	${OBJECTDIR}/_ext/51285538/textures.o \
 	${OBJECTDIR}/script_lib_unit.o \
+	${OBJECTDIR}/map.o \
 	${OBJECTDIR}/lua/ltm.o \
 	${OBJECTDIR}/unit_type.o \
 	${OBJECTDIR}/lua/linit.o \
 	${OBJECTDIR}/script_lib_job.o \
-	${OBJECTDIR}/_ext/51285538/picking.o \
+	${OBJECTDIR}/events.o \
 	${OBJECTDIR}/job_type.o \
 	${OBJECTDIR}/lua/ltablib.o \
 	${OBJECTDIR}/block.o \
 	${OBJECTDIR}/lua/lctype.o \
 	${OBJECTDIR}/script_lib_block.o \
-	${OBJECTDIR}/_ext/51285538/init.o \
+	${OBJECTDIR}/init.o \
 	${OBJECTDIR}/lua/loslib.o \
-	${OBJECTDIR}/_ext/51285538/vmath.o \
-	${OBJECTDIR}/_ext/51285538/config.o \
 	${OBJECTDIR}/lua/lzio.o \
 	${OBJECTDIR}/lua/lopcodes.o \
 	${OBJECTDIR}/lua/lgc.o \
-	${OBJECTDIR}/_ext/51285538/simplexnoise.o \
 	${OBJECTDIR}/script_lib.o \
 	${OBJECTDIR}/lua/liolib.o \
 	${OBJECTDIR}/lua/ldo.o \
@@ -86,34 +85,35 @@ OBJECTFILES= \
 	${OBJECTDIR}/lua/lbaselib.o \
 	${OBJECTDIR}/script_lib_ability.o \
 	${OBJECTDIR}/lua/lbitlib.o \
-	${OBJECTDIR}/_ext/51285538/bitset.o \
 	${OBJECTDIR}/lua/lmem.o \
 	${OBJECTDIR}/unit_ai.o \
-	${OBJECTDIR}/_ext/51285538/shader.o \
-	${OBJECTDIR}/lua/lundump.o \
 	${OBJECTDIR}/block_type.o \
+	${OBJECTDIR}/lua/lundump.o \
+	${OBJECTDIR}/astar.o \
 	${OBJECTDIR}/ability_type.o \
-	${OBJECTDIR}/_ext/51285538/events.o \
 	${OBJECTDIR}/dbg_unit.o \
-	${OBJECTDIR}/_ext/51285538/map.o \
+	${OBJECTDIR}/lua/ldump.o \
 	${OBJECTDIR}/lua/lstring.o \
 	${OBJECTDIR}/quadtree.o \
-	${OBJECTDIR}/lua/ldump.o \
+	${OBJECTDIR}/config.o \
 	${OBJECTDIR}/lua/lvm.o \
 	${OBJECTDIR}/main.o \
 	${OBJECTDIR}/astar_mp.o \
 	${OBJECTDIR}/lua/llex.o \
 	${OBJECTDIR}/script_loading_job.o \
 	${OBJECTDIR}/script.o \
+	${OBJECTDIR}/cursor.o \
 	${OBJECTDIR}/script_loading_unit.o \
 	${OBJECTDIR}/lua/lcorolib.o \
 	${OBJECTDIR}/lua/lauxlib.o \
 	${OBJECTDIR}/lua/lparser.o \
-	${OBJECTDIR}/_ext/51285538/camera.o \
 	${OBJECTDIR}/hand.o \
+	${OBJECTDIR}/vmath.o \
 	${OBJECTDIR}/passability.o \
 	${OBJECTDIR}/lua/lapi.o \
+	${OBJECTDIR}/camera.o \
 	${OBJECTDIR}/lua/ltable.o \
+	${OBJECTDIR}/textures.o \
 	${OBJECTDIR}/map_loader.o
 
 
@@ -135,21 +135,11 @@ LDLIBSOPTIONS=-L/C\MinGW\msys\1.0\local\lib -static -lmingw32 -lglew32 -lopengl3
 
 # Build Targets
 .build-conf: ${BUILD_SUBPROJECTS}
-	"${MAKE}"  -f nbproject/Makefile-${CND_CONF}.mk ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/undertaker.exe
+	"${MAKE}"  -f nbproject/Makefile-${CND_CONF}.mk ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/undertaker
 
-${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/undertaker.exe: ${OBJECTFILES}
+${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/undertaker: ${OBJECTFILES}
 	${MKDIR} -p ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}
 	${LINK.c} -o ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/undertaker ${OBJECTFILES} ${LDLIBSOPTIONS} 
-
-${OBJECTDIR}/_ext/51285538/job.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/job.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
-	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/job.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/job.c
-
-${OBJECTDIR}/graphics.o: graphics.c 
-	${MKDIR} -p ${OBJECTDIR}
-	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/graphics.o graphics.c
 
 ${OBJECTDIR}/script_loading_block.o: script_loading_block.c 
 	${MKDIR} -p ${OBJECTDIR}
@@ -166,15 +156,40 @@ ${OBJECTDIR}/script_lib_room.o: script_lib_room.c
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/script_lib_room.o script_lib_room.c
 
+${OBJECTDIR}/picking.o: picking.c 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} $@.d
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/picking.o picking.c
+
+${OBJECTDIR}/bitset.o: bitset.c 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} $@.d
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/bitset.o bitset.c
+
+${OBJECTDIR}/job.o: job.c 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} $@.d
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/job.o job.c
+
+${OBJECTDIR}/shader.o: shader.c 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} $@.d
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/shader.o shader.c
+
+${OBJECTDIR}/graphics.o: graphics.c 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} $@.d
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/graphics.o graphics.c
+
 ${OBJECTDIR}/frustum.o: frustum.c 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/frustum.o frustum.c
 
-${OBJECTDIR}/_ext/51285538/selection.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/selection.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
+${OBJECTDIR}/simplexnoise.o: simplexnoise.c 
+	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/selection.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/selection.c
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/simplexnoise.o simplexnoise.c
 
 ${OBJECTDIR}/script_events.o: script_events.c 
 	${MKDIR} -p ${OBJECTDIR}
@@ -216,25 +231,15 @@ ${OBJECTDIR}/lua/lfunc.o: lua/lfunc.c
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/lua/lfunc.o lua/lfunc.c
 
-${OBJECTDIR}/_ext/51285538/render.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/render.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
-	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/render.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/render.c
-
 ${OBJECTDIR}/lua/ldblib.o: lua/ldblib.c 
 	${MKDIR} -p ${OBJECTDIR}/lua
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/lua/ldblib.o lua/ldblib.c
 
-${OBJECTDIR}/_ext/51285538/unit.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/unit.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
+${OBJECTDIR}/render.o: render.c 
+	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/unit.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/unit.c
-
-${OBJECTDIR}/_ext/51285538/cursor.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/cursor.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
-	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/cursor.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/cursor.c
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/render.o render.c
 
 ${OBJECTDIR}/lua/lstrlib.o: lua/lstrlib.c 
 	${MKDIR} -p ${OBJECTDIR}/lua
@@ -246,10 +251,15 @@ ${OBJECTDIR}/lua/loadlib.o: lua/loadlib.c
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/lua/loadlib.o lua/loadlib.c
 
-${OBJECTDIR}/_ext/51285538/astar.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/astar.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
+${OBJECTDIR}/unit.o: unit.c 
+	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/astar.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/astar.c
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/unit.o unit.c
+
+${OBJECTDIR}/selection.o: selection.c 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} $@.d
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/selection.o selection.c
 
 ${OBJECTDIR}/script_loading_ability.o: script_loading_ability.c 
 	${MKDIR} -p ${OBJECTDIR}
@@ -266,15 +276,15 @@ ${OBJECTDIR}/dbg_job.o: dbg_job.c
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/dbg_job.o dbg_job.c
 
-${OBJECTDIR}/_ext/51285538/textures.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/textures.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
-	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/textures.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/textures.c
-
 ${OBJECTDIR}/script_lib_unit.o: script_lib_unit.c 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/script_lib_unit.o script_lib_unit.c
+
+${OBJECTDIR}/map.o: map.c 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} $@.d
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/map.o map.c
 
 ${OBJECTDIR}/lua/ltm.o: lua/ltm.c 
 	${MKDIR} -p ${OBJECTDIR}/lua
@@ -296,10 +306,10 @@ ${OBJECTDIR}/script_lib_job.o: script_lib_job.c
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/script_lib_job.o script_lib_job.c
 
-${OBJECTDIR}/_ext/51285538/picking.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/picking.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
+${OBJECTDIR}/events.o: events.c 
+	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/picking.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/picking.c
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/events.o events.c
 
 ${OBJECTDIR}/job_type.o: job_type.c 
 	${MKDIR} -p ${OBJECTDIR}
@@ -326,25 +336,15 @@ ${OBJECTDIR}/script_lib_block.o: script_lib_block.c
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/script_lib_block.o script_lib_block.c
 
-${OBJECTDIR}/_ext/51285538/init.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/init.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
+${OBJECTDIR}/init.o: init.c 
+	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/init.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/init.c
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/init.o init.c
 
 ${OBJECTDIR}/lua/loslib.o: lua/loslib.c 
 	${MKDIR} -p ${OBJECTDIR}/lua
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/lua/loslib.o lua/loslib.c
-
-${OBJECTDIR}/_ext/51285538/vmath.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/vmath.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
-	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/vmath.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/vmath.c
-
-${OBJECTDIR}/_ext/51285538/config.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/config.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
-	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/config.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/config.c
 
 ${OBJECTDIR}/lua/lzio.o: lua/lzio.c 
 	${MKDIR} -p ${OBJECTDIR}/lua
@@ -360,11 +360,6 @@ ${OBJECTDIR}/lua/lgc.o: lua/lgc.c
 	${MKDIR} -p ${OBJECTDIR}/lua
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/lua/lgc.o lua/lgc.c
-
-${OBJECTDIR}/_ext/51285538/simplexnoise.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/simplexnoise.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
-	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/simplexnoise.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/simplexnoise.c
 
 ${OBJECTDIR}/script_lib.o: script_lib.c 
 	${MKDIR} -p ${OBJECTDIR}
@@ -401,11 +396,6 @@ ${OBJECTDIR}/lua/lbitlib.o: lua/lbitlib.c
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/lua/lbitlib.o lua/lbitlib.c
 
-${OBJECTDIR}/_ext/51285538/bitset.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/bitset.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
-	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/bitset.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/bitset.c
-
 ${OBJECTDIR}/lua/lmem.o: lua/lmem.c 
 	${MKDIR} -p ${OBJECTDIR}/lua
 	${RM} $@.d
@@ -416,40 +406,35 @@ ${OBJECTDIR}/unit_ai.o: unit_ai.c
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/unit_ai.o unit_ai.c
 
-${OBJECTDIR}/_ext/51285538/shader.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/shader.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
+${OBJECTDIR}/block_type.o: block_type.c 
+	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/shader.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/shader.c
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/block_type.o block_type.c
 
 ${OBJECTDIR}/lua/lundump.o: lua/lundump.c 
 	${MKDIR} -p ${OBJECTDIR}/lua
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/lua/lundump.o lua/lundump.c
 
-${OBJECTDIR}/block_type.o: block_type.c 
+${OBJECTDIR}/astar.o: astar.c 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/block_type.o block_type.c
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/astar.o astar.c
 
 ${OBJECTDIR}/ability_type.o: ability_type.c 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/ability_type.o ability_type.c
 
-${OBJECTDIR}/_ext/51285538/events.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/events.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
-	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/events.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/events.c
-
 ${OBJECTDIR}/dbg_unit.o: dbg_unit.c 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/dbg_unit.o dbg_unit.c
 
-${OBJECTDIR}/_ext/51285538/map.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/map.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
+${OBJECTDIR}/lua/ldump.o: lua/ldump.c 
+	${MKDIR} -p ${OBJECTDIR}/lua
 	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/map.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/map.c
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/lua/ldump.o lua/ldump.c
 
 ${OBJECTDIR}/lua/lstring.o: lua/lstring.c 
 	${MKDIR} -p ${OBJECTDIR}/lua
@@ -461,10 +446,10 @@ ${OBJECTDIR}/quadtree.o: quadtree.c
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/quadtree.o quadtree.c
 
-${OBJECTDIR}/lua/ldump.o: lua/ldump.c 
-	${MKDIR} -p ${OBJECTDIR}/lua
+${OBJECTDIR}/config.o: config.c 
+	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/lua/ldump.o lua/ldump.c
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/config.o config.c
 
 ${OBJECTDIR}/lua/lvm.o: lua/lvm.c 
 	${MKDIR} -p ${OBJECTDIR}/lua
@@ -496,6 +481,11 @@ ${OBJECTDIR}/script.o: script.c
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/script.o script.c
 
+${OBJECTDIR}/cursor.o: cursor.c 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} $@.d
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/cursor.o cursor.c
+
 ${OBJECTDIR}/script_loading_unit.o: script_loading_unit.c 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
@@ -516,15 +506,15 @@ ${OBJECTDIR}/lua/lparser.o: lua/lparser.c
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/lua/lparser.o lua/lparser.c
 
-${OBJECTDIR}/_ext/51285538/camera.o: /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/camera.c 
-	${MKDIR} -p ${OBJECTDIR}/_ext/51285538
-	${RM} $@.d
-	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/_ext/51285538/camera.o /C/Users/fnuecke/Documents/NetBeansProjects/Undertaker/camera.c
-
 ${OBJECTDIR}/hand.o: hand.c 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/hand.o hand.c
+
+${OBJECTDIR}/vmath.o: vmath.c 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} $@.d
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/vmath.o vmath.c
 
 ${OBJECTDIR}/passability.o: passability.c 
 	${MKDIR} -p ${OBJECTDIR}
@@ -536,10 +526,20 @@ ${OBJECTDIR}/lua/lapi.o: lua/lapi.c
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/lua/lapi.o lua/lapi.c
 
+${OBJECTDIR}/camera.o: camera.c 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} $@.d
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/camera.o camera.c
+
 ${OBJECTDIR}/lua/ltable.o: lua/ltable.c 
 	${MKDIR} -p ${OBJECTDIR}/lua
 	${RM} $@.d
 	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/lua/ltable.o lua/ltable.c
+
+${OBJECTDIR}/textures.o: textures.c 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} $@.d
+	$(COMPILE.c) -g -Wall -I/C\MinGW\msys\1.0\local\include -MMD -MP -MF $@.d -o ${OBJECTDIR}/textures.o textures.c
 
 ${OBJECTDIR}/map_loader.o: map_loader.c 
 	${MKDIR} -p ${OBJECTDIR}
@@ -552,7 +552,7 @@ ${OBJECTDIR}/map_loader.o: map_loader.c
 # Clean Targets
 .clean-conf: ${CLEAN_SUBPROJECTS}
 	${RM} -r ${CND_BUILDDIR}/${CND_CONF}
-	${RM} ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/undertaker.exe
+	${RM} ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/undertaker
 
 # Subprojects
 .clean-subprojects:

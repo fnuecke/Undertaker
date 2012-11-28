@@ -6,44 +6,44 @@
                    projectFiles="true">
       <itemPath>ability.h</itemPath>
       <itemPath>ability_type.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/astar.h</itemPath>
+      <itemPath>astar.h</itemPath>
       <itemPath>astar_mp.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/bitset.h</itemPath>
+      <itemPath>bitset.h</itemPath>
       <itemPath>block.h</itemPath>
       <itemPath>block_type.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/camera.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/config.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/cursor.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/events.h</itemPath>
+      <itemPath>camera.h</itemPath>
+      <itemPath>config.h</itemPath>
+      <itemPath>cursor.h</itemPath>
+      <itemPath>events.h</itemPath>
       <itemPath>frustum.h</itemPath>
       <itemPath>graphics.h</itemPath>
       <itemPath>hand.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/init.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/job.h</itemPath>
+      <itemPath>init.h</itemPath>
+      <itemPath>job.h</itemPath>
       <itemPath>job_type.h</itemPath>
       <itemPath>log.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/map.h</itemPath>
+      <itemPath>map.h</itemPath>
       <itemPath>map_loader.h</itemPath>
       <itemPath>passability.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/picking.h</itemPath>
+      <itemPath>picking.h</itemPath>
       <itemPath>quadtree.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/render.h</itemPath>
+      <itemPath>render.h</itemPath>
       <itemPath>room.h</itemPath>
       <itemPath>room_type.h</itemPath>
       <itemPath>script.h</itemPath>
       <itemPath>script_events.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/selection.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/shader.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/simplexnoise.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/textures.h</itemPath>
+      <itemPath>selection.h</itemPath>
+      <itemPath>shader.h</itemPath>
+      <itemPath>simplexnoise.h</itemPath>
+      <itemPath>textures.h</itemPath>
       <itemPath>timer.h</itemPath>
       <itemPath>type.h</itemPath>
       <itemPath>type_impl.h</itemPath>
       <itemPath>types.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/unit.h</itemPath>
+      <itemPath>unit.h</itemPath>
       <itemPath>unit_ai.h</itemPath>
       <itemPath>unit_type.h</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/vmath.h</itemPath>
+      <itemPath>vmath.h</itemPath>
     </logicalFolder>
     <logicalFolder name="lua" displayName="lua" projectFiles="true">
       <itemPath>lua/lapi.c</itemPath>
@@ -113,30 +113,30 @@
                    projectFiles="true">
       <itemPath>ability.c</itemPath>
       <itemPath>ability_type.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/astar.c</itemPath>
+      <itemPath>astar.c</itemPath>
       <itemPath>astar_mp.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/bitset.c</itemPath>
+      <itemPath>bitset.c</itemPath>
       <itemPath>block.c</itemPath>
       <itemPath>block_type.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/camera.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/config.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/cursor.c</itemPath>
+      <itemPath>camera.c</itemPath>
+      <itemPath>config.c</itemPath>
+      <itemPath>cursor.c</itemPath>
       <itemPath>dbg_job.c</itemPath>
       <itemPath>dbg_unit.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/events.c</itemPath>
+      <itemPath>events.c</itemPath>
       <itemPath>frustum.c</itemPath>
       <itemPath>graphics.c</itemPath>
       <itemPath>hand.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/init.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/job.c</itemPath>
+      <itemPath>init.c</itemPath>
+      <itemPath>job.c</itemPath>
       <itemPath>job_type.c</itemPath>
       <itemPath>main.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/map.c</itemPath>
+      <itemPath>map.c</itemPath>
       <itemPath>map_loader.c</itemPath>
       <itemPath>passability.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/picking.c</itemPath>
+      <itemPath>picking.c</itemPath>
       <itemPath>quadtree.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/render.c</itemPath>
+      <itemPath>render.c</itemPath>
       <itemPath>room.c</itemPath>
       <itemPath>room_type.c</itemPath>
       <itemPath>script.c</itemPath>
@@ -151,15 +151,15 @@
       <itemPath>script_loading_block.c</itemPath>
       <itemPath>script_loading_job.c</itemPath>
       <itemPath>script_loading_unit.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/selection.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/shader.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/simplexnoise.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/textures.c</itemPath>
+      <itemPath>selection.c</itemPath>
+      <itemPath>shader.c</itemPath>
+      <itemPath>simplexnoise.c</itemPath>
+      <itemPath>textures.c</itemPath>
       <itemPath>timer.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/unit.c</itemPath>
+      <itemPath>unit.c</itemPath>
       <itemPath>unit_ai.c</itemPath>
       <itemPath>unit_type.c</itemPath>
-      <itemPath>C:/Users/fnuecke/Documents/NetBeansProjects/Undertaker/vmath.c</itemPath>
+      <itemPath>vmath.c</itemPath>
     </logicalFolder>
     <logicalFolder name="TestFiles"
                    displayName="Test Files"
@@ -224,6 +224,77 @@
             <pElem>C:\MinGW\msys\1.0\local\include</pElem>
           </incDir>
           <commandLine>-pedantic -ansi -std=c99 -Wshadow -Wdeclaration-after-statement -Wall -Wextra -Wfloat-equal -Wwrite-strings -Winit-self -Wcast-align -Wcast-qual -Wpointer-arith -Wformat=2 -Wmissing-declarations -Wmissing-include-dirs -Wno-unused-parameter -Wuninitialized -Wold-style-definition -Wmissing-prototypes -Wno-cpp -D_GCC -DWIN32 -DGLEW_STATIC</commandLine>
+        </cTool>
+        <ccTool>
+          <developmentMode>5</developmentMode>
+        </ccTool>
+        <fortranCompilerTool>
+          <developmentMode>5</developmentMode>
+        </fortranCompilerTool>
+        <asmTool>
+          <developmentMode>5</developmentMode>
+        </asmTool>
+        <linkerTool>
+          <output>${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/undertaker</output>
+          <linkerAddLib>
+            <pElem>C:\MinGW\msys\1.0\local\lib</pElem>
+          </linkerAddLib>
+          <linkerLibItems>
+            <linkerOptionItem>-static</linkerOptionItem>
+            <linkerLibLibItem>mingw32</linkerLibLibItem>
+            <linkerLibLibItem>glew32</linkerLibLibItem>
+            <linkerLibLibItem>opengl32</linkerLibLibItem>
+            <linkerLibLibItem>glu32</linkerLibLibItem>
+            <linkerLibLibItem>SDL_image</linkerLibLibItem>
+            <linkerLibLibItem>SDLmain</linkerLibLibItem>
+            <linkerLibLibItem>SDL</linkerLibLibItem>
+            <linkerLibLibItem>png</linkerLibLibItem>
+            <linkerLibLibItem>z</linkerLibLibItem>
+            <linkerOptionItem>-mwindows</linkerOptionItem>
+          </linkerLibItems>
+        </linkerTool>
+      </compileType>
+    </conf>
+    <conf name="Debug-Linux" type="1">
+      <toolsSet>
+        <remote-sources-mode>LOCAL_SOURCES</remote-sources-mode>
+        <compilerSet>GNU|GNU</compilerSet>
+      </toolsSet>
+      <compileType>
+        <cTool>
+          <architecture>1</architecture>
+          <commandLine>-pedantic -ansi -std=c99 -Wshadow -Wdeclaration-after-statement -Wall -Wextra -Wfloat-equal -Wwrite-strings -Winit-self -Wcast-align -Wcast-qual -Wpointer-arith -Wformat=2 -Wmissing-declarations -Wmissing-include-dirs -Wno-unused-parameter -Wuninitialized -Wold-style-definition -Wmissing-prototypes -Wno-cpp -D_GCC</commandLine>
+          <warningLevel>2</warningLevel>
+        </cTool>
+        <linkerTool>
+          <output>${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/undertaker</output>
+          <linkerAddLib>
+            <pElem>/usr/lib32</pElem>
+          </linkerAddLib>
+          <linkerLibItems>
+            <linkerLibLibItem>GLEW</linkerLibLibItem>
+            <linkerLibLibItem>GLU</linkerLibLibItem>
+            <linkerLibLibItem>SDL_image</linkerLibLibItem>
+            <linkerLibLibItem>SDL</linkerLibLibItem>
+            <linkerLibLibItem>png</linkerLibLibItem>
+            <linkerLibLibItem>z</linkerLibLibItem>
+          </linkerLibItems>
+        </linkerTool>
+      </compileType>
+    </conf>
+    <conf name="Release-Linux" type="1">
+      <toolsSet>
+        <remote-sources-mode>LOCAL_SOURCES</remote-sources-mode>
+        <compilerSet>default</compilerSet>
+      </toolsSet>
+      <compileType>
+        <cTool>
+          <developmentMode>5</developmentMode>
+          <architecture>1</architecture>
+          <incDir>
+            <pElem>/usr/include</pElem>
+          </incDir>
+          <commandLine>-pedantic -ansi -std=c99 -Wshadow -Wdeclaration-after-statement -Wall -Wextra -Wfloat-equal -Wwrite-strings -Winit-self -Wcast-align -Wcast-qual -Wpointer-arith -Wformat=2 -Wmissing-declarations -Wmissing-include-dirs -Wno-unused-parameter -Wuninitialized -Wold-style-definition -Wmissing-prototypes -Wno-cpp -D_GCC -DGLEW_STATIC</commandLine>
         </cTool>
         <ccTool>
           <developmentMode>5</developmentMode>

@@ -7,13 +7,13 @@ CND_BASEDIR=`pwd`
 CND_BUILDDIR=build
 CND_DISTDIR=dist
 # Debug configuration
-CND_PLATFORM_Debug=MinGW-Windows
-CND_ARTIFACT_DIR_Debug=dist/Debug/MinGW-Windows
+CND_PLATFORM_Debug=GNU-Linux-x86
+CND_ARTIFACT_DIR_Debug=dist/Debug/GNU-Linux-x86
 CND_ARTIFACT_NAME_Debug=undertaker
-CND_ARTIFACT_PATH_Debug=dist/Debug/MinGW-Windows/undertaker
-CND_PACKAGE_DIR_Debug=dist/Debug/MinGW-Windows/package
+CND_ARTIFACT_PATH_Debug=dist/Debug/GNU-Linux-x86/undertaker
+CND_PACKAGE_DIR_Debug=dist/Debug/GNU-Linux-x86/package
 CND_PACKAGE_NAME_Debug=undertaker.tar
-CND_PACKAGE_PATH_Debug=dist/Debug/MinGW-Windows/package/undertaker.tar
+CND_PACKAGE_PATH_Debug=dist/Debug/GNU-Linux-x86/package/undertaker.tar
 # Release configuration
 CND_PLATFORM_Release=MinGW-Windows
 CND_ARTIFACT_DIR_Release=dist/Release/MinGW-Windows
@@ -22,6 +22,14 @@ CND_ARTIFACT_PATH_Release=dist/Release/MinGW-Windows/undertaker
 CND_PACKAGE_DIR_Release=dist/Release/MinGW-Windows/package
 CND_PACKAGE_NAME_Release=undertaker.tar
 CND_PACKAGE_PATH_Release=dist/Release/MinGW-Windows/package/undertaker.tar
+# Debug-Linux configuration
+CND_PLATFORM_Debug-Linux=GNU-Linux-x86
+CND_ARTIFACT_DIR_Debug-Linux=dist/Debug-Linux/GNU-Linux-x86
+CND_ARTIFACT_NAME_Debug-Linux=undertaker
+CND_ARTIFACT_PATH_Debug-Linux=dist/Debug-Linux/GNU-Linux-x86/undertaker
+CND_PACKAGE_DIR_Debug-Linux=dist/Debug-Linux/GNU-Linux-x86/package
+CND_PACKAGE_NAME_Debug-Linux=undertaker.tar
+CND_PACKAGE_PATH_Debug-Linux=dist/Debug-Linux/GNU-Linux-x86/package/undertaker.tar
 #
 # include compiler specific variables
 #
