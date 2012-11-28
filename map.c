@@ -107,12 +107,6 @@ static bool gShouldUpdateVertexBuffer = false;
 /** Number of vertices in x and y direction */
 static unsigned int gVerticesPerDimension = 0;
 
-/** Actual index data backing the buffer object */
-//static GLuint gIndices[6];
-
-/** Buffer object for indexes */
-//static GLuint gIndexBufferID = 0;
-
 ///////////////////////////////////////////////////////////////////////////////
 // Utility methods
 ///////////////////////////////////////////////////////////////////////////////
@@ -1407,15 +1401,11 @@ void MP_InitMap(void) {
     gHandLight.specularRange = MP_HAND_LIGHT_RANGE;
     MP_AddLight(&gHandLight);
 
-    //glGenBuffers(1, &gIndexBufferID);
-    //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gIndexBufferID);
-    //glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof (gIndices), &gIndices, GL_STREAM_DRAW);
-
     MP_AddPreRenderEventListener(onPreRender);
     MP_AddRenderEventListener(onRender);
     MP_AddPostRenderEventListener(renderSelectionOverlay);
     MP_AddPostRenderEventListener(renderSelectionOutline);
-
+    
     MP_AddBlockOwnerChangedEventListener(onBlockChange);
     MP_AddBlockTypeChangedEventListener(onBlockChange);
 }
